@@ -1,0 +1,434 @@
+// NIVA Pregnancy Intelligence Platform — data model
+// Current build: SQLite (sandbox). Production target: PostgreSQL (see docs/02-data-model.md).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Identity & Access ───────────────────────────────────────────────────────
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  role         String   @default("USER") // USER | CLINICAL_REVIEWER | ADMIN
+  locale       String   @default("fa") // fa | en
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  sessions         Session[]
+  consent          Consent?
+  pregnancies      Pregnancy[]
+  journalEntries   JournalEntry[]
+  symptomEntries   SymptomEntry[]
+  appointments     Appointment[]
+  reminders        Reminder[]
+  medicalDocuments MedicalDocument[]
+  aiConversations  AIConversation[]
+  communityPosts   CommunityPost[]
+  subscriptions    Subscription[]
+  entitlement      Entitlement?
+  notifications    Notification[]
+  auditEvents      AuditEvent[]
+  grantsGiven      PartnerAccess[]   @relation("Granter")
+  grantsReceived   PartnerAccess[]   @relation("Partner")
+  reviewsAuthored  ClinicalReview[]  @relation("Reviewer")
+}
+
+model Session {
+  id            String   @id @default(cuid())
+  token         String   @unique
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt     DateTime
+  createdAt     DateTime @default(now())
+
+  @@index([userId])
+}
+
+model Consent {
+  id                String    @id @default(cuid())
+  userId            String    @unique
+  user              User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  termsVersion      String    @default("1.0")
+  privacyVersion    String    @default("1.0")
+  dataProcessing    Boolean   @default(true)
+  healthAnalytics   Boolean   @default(false)
+  marketing         Boolean   @default(false)
+  familySharingAck  Boolean   @default(false)
+  withdrawnAt       DateTime?
+  updatedAt         DateTime  @updatedAt
+}
+
+// ─── Pregnancy Core ──────────────────────────────────────────────────────────
+
+model Pregnancy {
+  id               String    @id @default(cuid())
+  userId           String
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  label            String    @default("My pregnancy")
+  lmpDate          DateTime?
+  dueDate          DateTime
+  datingMethod     String    @default("LMP") // LMP | ULTRASOUND | CLINICIAN | IVF
+  datingLocked     Boolean   @default(false) // true when clinician-established
+  datingConfidence String    @default("MEDIUM") // LOW | MEDIUM | HIGH
+  datingNote       String?
+  plurality        String    @default("SINGLETON") // SINGLETON | TWINS | TRIPLETS_OR_MORE
+  status           String    @default("ACTIVE") // ACTIVE | POSTPARTUM | COMPLETED | LOSS
+  outcomeAt        DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  events  PregnancyEvent[]
+  datings GestationalDating[]
+
+  @@index([userId])
+}
+
+model GestationalDating {
+  id            String   @id @default(cuid())
+  pregnancyId   String
+  pregnancy     Pregnancy @relation(fields: [pregnancyId], references: [id], onDelete: Cascade)
+  method        String // LMP | ULTRASOUND_CRL | CLINICIAN | IVF
+  referenceDate DateTime // LMP, scan date, transfer date, etc.
+  crlMm         Float?
+  dueDate       DateTime
+  confidence    String // LOW | MEDIUM | HIGH
+  source        String // SELF | CLINICIAN
+  note          String?
+  setAt         DateTime @default(now())
+
+  @@index([pregnancyId])
+}
+
+model PregnancyEvent {
+  id          String   @id @default(cuid())
+  pregnancyId String
+  pregnancy   Pregnancy @relation(fields: [pregnancyId], references: [id], onDelete: Cascade)
+  type        String // MILESTONE | SCAN | TEST_RESULT | SYMPTOM_NOTABLE | OTHER
+  title       String
+  date        DateTime
+  note        String?
+  createdAt   DateTime @default(now())
+
+  @@index([pregnancyId])
+}
+
+// ─── Health Tracking ─────────────────────────────────────────────────────────
+
+model SymptomEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime
+  week       Int?
+  energy     Int? // 1..5
+  nausea     Int? // 0..5
+  sleep      Int? // 1..5
+  mood       Int? // 1..5
+  weightKg   Float?
+  systolic   Int?
+  diastolic  Int?
+  kickCount  Int?
+  symptoms   String   @default("[]") // JSON string array
+  notes      String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model Appointment {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  type        String   @default("CHECKUP") // CHECKUP | ULTRASOUND | LAB | SPECIALIST | VACCINE | OTHER
+  provider    String?
+  location    String?
+  scheduledAt DateTime
+  status      String   @default("SCHEDULED") // SCHEDULED | COMPLETED | MISSED | CANCELLED
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, scheduledAt])
+}
+
+model Reminder {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  type      String   @default("CUSTOM") // APPOINTMENT | SCREENING | SUPPLEMENT | MEDICATION | CUSTOM
+  dueAt     DateTime
+  repeat    String   @default("NONE") // NONE | DAILY | WEEKLY
+  done      Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([userId, dueAt])
+}
+
+model MedicalDocument {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title      String
+  category   String   @default("REPORT") // REPORT | ULTRASOUND | LAB | PRESCRIPTION | OTHER
+  fileName   String
+  fileType   String
+  sizeKb     Int
+  notes      String?
+  uploadedAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+// ─── Content, Governance & 3D Assets ─────────────────────────────────────────
+
+model EducationalContent {
+  id        String   @id @default(cuid())
+  slug      String   @unique
+  week      Int?
+  trimester Int?
+  category  String   @default("GENERAL")
+  titleEn   String
+  titleFa   String
+  bodyEn    String
+  bodyFa    String
+  sources   String   @default("[]") // JSON [{citation,url,year}]
+  status    String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | RETIRED
+  version   Int      @default(1)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+  @@index([week])
+}
+
+model ScientificSource {
+  id       String  @id @default(cuid())
+  citation String
+  org      String?
+  url      String?
+  year     Int?
+}
+
+model ClinicalReview {
+  id          String    @id @default(cuid())
+  contentType String // EDUCATIONAL_CONTENT | ANATOMICAL_ASSET | AI_RESPONSE
+  contentId   String
+  reviewerId  String?
+  reviewer    User?     @relation("Reviewer", fields: [reviewerId], references: [id], onDelete: SetNull)
+  status      String    @default("PENDING") // PENDING | APPROVED | REJECTED | CHANGES_REQUESTED
+  notes       String?
+  reviewedAt  DateTime?
+  createdAt   DateTime  @default(now())
+
+  @@index([contentType, contentId])
+  @@index([status])
+}
+
+model AnatomicalAsset {
+  id                 String   @id @default(cuid())
+  assetId            String   @unique
+  gestationalStage   Int
+  titleEn            String
+  titleFa            String
+  descriptionEn      String
+  descriptionFa      String
+  structures         String   @default("[]") // JSON string[]
+  scientificSources  String   @default("[]") // JSON string[]
+  reviewerName       String?
+  reviewStatus       String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | DEMONSTRATION
+  modelVersion       String   @default("1.0.0")
+  animationMetadata  String   @default("{}") // JSON
+  performanceProfile String   @default("{}") // JSON {lodTiers, maxVertsMobile}
+  publicationStatus  String   @default("DRAFT") // DRAFT | PUBLISHED | ARCHIVED
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+}
+
+// ─── AI Assistant ────────────────────────────────────────────────────────────
+
+model AIConversation {
+  id        String     @id @default(cuid())
+  userId    String
+  user      User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String     @default("Conversation")
+  language  String     @default("fa")
+  createdAt DateTime   @default(now())
+  updatedAt DateTime   @updatedAt
+  messages  AIMessage[]
+
+  @@index([userId])
+}
+
+model AIMessage {
+  id             String   @id @default(cuid())
+  conversationId String
+  conversation   AIConversation @relation(fields: [conversationId], references: [id], onDelete: Cascade)
+  role           String // USER | ASSISTANT | SYSTEM
+  content        String
+  citations      String? // JSON [{title, citation, url}]
+  safetyLevel    String   @default("NORMAL") // NORMAL | CAUTION | EMERGENCY
+  flagged        Boolean  @default(false)
+  createdAt      DateTime @default(now())
+
+  @@index([conversationId])
+}
+
+model SafetyEvent {
+  id        String   @id @default(cuid())
+  userId    String?
+  type      String // RED_FLAG_SYMPTOM | EMERGENCY_ESCALATION | AI_REFUSAL | INJECTION_ATTEMPT | MODERATION | PAYMENT_ANOMALY
+  severity  String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  detail    String
+  resolved  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  @@index([type])
+  @@index([resolved])
+}
+
+// ─── Journal & Wellbeing ─────────────────────────────────────────────────────
+
+model JournalEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String?
+  body      String
+  mood      String? // GREAT | GOOD | NEUTRAL | LOW | STRUGGLING
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId, createdAt])
+}
+
+// ─── Family & Community ──────────────────────────────────────────────────────
+
+model PartnerAccess {
+  id            String    @id @default(cuid())
+  granterId     String
+  granter       User      @relation("Granter", fields: [granterId], references: [id], onDelete: Cascade)
+  partnerUserId String?   @unique
+  partnerUser   User?     @relation("Partner", fields: [partnerUserId], references: [id], onDelete: SetNull)
+  partnerEmail  String
+  partnerName   String?
+  permissions   String    @default("[]") // JSON string[]: VIEW_TIMELINE | VIEW_APPOINTMENTS | VIEW_TRACKING | VIEW_JOURNAL
+  status        String    @default("INVITED") // INVITED | ACTIVE | REVOKED
+  invitedAt     DateTime  @default(now())
+  revokedAt     DateTime?
+
+  @@index([granterId])
+}
+
+model CommunityPost {
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  authorAlias    String
+  topic          String    @default("GENERAL") // GENERAL | NUTRITION | SUPPORT | BIRTH | POSTPARTUM | PRODUCTS
+  body           String
+  language       String    @default("fa")
+  status         String    @default("PENDING") // PENDING | APPROVED | REJECTED | REMOVED
+  flagCount      Int       @default(0)
+  moderationNote String?
+  moderatedById  String?
+  createdAt      DateTime  @default(now())
+
+  @@index([status])
+  @@index([topic])
+}
+
+model ModerationAction {
+  id          String   @id @default(cuid())
+  postId      String
+  moderatorId String
+  action      String // APPROVE | REJECT | REMOVE | FLAG
+  reason      String?
+  createdAt   DateTime @default(now())
+}
+
+// ─── Commerce ────────────────────────────────────────────────────────────────
+
+model Subscription {
+  id              String    @id @default(cuid())
+  userId          String
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan            String    @default("FREE") // FREE | PREMIUM_MONTHLY | PREMIUM_ANNUAL | FAMILY
+  status          String    @default("ACTIVE") // ACTIVE | TRIALING | PAST_DUE | CANCELLED | EXPIRED
+  provider        String    @default("SANDBOX") // SANDBOX | ZARINPAL | STRIPE
+  providerRef     String?
+  currentPeriodEnd DateTime?
+  createdAt       DateTime  @default(now())
+  cancelledAt     DateTime?
+  payments        Payment[]
+
+  @@index([userId])
+}
+
+model Payment {
+  id             String    @id @default(cuid())
+  subscriptionId String
+  subscription   Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  amount         Int // minor units
+  currency       String    @default("IRR") // IRR | USD
+  status         String    @default("PENDING") // PENDING | SUCCEEDED | FAILED | REFUNDED
+  provider       String    @default("SANDBOX")
+  providerRef    String?
+  idempotencyKey String    @unique
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  @@index([subscriptionId])
+}
+
+model Entitlement {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  plan      String   @default("FREE")
+  features  String   @default("{}") // JSON feature flags
+  updatedAt DateTime @updatedAt
+}
+
+// ─── Platform Ops ────────────────────────────────────────────────────────────
+
+model AuditEvent {
+  id       String   @id @default(cuid())
+  actorId  String?
+  actor    User?    @relation(fields: [actorId], references: [id], onDelete: SetNull)
+  action   String
+  entity   String
+  entityId String?
+  metadata String? // JSON
+  ip       String?
+  createdAt DateTime @default(now())
+
+  @@index([entity, entityId])
+  @@index([actorId])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String
+  type      String    @default("SYSTEM") // SYSTEM | APPOINTMENT | REVIEW | PAYMENT | SAFETY
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
+}
+
+model Setting {
+  key   String @id
+  value String // JSON
+}
