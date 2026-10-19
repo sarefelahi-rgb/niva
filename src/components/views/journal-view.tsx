@@ -15,7 +15,7 @@ interface Entry { id: string; title: string | null; body: string; mood: string |
 const MOODS = ['GREAT', 'GOOD', 'NEUTRAL', 'LOW', 'STRUGGLING'] as const;
 
 export function JournalView() {
-  const { t, locale } = useApp();
+  const { t, locale, setView } = useApp();
   const { toast } = useToast();
   const [entries, setEntries] = useState<Entry[]>([]);
   const [loading, setLoading] = useState(true);
@@ -42,8 +42,16 @@ export function JournalView() {
         body: JSON.stringify({ title: title || undefined, body, mood }),
       });
       if (res.ok) {
+        const data = await res.json().catch(() => null);
         setTitle(''); setBody('');
-        toast({ description: t('common.done') });
+        // Red-flag surfaced from the deterministic safety scan: crisis guidance
+        // is shown immediately, independent of the AI layer (Wave 2.5).
+        if (data?.safetyLevel === 'EMERGENCY') {
+          toast({ description: `${t('dash.redFlag')} — ${t('dash.redFlagBody')}`, variant: 'destructive' });
+          setView('safety');
+        } else {
+          toast({ description: t('common.done') });
+        }
         await load();
       } else {
         toast({ description: t('err.validation'), variant: 'destructive' });

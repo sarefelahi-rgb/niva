@@ -1,6 +1,8 @@
 import { z } from 'zod';
 import { db } from '@/lib/db';
 import { json, apiError, readJson, withUser } from '@/lib/api';
+import { assessSafety } from '@/lib/safety';
+import { logSafetyEvent } from '@/lib/audit';
 
 const createSchema = z.object({
   title: z.string().max(120).optional(),
@@ -22,10 +24,17 @@ export async function GET(req: Request) {
 export async function POST(req: Request) {
   return withUser(req, [], async ({ user }) => {
     const body = await readJson(req, createSchema);
+    // Deterministic red-flag scan on journal free text (safety coverage item 2.5):
+    // journaling is private, but EMERGENCY matches still raise a SafetyEvent so
+    // the user is shown crisis guidance and staff can offer support.
+    const assessment = assessSafety(`${body.title ?? ''} ${body.body}`);
+    if (assessment.level === 'EMERGENCY') {
+      await logSafetyEvent(user.id, 'RED_FLAG_SYMPTOM', 'HIGH', `Journal entry categories: ${assessment.categories.join(',')}`);
+    }
     const entry = await db.journalEntry.create({
       data: { userId: user.id, title: body.title, body: body.body, mood: body.mood },
     });
-    return json({ id: entry.id }, 201);
+    return json({ id: entry.id, safetyLevel: assessment.level, categories: assessment.categories }, 201);
   });
 }
 

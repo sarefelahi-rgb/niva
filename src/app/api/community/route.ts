@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { json, apiError, readJson, withUser } from '@/lib/api';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
 import { logSafetyEvent } from '@/lib/audit';
+import { assessSafety } from '@/lib/safety';
 
 /**
  * Community with moderation-by-default: every post enters PENDING and is only
@@ -52,6 +53,13 @@ export async function POST(req: Request) {
     }
     const body = await readJson(req, postSchema);
     const flagged = MISINFO.test(body.body);
+    // Red-flag scan on community text (safety coverage item 2.5): a post that
+    // describes an EMERGENCY pattern is flagged for urgent moderation review,
+    // so moderators can reach out to the author with crisis guidance.
+    const safety = assessSafety(body.body);
+    if (safety.level === 'EMERGENCY') {
+      await logSafetyEvent(user.id, 'MODERATION', 'HIGH', `Community post matches red-flag categories: ${safety.categories.join(',')}`);
+    }
     const post = await db.communityPost.create({
       data: {
         userId: user.id,
@@ -60,8 +68,12 @@ export async function POST(req: Request) {
         body: body.body,
         language: body.lang,
         status: 'PENDING',
-        flagCount: flagged ? 1 : 0,
-        moderationNote: flagged ? 'Auto-flagged: possible medical misinformation or promotional claim' : null,
+        flagCount: flagged || safety.level === 'EMERGENCY' ? 1 : 0,
+        moderationNote: flagged
+          ? 'Auto-flagged: possible medical misinformation or promotional claim'
+          : safety.level === 'EMERGENCY'
+            ? `Auto-flagged: red-flag language (${safety.categories.join(',')}) — urgent review`
+            : null,
       },
     });
     if (flagged) {

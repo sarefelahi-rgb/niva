@@ -35,7 +35,12 @@ function sanitize(meta: Record<string, unknown>): Record<string, unknown> {
   return out;
 }
 
-/** Safety events are recorded for clinical-governance review (admin dashboard). */
+/**
+ * Safety events are recorded for clinical-governance review (admin dashboard).
+ * Staff escalation path: HIGH/CRITICAL events also fan out an in-app SAFETY
+ * notification to every ADMIN user, so red-flag incidents are surfaced to staff
+ * without depending on anyone opening the safety dashboard.
+ */
 export async function logSafetyEvent(
   userId: string | null,
   type: string,
@@ -46,5 +51,22 @@ export async function logSafetyEvent(
     await db.safetyEvent.create({ data: { userId, type, severity, detail: detail.slice(0, 500) } });
   } catch {
     // best-effort
+  }
+  if (severity === 'HIGH' || severity === 'CRITICAL') {
+    try {
+      const admins = await db.user.findMany({ where: { role: 'ADMIN' }, select: { id: true } });
+      if (admins.length > 0) {
+        await db.notification.createMany({
+          data: admins.map((a) => ({
+            userId: a.id,
+            type: 'SAFETY',
+            title: severity === 'CRITICAL' ? 'Critical safety event' : 'High-severity safety event',
+            body: `${type} — severity ${severity}. Open the safety dashboard for details.`,
+          })),
+        });
+      }
+    } catch {
+      // escalation is best-effort; the SafetyEvent row itself is the record of truth
+    }
   }
 }

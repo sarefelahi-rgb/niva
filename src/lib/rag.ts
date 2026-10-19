@@ -143,6 +143,23 @@ export async function answerQuestion(opts: {
     });
     let content = completion.choices[0]?.message?.content?.trim() ?? '';
     if (!content) throw new Error('empty model response');
+
+    // Output-side safety re-scan: model output must never override the
+    // deterministic safety layer. If the reply itself matches an EMERGENCY
+    // red-flag pattern (e.g. the model described risky guidance), the reply is
+    // REPLACED by the fixed clinically-reviewed template (defence-in-depth).
+    const outputScan = assessSafety(content);
+    if (outputScan.level === 'EMERGENCY') {
+      const t = emergencyTemplate(outputScan.categories);
+      return {
+        content: lang === 'fa' ? t.bodyFa : t.bodyEn,
+        citations: [],
+        safetyLevel: 'EMERGENCY',
+        usedRetrieval: chunks.length > 0,
+        injectionFlagged,
+      };
+    }
+
     if (!content.includes(lang === 'fa' ? 'آموزشی' : 'educational')) {
       content += `\n\n${lang === 'fa' ? AI_DISCLAIMER_FA : AI_DISCLAIMER_EN}`;
     }
@@ -155,7 +172,7 @@ export async function answerQuestion(opts: {
     return {
       content,
       citations: chunks.map((c) => ({ title: lang === 'fa' ? c.entry.titleFa : c.entry.titleEn, citation: c.entry.citation, url: c.entry.sourceUrl })),
-      safetyLevel: assessment.level,
+      safetyLevel: outputScan.level === 'CAUTION' ? 'CAUTION' : assessment.level,
       usedRetrieval: chunks.length > 0,
       injectionFlagged,
     };

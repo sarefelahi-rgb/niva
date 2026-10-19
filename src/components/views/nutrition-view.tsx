@@ -9,8 +9,9 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Salad, ShieldCheck, CircleAlert } from 'lucide-react';
 import { WEEKLY_CONTENT } from '@/data/weekly-content';
 import { gestationalAgeAt } from '@/lib/gestational';
+import { ProvenanceBadge } from '@/components/content/provenance-badge';
 
-interface ContentItem { id: string; slug: string; category: string; titleEn: string; titleFa: string; bodyEn: string; bodyFa: string; sources: string; status: string }
+interface ContentItem { id: string; slug: string; category: string; titleEn: string; titleFa: string; bodyEn: string; bodyFa: string; sources: string; status: string; evidenceGrade?: string; reviewedAt?: string | null }
 
 export function NutritionView() {
   const { t, locale, pregnancy } = useApp();
@@ -87,10 +88,11 @@ export function NutritionView() {
                 <AccordionTrigger className="hover:no-underline py-3.5">
                   <span className="flex items-center gap-2 text-start">
                     <span className="text-sm font-medium">{title(c)}</span>
-                    {c.status !== 'APPROVED' && <Badge variant="outline" className="text-[10px] shrink-0">{t(`status.${c.status}`)}</Badge>}
+                    <ProvenanceBadge status={c.status} evidenceGrade={c.evidenceGrade} compact />
                   </span>
                 </AccordionTrigger>
                 <AccordionContent className="text-sm leading-relaxed space-y-2 pb-4">
+                  <ProvenanceBadge status={c.status} evidenceGrade={c.evidenceGrade} reviewedAt={c.reviewedAt} />
                   <p>{body(c)}</p>
                   <p className="text-xs text-muted-foreground">
                     {sources(c).map((s, i) => <span key={i} className="block">{s.citation}</span>)}

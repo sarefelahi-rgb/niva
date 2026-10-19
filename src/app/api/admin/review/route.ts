@@ -32,37 +32,66 @@ const decideSchema = z.object({
 export async function POST(req: Request) {
   return withUser(req, ['ADMIN', 'CLINICAL_REVIEWER'], async ({ user }) => {
     const body = await readJson(req, decideSchema);
-    const review = await db.clinicalReview.create({
-      data: {
-        contentType: body.contentType,
-        contentId: body.contentId,
-        reviewerId: user.id,
-        status: body.decision,
-        notes: body.notes,
-        reviewedAt: new Date(),
-      },
-    });
+    // Integrity: the target must exist BEFORE any review row is written, and
+    // decision + review record are committed atomically — orphan ClinicalReview
+    // rows on the 404 path are impossible by construction (Wave 2.4).
     if (body.contentType === 'EDUCATIONAL_CONTENT') {
       const content = await db.educationalContent.findUnique({ where: { id: body.contentId } });
       if (!content) return apiError(404, 'NOT_FOUND', 'Content not found');
-      await db.educationalContent.update({
-        where: { id: body.contentId },
+      const review = await db.$transaction(async (tx) => {
+        const created = await tx.clinicalReview.create({
+          data: {
+            contentType: body.contentType,
+            contentId: body.contentId,
+            reviewerId: user.id,
+            status: body.decision,
+            notes: body.notes,
+            reviewedAt: new Date(),
+          },
+        });
+        await tx.educationalContent.update({
+          where: { id: body.contentId },
+          data: {
+            status: body.decision === 'APPROVED' ? 'APPROVED' : body.decision === 'REJECTED' ? 'RETIRED' : 'IN_REVIEW',
+            version: { increment: 1 },
+            ...(body.decision === 'APPROVED'
+              ? {
+                  // Evidence governance: approval stamps reviewedAt and a 12-month
+                  // review-expiry; expired content is suppressed from delivery.
+                  reviewedAt: new Date(),
+                  expiresAt: new Date(Date.now() + 365 * 86_400_000),
+                }
+              : {}),
+          },
+        });
+        return created;
+      });
+      await logAudit(user.id, `REVIEW_${body.decision}`, body.contentType, body.contentId, { reviewer: user.id }, req.headers.get('x-forwarded-for'));
+      return json({ id: review.id, status: review.status }, 201);
+    }
+
+    const asset = await db.anatomicalAsset.findUnique({ where: { id: body.contentId } });
+    if (!asset) return apiError(404, 'NOT_FOUND', 'Asset not found');
+    const review = await db.$transaction(async (tx) => {
+      const created = await tx.clinicalReview.create({
         data: {
-          status: body.decision === 'APPROVED' ? 'APPROVED' : body.decision === 'REJECTED' ? 'RETIRED' : 'IN_REVIEW',
-          version: { increment: 1 },
+          contentType: body.contentType,
+          contentId: body.contentId,
+          reviewerId: user.id,
+          status: body.decision,
+          notes: body.notes,
+          reviewedAt: new Date(),
         },
       });
-    } else {
-      const asset = await db.anatomicalAsset.findUnique({ where: { id: body.contentId } });
-      if (!asset) return apiError(404, 'NOT_FOUND', 'Asset not found');
-      await db.anatomicalAsset.update({
+      await tx.anatomicalAsset.update({
         where: { id: body.contentId },
         data: {
           reviewStatus: body.decision === 'APPROVED' ? 'APPROVED' : body.decision === 'REJECTED' ? 'DRAFT' : 'IN_REVIEW',
           reviewerName: user.name,
         },
       });
-    }
+      return created;
+    });
     await logAudit(user.id, `REVIEW_${body.decision}`, body.contentType, body.contentId, { reviewer: user.id }, req.headers.get('x-forwarded-for'));
     return json({ id: review.id, status: review.status }, 201);
   });

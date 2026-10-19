@@ -61,3 +61,4 @@ db/*.db-journal
 
 # but keep the example env file
 !.env.example
+tool-results/

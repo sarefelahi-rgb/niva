@@ -90,7 +90,7 @@ async function main() {
     const slug = `kb-${e.id}`;
     await db.educationalContent.upsert({
       where: { slug },
-      update: { status: 'IN_REVIEW' },
+      update: { status: 'IN_REVIEW', evidenceGrade: 'C' },
       create: {
         slug,
         category: e.category.toUpperCase(),
@@ -99,6 +99,7 @@ async function main() {
         bodyEn: e.bodyEn,
         bodyFa: e.bodyFa,
         sources: JSON.stringify([{ citation: e.citation, url: e.sourceUrl, year: e.year }]),
+        evidenceGrade: 'C', // curated public-health guideline consensus (honest default)
         status: 'IN_REVIEW',
       },
     });
@@ -109,7 +110,7 @@ async function main() {
     const bodyFa = `${w.highlightsFa} ${w.maternalTipsFa}`;
     await db.educationalContent.upsert({
       where: { slug },
-      update: { status: 'IN_REVIEW' },
+      update: { status: 'IN_REVIEW', evidenceGrade: 'D' },
       create: {
         slug,
         week: w.week,
@@ -120,6 +121,7 @@ async function main() {
         bodyEn: body,
         bodyFa: bodyFa,
         sources: JSON.stringify([{ citation: 'WHO Antenatal Care Recommendations (2016); ACOG patient education', year: 2016 }]),
+        evidenceGrade: 'D', // educational consensus — weekly comparisons are approximations
         status: 'IN_REVIEW',
       },
     });

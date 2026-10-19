@@ -39,6 +39,8 @@ model User {
   grantsGiven      PartnerAccess[]   @relation("Granter")
   grantsReceived   PartnerAccess[]   @relation("Partner")
   reviewsAuthored  ClinicalReview[]  @relation("Reviewer")
+  preference       Preference?
+  safetyEvents     SafetyEvent[]
 }
 
 model Session {
@@ -191,20 +193,23 @@ model MedicalDocument {
 // ─── Content, Governance & 3D Assets ─────────────────────────────────────────
 
 model EducationalContent {
-  id        String   @id @default(cuid())
-  slug      String   @unique
-  week      Int?
-  trimester Int?
-  category  String   @default("GENERAL")
-  titleEn   String
-  titleFa   String
-  bodyEn    String
-  bodyFa    String
-  sources   String   @default("[]") // JSON [{citation,url,year}]
-  status    String   @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | RETIRED
-  version   Int      @default(1)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id            String    @id @default(cuid())
+  slug          String    @unique
+  week          Int?
+  trimester     Int?
+  category      String    @default("GENERAL")
+  titleEn       String
+  titleFa       String
+  bodyEn        String
+  bodyFa        String
+  sources       String    @default("[]") // JSON [{citation,url,year}]
+  evidenceGrade String    @default("C") // A (meta-analysis/systematic review) | B (cohort/RCT) | C (consensus/guideline) | D (educational consensus)
+  status        String    @default("DRAFT") // DRAFT | IN_REVIEW | APPROVED | RETIRED
+  version       Int       @default(1)
+  reviewedAt    DateTime? // stamped by the approving clinical reviewer
+  expiresAt     DateTime? // review-expiry: content past this date is suppressed until re-reviewed
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
 
   @@index([status])
   @@index([week])
@@ -285,6 +290,7 @@ model AIMessage {
 model SafetyEvent {
   id        String   @id @default(cuid())
   userId    String?
+  user      User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
   type      String // RED_FLAG_SYMPTOM | EMERGENCY_ESCALATION | AI_REFUSAL | INJECTION_ATTEMPT | MODERATION | PAYMENT_ANOMALY
   severity  String   @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
   detail    String
@@ -293,6 +299,7 @@ model SafetyEvent {
 
   @@index([type])
   @@index([resolved])
+  @@index([userId])
 }
 
 // ─── Journal & Wellbeing ─────────────────────────────────────────────────────
@@ -440,6 +447,19 @@ model Notification {
   createdAt DateTime  @default(now())
 
   @@index([userId, readAt])
+}
+
+// ─── Onboarding preferences (progressive profiling) ──────────────────────────
+
+model Preference {
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stage     String   @default("PREGNANT") // TRYING | PREGNANT | POSTPARTUM | EXPLORING
+  goals     String   @default("[]") // JSON string[] — module focus areas selected at onboarding
+  units     String   @default("METRIC") // METRIC | IMPERIAL
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 }
 
 model Setting {

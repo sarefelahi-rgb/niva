@@ -365,3 +365,28 @@ Stage Summary:
 - Fixed en route: analytics route file initially missing (first Write failed on absent dir) — caught by 404 in browser test, rewritten + error-convention aligned.
 - tsc 0 / lint 0 / i18n symmetric 468/468. Dev-overlay "1 Issue" = documented upstream THREE.Clock deprecation (drei), dev-only.
 - Next: Phase 3 (onboarding) + Phase 4 (dashboard v2) per Wave 2.
+---
+Task ID: wave2-phases-3-4-6
+Agent: main (Z.ai Code) — reengineering Wave 2 (Phases 3, 4, 6 + safety coverage)
+
+Work Log:
+- Schema: EducationalContent +evidenceGrade/reviewedAt/expiresAt (CMS hardening); new Preference model (stage/goals/units, unique userId cascade); SafetyEvent + User FK (SetNull) + userId index (closes PII-residue finding); db:push clean.
+- 2.2 Onboarding v2: 3-step wizard (stage TRYING/PREGNANT/POSTPARTUM/EXPLORING → dating for PREGNANT → progressive-profiling preferences: 7 goals + units); resumable draft in localStorage (niva_onboarding_draft_v2) with resume banner; uncertainty band shown per method (LMP ±21d / scan ±10d / clinician ±7d); new /api/preferences GET+PUT (zod enum whitelist, audited).
+- 2.3 Dashboard v2: SVG radial gestational clock + due-date window (±days by datingConfidence) + "estimate not certainty" note; educational prenatal-visit cadence card (trimester-highlighted, clinic-priority note); stage-aware no-pregnancy state (TRYING/POSTPARTUM/EXPLORING get welcome card instead of pregnancy CTA); offline-tolerant fetches: AbortController + retry button + stale-response guard (StrictMode aborted load no longer poisons state — bug found & fixed via browser test).
+- 2.1 Account security: /api/auth/sessions GET (metadata only, current flag) + DELETE (owner-scoped revoke, audited); /api/auth/logout-all POST (destroyAllSessions); /api/auth/password POST (re-auth with current password, strength rule, revokes all OTHER sessions transactionally, keeps current); Settings UI: password-change dialog, active-sessions dialog with per-session revoke + "this device" badge.
+- 2.4 CMS: content route suppresses expired content (expiresAt < now); admin review POST rewritten — target verified BEFORE review row, decision+review atomic in $transaction (orphan-row bug fixed), APPROVED stamps reviewedAt + 12-month expiry; ProvenanceBadge component (grade A–D + true status + reviewed date) rendered in nutrition view; seed assigns honest grades (KB=C guideline consensus, weekly=D educational) idempotently via upsert update clause.
+- 2.5 Safety coverage: output-side AI re-scan in rag.ts (LLM reply matching EMERGENCY patterns is REPLACED by fixed template); journal POST red-flag scan → SafetyEvent HIGH + UI toast + redirect to safety view; community POST red-flag scan → flagged + urgent moderation note + HIGH event; tracking POST BP ≥140/≥90 → MEDIUM RED_FLAG_SYMPTOM event; staff escalation: logSafetyEvent fans out SAFETY notifications to all ADMINs on HIGH/CRITICAL.
+- i18n: +60 keys en+fa (onboarding stages/goals/units, dash uncertainty/visits/errors, settings security, cms grades) — 528/528 symmetric.
+- Fixes found by E2E: StrictMode stale-load race in dashboard (guard added); duplicated "About the size of" phrase (strip prefixes in dashboard+timeline).
+
+Evidence (browser + API):
+- Wizard E2E: register→wizard→stage PREGNANT→LMP 2026-08-01→preview ۱۴۰۶/۲/۱۸ ±۲۱ روز→goalsNutrition+Sleep→finish → pregnancy created (week 11) + preferences saved + tour opened.
+- Negative tests: wrong current password → 401 INVALID_CREDENTIALS shown in dialog; re-revoke session → 404; logout-all → old token 401.
+- Journal "heavy bleeding and severe abdominal pain" → {safetyLevel:EMERGENCY, categories:[BLEEDING,PAIN]} + SafetyEvent HIGH + admin received "High-severity safety event" notification. BP 150/95 → MEDIUM event "Elevated blood pressure recorded: 150/95". (test rows cleaned afterwards)
+- Sessions dialog shows only current session after password change (others revoked) — correct.
+- Mobile 390px + en LTR verified visually; tsc 0 / eslint 0; console errors: none new (THREE.Clock deprecation + R3F StrictMode dev-only unmount warning remain upstream).
+
+Stage Summary:
+- Wave 2 core: 2.2 IMPLEMENTED+VERIFIED, 2.3 IMPLEMENTED+VERIFIED, 2.4 IMPLEMENTED+VERIFIED, 2.5 IMPLEMENTED+VERIFIED, 2.1 PARTIAL (sessions/rotation/password done; email verification + MFA deliberately deferred to Wave 5, documented).
+- Honest deferrals: MFA (admin), email verification/recovery, translation review track (CMS), community moderation queue UI (Wave 4).
+- Next: Wave 3 (AI RAG v2 + studio excellence) or Wave 4 (ecosystem) per backlog order; recommend Wave 4 moderation loop + notifications scheduler next.

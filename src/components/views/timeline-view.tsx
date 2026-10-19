@@ -62,7 +62,7 @@ export function TimelineView() {
             </div>
 
             <div className="grid sm:grid-cols-3 gap-3">
-              <Stat label={t('dash.babySize')} value={locale === 'fa' ? activeContent.sizeComparisonFa : activeContent.sizeComparisonEn} />
+              <Stat label={t('dash.babySize')} value={(locale === 'fa' ? activeContent.sizeComparisonFa : activeContent.sizeComparisonEn).replace(/^حدود به اندازه‌ی\s*/, '').replace(/^About the size of\s*/i, '')} />
               {activeContent.lengthCm != null && <Stat label={t('timeline.length')} value={<span className="num">≈ {activeContent.lengthCm} cm</span>} />}
               {activeContent.weightG != null && <Stat label={t('timeline.weight')} value={<span className="num">≈ {activeContent.weightG} g</span>} />}
             </div>

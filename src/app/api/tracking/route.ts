@@ -43,6 +43,12 @@ export async function POST(req: Request) {
     if (assessment.level === 'EMERGENCY') {
       await logSafetyEvent(user.id, 'RED_FLAG_SYMPTOM', 'HIGH', `Tracking entry categories: ${assessment.categories.join(',')}`);
     }
+    // BP alert → SafetyEvent (safety coverage item 2.5): elevated readings raise
+    // a MEDIUM event so the preeclampsia watchlist is visible to governance.
+    const bpHigh = (body.systolic && body.systolic >= 140) || (body.diastolic && body.diastolic >= 90);
+    if (bpHigh) {
+      await logSafetyEvent(user.id, 'RED_FLAG_SYMPTOM', 'MEDIUM', `Elevated blood pressure recorded: ${body.systolic ?? '—'}/${body.diastolic ?? '—'}`);
+    }
     const pregnancy = await db.pregnancy.findFirst({ where: { userId: user.id, status: 'ACTIVE' } });
     const date = new Date(body.date);
     const entry = await db.symptomEntry.create({
