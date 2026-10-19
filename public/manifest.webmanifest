@@ -4,14 +4,16 @@
   "description": "Scientific pregnancy & postpartum companion: 3D development studio, evidence-grounded assistant, health tracking. Educational use only.",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#fdf9f3",
-  "theme_color": "#b85c6e",
+  "background_color": "#f9f5f0",
+  "theme_color": "#7a6bb5",
   "lang": "fa",
   "dir": "auto",
   "orientation": "portrait-primary",
   "categories": ["health", "education", "medical"],
   "icons": [
-    { "src": "/icon.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
-    { "src": "/icon.png", "sizes": "192x192", "type": "image/png", "purpose": "maskable" }
+    { "src": "/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" },
+    { "src": "/icon-1024.png", "sizes": "1024x1024", "type": "image/png", "purpose": "any" }
   ]
 }

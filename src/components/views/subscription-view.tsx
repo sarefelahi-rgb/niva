@@ -58,12 +58,13 @@ export function SubscriptionView() {
     if (!checkout) return;
     setBusy('webhook');
     try {
-      // Sandbox signature endpoint (demo-only convenience; a real provider signs server-side).
-      const sig = await fetch(`/api/subscription/cancel?paymentId=${checkout.paymentId}&result=${result}`).then((r) => r.json());
-      const res = await fetch('/api/subscription/webhook', {
+      // Server-orchestrated sandbox confirmation: the client never signs
+      // anything; the server verifies ownership, PENDING state and applies
+      // entitlements atomically (see /api/subscription/confirm).
+      const res = await fetch('/api/subscription/confirm', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ paymentId: checkout.paymentId, result, signature: sig.signature }),
+        body: JSON.stringify({ paymentId: checkout.paymentId, result }),
       });
       const data = await res.json();
       if (res.ok && data.status === 'SUCCEEDED') {

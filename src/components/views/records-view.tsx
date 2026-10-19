@@ -125,7 +125,7 @@ export function RecordsView() {
                   <p className="font-semibold text-sm truncate">{d.title}</p>
                   <div className="flex items-center gap-1 shrink-0">
                     <Badge variant="secondary" className="text-[10px]">{d.category}</Badge>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100" onClick={() => remove(d.id)} aria-label={t('common.delete')}>
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => remove(d.id)} aria-label={t('common.delete')}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>

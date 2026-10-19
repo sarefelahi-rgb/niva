@@ -12,7 +12,7 @@ export const metadata: Metadata = {
   manifest: "/manifest.webmanifest",
   keywords: ["pregnancy", "postpartum", "3D", "education", "NIVA"],
   appleWebApp: { capable: true, title: "NIVA", statusBarStyle: "default" },
-  icons: { icon: "/icon.png", apple: "/icon.png" },
+  icons: { icon: "/favicon-32.png", apple: "/icon-512.png" },
 };
 
 export const viewport: Viewport = {
@@ -31,12 +31,8 @@ export default function RootLayout({
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <head>
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
-        <link
-          rel="stylesheet"
-          href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Vazirmatn:wght@400;500;600;700&display=swap"
-        />
+        {/* Brand fonts are self-hosted via @font-face in globals.css (OFL) —
+            no third-party font CDN, no tracking, offline-capable. */}
       </head>
       <body className="antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>

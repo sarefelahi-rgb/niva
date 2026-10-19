@@ -129,7 +129,7 @@ export function CommunityView() {
                   {p.mine && p.status && p.status !== 'APPROVED' && <Badge variant="outline" className="text-[10px]">{t(`status.${p.status}`)}</Badge>}
                   <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
                   {!p.mine && (
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => flag(p.id)} aria-label="report">
+                    <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => flag(p.id)} aria-label={t('community.report')}>
                       <Flag className="h-3.5 w-3.5 text-muted-foreground" />
                     </Button>
                   )}

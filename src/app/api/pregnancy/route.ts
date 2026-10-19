@@ -63,31 +63,36 @@ export async function POST(req: Request) {
     if (active) return apiError(409, 'ACTIVE_EXISTS', 'You already have an active pregnancy profile');
 
     const resolution = resolveDating(null, proposal);
-    const pregnancy = await db.pregnancy.create({
-      data: {
-        userId: user.id,
-        label: body.label.trim(),
-        lmpDate: body.method === 'LMP' && body.lmpDate ? new Date(body.lmpDate) : null,
-        dueDate: resolution.dueDate,
-        datingMethod: body.method,
-        datingLocked: resolution.locked,
-        datingConfidence: body.uncertainDates ? 'LOW' : proposal.confidence,
-        datingNote: proposal.warnings.join(' | ') || null,
-        plurality: body.plurality,
-        status: 'ACTIVE',
-      },
-    });
-    await db.gestationalDating.create({
-      data: {
-        pregnancyId: pregnancy.id,
-        method: body.method,
-        referenceDate: new Date(proposal.referenceDate || Date.now()),
-        crlMm: body.crlMm ?? null,
-        dueDate: resolution.dueDate,
-        confidence: proposal.confidence,
-        source: body.method === 'CLINICIAN' ? 'CLINICIAN' : 'SELF',
-        note: body.uncertainDates ? 'User-flagged uncertain dates' : null,
-      },
+    // Pregnancy + dating record are written atomically: a partial profile
+    // (pregnancy without its dating record) must never exist (risk R-03).
+    const pregnancy = await db.$transaction(async (tx) => {
+      const created = await tx.pregnancy.create({
+        data: {
+          userId: user.id,
+          label: body.label.trim(),
+          lmpDate: body.method === 'LMP' && body.lmpDate ? new Date(body.lmpDate) : null,
+          dueDate: resolution.dueDate,
+          datingMethod: body.method,
+          datingLocked: resolution.locked,
+          datingConfidence: body.uncertainDates ? 'LOW' : proposal.confidence,
+          datingNote: proposal.warnings.join(' | ') || null,
+          plurality: body.plurality,
+          status: 'ACTIVE',
+        },
+      });
+      await tx.gestationalDating.create({
+        data: {
+          pregnancyId: created.id,
+          method: body.method,
+          referenceDate: new Date(proposal.referenceDate || Date.now()),
+          crlMm: body.crlMm ?? null,
+          dueDate: resolution.dueDate,
+          confidence: proposal.confidence,
+          source: body.method === 'CLINICIAN' ? 'CLINICIAN' : 'SELF',
+          note: body.uncertainDates ? 'User-flagged uncertain dates' : null,
+        },
+      });
+      return created;
     });
     await logAudit(user.id, 'PREGNANCY_CREATE', 'Pregnancy', pregnancy.id, { method: body.method }, req.headers.get('x-forwarded-for'));
     const ga = gestationalAgeAt({ dueDate: resolution.dueDate });

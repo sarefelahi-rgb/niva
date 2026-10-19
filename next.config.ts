@@ -2,11 +2,9 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   output: "standalone",
-  /* config options here */
-  typescript: {
-    ignoreBuildErrors: true,
-  },
-  reactStrictMode: false,
+  // Strict integrity: TypeScript and lint errors must never be silently
+  // ignored at build time (risk R-12 remediation — no green-by-suppression).
+  reactStrictMode: true,
 };
 
 export default nextConfig;

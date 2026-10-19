@@ -35,27 +35,32 @@ export async function POST(req: Request) {
     const body = await readJson(req, createSchema);
     const when = new Date(body.scheduledAt);
     if (Number.isNaN(when.getTime())) return apiError(400, 'VALIDATION', 'Invalid date');
-    const appt = await db.appointment.create({
-      data: {
-        userId: user.id,
-        title: body.title,
-        type: body.type,
-        provider: body.provider,
-        location: body.location,
-        scheduledAt: when,
-        notes: body.notes,
-      },
-    });
-    await db.reminder.create({
-      data: {
-        userId: user.id,
-        title: `نوبت: ${appt.title}`,
-        type: 'APPOINTMENT',
-        dueAt: new Date(when.getTime() - 24 * 3_600_000),
-      },
-    });
-    await db.notification.create({
-      data: { userId: user.id, title: 'Appointment scheduled', body: `${appt.title} — ${when.toLocaleString()}`, type: 'APPOINTMENT' },
+    // Appointment + T-24h reminder + notification are written atomically so a
+    // partial booking can never exist (risk R-03).
+    const appt = await db.$transaction(async (tx) => {
+      const created = await tx.appointment.create({
+        data: {
+          userId: user.id,
+          title: body.title,
+          type: body.type,
+          provider: body.provider,
+          location: body.location,
+          scheduledAt: when,
+          notes: body.notes,
+        },
+      });
+      await tx.reminder.create({
+        data: {
+          userId: user.id,
+          title: `نوبت: ${created.title}`,
+          type: 'APPOINTMENT',
+          dueAt: new Date(when.getTime() - 24 * 3_600_000),
+        },
+      });
+      await tx.notification.create({
+        data: { userId: user.id, title: 'Appointment scheduled', body: `${created.title} — ${when.toLocaleString()}`, type: 'APPOINTMENT' },
+      });
+      return created;
     });
     return json({ id: appt.id }, 201);
   });

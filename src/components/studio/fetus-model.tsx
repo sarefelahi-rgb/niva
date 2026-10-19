@@ -49,7 +49,6 @@ export interface FetusModelProps {
   autoRotate: boolean;
   quality: 'low' | 'medium' | 'high';
   labelsLang: 'fa' | 'en';
-  onFrameParams?: (p: StageParams) => void;
 }
 
 interface Ball {
@@ -324,6 +323,9 @@ export function FetusModel(props: FetusModelProps) {
 
   /* ---- glow texture (heartbeat + particles share the generator) ---- */
   const glowTex = useMemo(() => makeGlowTexture(), []);
+  // GPU hygiene: the canvas texture must be released when the model unmounts
+  // (risk R-11 — long studio sessions accumulated GPU memory).
+  useEffect(() => () => glowTex.dispose(), [glowTex]);
 
   const openness = smooth(24, 27, week);
   const tW = clamp01((week - 6) / 16);
@@ -392,7 +394,6 @@ export function FetusModel(props: FetusModelProps) {
     mat.clearcoat = 0.2 - 0.12 * tW;
 
     if (group.current && autoRotate) group.current.rotation.y += delta * 0.25;
-    props.onFrameParams?.({ ...c });
 
     /* ---- eyes track the damped head ---- */
     const m = bodyMetrics(c);
@@ -457,6 +458,12 @@ export function FetusModel(props: FetusModelProps) {
             placentaBodyRef.current.geometry.userData.built = true;
           }
           if (placentaVesselsRef.current) {
+            // Dispose old vessel geometries before clearing: clear() alone
+            // leaks every previously built TubeGeometry (risk R-11).
+            for (const child of placentaVesselsRef.current.children) {
+              const m = child as THREE.Mesh;
+              m.geometry?.dispose();
+            }
             placentaVesselsRef.current.clear();
             for (const v of built.vessels) {
               const mesh = new THREE.Mesh(v, vesselMaterial);

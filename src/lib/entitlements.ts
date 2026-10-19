@@ -6,8 +6,12 @@
  */
 
 import { db } from '@/lib/db';
+import type { Prisma } from '@prisma/client';
 
 export type Plan = 'FREE' | 'PREMIUM_MONTHLY' | 'PREMIUM_ANNUAL' | 'FAMILY';
+
+/** Any Prisma client (root db or interactive-transaction client). */
+export type DbClient = Prisma.TransactionClient | typeof db;
 
 export interface PlanFeatures {
   aiMessagesPerDay: number; // -1 = unlimited
@@ -87,20 +91,20 @@ export async function getEntitlementFeatures(userId: string): Promise<{ plan: Pl
   return { plan, features: PLAN_FEATURES[plan], expired };
 }
 
-export async function setEntitlement(userId: string, plan: Plan, periodDays?: number): Promise<void> {
+export async function setEntitlement(userId: string, plan: Plan, periodDays?: number, client: DbClient = db): Promise<void> {
   const features = PLAN_FEATURES[plan];
-  await db.entitlement.upsert({
+  await client.entitlement.upsert({
     where: { userId },
     create: { userId, plan, features: JSON.stringify(features) },
     update: { plan, features: JSON.stringify(features) },
   });
   if (plan !== 'FREE' && periodDays) {
-    await db.subscription.updateMany({
+    await client.subscription.updateMany({
       where: { userId, plan, status: { in: ['ACTIVE', 'TRIALING'] } },
       data: { currentPeriodEnd: new Date(Date.now() + periodDays * 86_400_000) },
     });
   }
-  await db.notification.create({
+  await client.notification.create({
     data: {
       userId,
       title: plan === 'FREE' ? 'Plan updated' : 'Subscription active',

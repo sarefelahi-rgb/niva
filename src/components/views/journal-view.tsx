@@ -119,7 +119,7 @@ export function JournalView() {
                   <p className="font-semibold text-sm truncate">{e.title || (locale === 'fa' ? 'بدون عنوان' : 'Untitled')}</p>
                   <div className="flex items-center gap-1.5 shrink-0">
                     {e.mood && <Badge className={`text-[10px] ${moodColor[e.mood] ?? ''}`}>{t(`mood.${e.mood}`)}</Badge>}
-                    <Button variant="ghost" size="icon" className="h-7 w-7 opacity-0 group-hover:opacity-100 transition-opacity" onClick={() => remove(e.id)} aria-label={t('common.delete')}>
+                    <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => remove(e.id)} aria-label={t('common.delete')}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
                   </div>

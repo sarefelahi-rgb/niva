@@ -29,7 +29,7 @@ export function TourOverlay() {
           <DialogTitle className="text-xl">{t(s.titleKey)}</DialogTitle>
           <DialogDescription id="tour-desc" className="text-base leading-relaxed">{t(s.bodyKey)}</DialogDescription>
         </DialogHeader>
-        <div className="flex justify-center gap-1.5" role="tablist" aria-label="tour progress">
+        <div className="flex justify-center gap-1.5" role="group" aria-label={t('tour.progress')}>
           {STEPS.map((_, i) => (
             <span key={i} className={cn('h-1.5 rounded-full transition-all', i === step ? 'w-6 bg-primary' : 'w-1.5 bg-muted')} />
           ))}

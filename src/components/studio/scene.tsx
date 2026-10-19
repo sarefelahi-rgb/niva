@@ -1,6 +1,6 @@
 'use client';
 
-import { useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
@@ -56,6 +56,8 @@ export function StudioLighting({ quality }: { quality: 'low' | 'medium' | 'high'
 export function AmnioticParticles({ count, reduceMotion }: { count: number; reduceMotion: boolean }) {
   const points = useRef<THREE.Points>(null);
   const tex = useMemo(() => makeGlowTexture(), []);
+  // GPU hygiene: release the canvas texture on unmount (risk R-11).
+  useEffect(() => () => tex.dispose(), [tex]);
 
   const { positions, base, phase } = useMemo(() => {
     const positions = new Float32Array(count * 3);

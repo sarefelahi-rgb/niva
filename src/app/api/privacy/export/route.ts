@@ -1,15 +1,13 @@
 import { db } from '@/lib/db';
 import { json, withUser } from '@/lib/api';
-import { getEntitlementFeatures } from '@/lib/entitlements';
 import { logAudit } from '@/lib/audit';
 
-/** GDPR-style data portability. Full user-owned export; gated by plan entitlement. */
+/** GDPR-style data portability. Full user-owned export — FREE for every
+ * account: portability of one's own data is a legal right, never a paid
+ * feature (risk R-06 remediation). Rate limiting arrives with the shared
+ * middleware hardening (Phase 9). */
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
-    const { features } = await getEntitlementFeatures(user.id);
-    if (!features.dataExport) {
-      return json({ entitled: false }, 402);
-    }
     const [pregnancies, symptoms, journal, appointments, reminders, docs, conversations, consents] =
       await Promise.all([
         db.pregnancy.findMany({ where: { userId: user.id }, include: { events: true, datings: true } }),

@@ -16,17 +16,15 @@ export async function POST(req: Request) {
       orderBy: { createdAt: 'desc' },
     });
     if (!subscription) {
+      // Provisional row in PENDING state: it only becomes ACTIVE after a
+      // verified payment (sandbox confirm or PSP webhook).
       subscription = await db.subscription.create({
-        data: { userId: user.id, plan: body.plan, status: 'ACTIVE', provider: 'SANDBOX' },
-      });
-    } else if (subscription.plan !== body.plan) {
-      // Align the pending subscription with the intended purchase plan; the
-      // verified webhook is still the ONLY writer of server-side entitlements.
-      subscription = await db.subscription.update({
-        where: { id: subscription.id },
-        data: { plan: body.plan },
+        data: { userId: user.id, plan: body.plan, status: 'PENDING', provider: 'SANDBOX' },
       });
     }
+    // NOTE: an existing ACTIVE subscription's plan is intentionally NOT
+    // pre-mutated at checkout. The purchased plan is derived from the payment
+    // amount at confirmation time (risk R-01 remediation).
     const idempotencyKey = `sbx_${randomBytes(16).toString('hex')}`;
     const payment = await db.payment.create({
       data: {
