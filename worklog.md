@@ -315,3 +315,31 @@ Work Log:
 Stage Summary:
 - Verdict: strong working foundation (auth, dating engine, safety-first AI, 3D studio, 20 localized views) with 2 CRITICAL security debts (payment self-minting, demo->admin escalation), zero tests/CI, and broken brand typography.
 - Phase 1 entry point agreed: Wave 0 hotfixes then brand/landing waves. Awaiting user ratification of ADRs and Wave 0 scope.
+
+---
+Task ID: wave0-phase1
+Agent: main (Z.ai Code) — reengineering Wave 0 + Phase 1
+Task: User approved "continue and complete" — execute Wave 0 integrity hotfixes + Phase 1 brand identity
+
+Work Log (Wave 0 — all verified by execution):
+- 0.1 demo/route.ts: removed ADMIN fallback; role integrity guard; NIVA_DISABLE_DEMO env hard-gate.
+- 0.2 payments: DELETED signature-minting GET from subscription/cancel; new server-orchestrated POST /api/subscription/confirm (sandbox-only via PAYMENTS_MODE, owner-scoped, PENDING-only, idempotent); webhook secret env-only fail-closed (NIVA_PAYMENT_WEBHOOK_SECRET) + rate limit; checkout no longer pre-mutates ACTIVE subscription plan (plan derived from payment amount); client confirmSandbox rewired. Browser-verified: checkout → confirm 200 → plan PREMIUM_MONTHLY, aiPerDay -1.
+- 0.3 db.ts: query logging dev-only (prod silent unless NIVA_LOG_DB_QUERY=true).
+- 0.4 configs: removed ignoreBuildErrors, reactStrictMode=true, removed noImplicitAny:false, tsconfig excludes examples/skills/mini-services. NOTE: stale tsbuildinfo had masked errors — cleared; found+fixed payment.amount field bug (TS2339) and fetus-model.tsx:323 malformed effect.
+- 0.5/1.4 fonts: self-hosted Vazirmatn + Inter variable woff2 (OFL, jsDelivr npm), @font-face in globals.css (fixed format('woff2') — Turbopack/lightningcss strips format('woff2-variations')), Google Fonts CDN removed from layout → lint 0 warnings. Browser-verified: body font Vazirmatn, fonts loaded.
+- 0.6 transactions: pregnancy create+dating, appointment+reminder+notification, payment webhook/confirm/cancel chains now db.$transaction.
+- 0.7 AI quota: atomic — count-check + user/assistant inserts inside ONE transaction post-LLM; EMERGENCY answers always persist; pre-check kept as advisory. Verified: chat reply 747 chars, 4 citations, NORMAL.
+- 0.8 consent: withdraw:true stamps withdrawnAt; normal updates never reset it (verified via API); data export unpaywalled for all plans (HTTP 200).
+- 0.9 GPU: vessel TubeGeometry disposal on rebuild, glowTex disposal (model + particles), removed dead onFrameParams prop + call; fixed malformed membraneMat effect deps.
+- 0.10 a11y: journal/records delete buttons 28px hover-only → 44px always-visible; community report 44px + localized aria; tour dots role=tablist → group; added i18n keys (community.report/flagged, tour.progress, status.MODERATED) fa+en symmetric; fixed dead ternary in community view.
+
+Work Log (Phase 1 — brand):
+- Palette "Calm Bloom": lavender/ivory/coral/sage oklch tokens, light+dark; ALL 12 text pairs WCAG-measured ≥4.5:1 (script in shell history: 4.64–14.79:1). Verified in browser: --primary lavender, dark bg violet-charcoal.
+- Logo system "Cradle Bloom": original SVG monogram (squircle gradient + cradle arc + seed dot) + horizontal lockup (NIVA + نیوا); app icons 192/512/1024 rendered from the same vector via sharp; favicon-32; manifest corrected (true sizes, maskable, theme #7a6bb5) — R-18 closed.
+- docs/brand/01-brand-strategy.md: positioning, promise (EN/FA), archetype, naming, messaging framework, tone tables, imagery rules, logo construction, palette w/ measured contrast table, typography (self-hosted OFL), motion, iconography, export specs.
+
+Stage Summary:
+- Wave 0: 10/10 items implemented with execution evidence (browser + API + negative IDOR test: cancel non-owned → 404).
+- Phase 1: brand identity implemented and verified (fonts loaded, tokens applied, icons rendered).
+- Known residuals: R3F+React19 StrictMode dev-only unmount warning (upstream, studio verified functional); THREE.Clock/PCFSoftShadowMap deprecation warnings from drei internals; tsc 0 errors, eslint 0 errors 0 warnings.
+- Next: Phase 2 premium landing rebuild.
