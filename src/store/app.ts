@@ -3,6 +3,7 @@
 import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import { translate, type Locale, isRtl } from '@/lib/i18n';
+import { clearToken } from '@/lib/auth-token';
 
 export type View =
   | 'landing' | 'auth' | 'onboarding' | 'dashboard' | 'timeline' | 'studio'
@@ -110,8 +111,12 @@ export const useApp = create<AppState>()(
         }
       },
       logout: async () => {
-        await fetch('/api/auth/logout', { method: 'POST' });
-        set({ user: null, pregnancy: null, plan: 'FREE', features: null, view: 'landing' });
+        try {
+          await fetch('/api/auth/logout', { method: 'POST' });
+        } finally {
+          clearToken();
+          set({ user: null, pregnancy: null, plan: 'FREE', features: null, view: 'landing' });
+        }
       },
     }),
     {

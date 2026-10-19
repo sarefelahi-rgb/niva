@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
+import { AuthBridge } from "@/components/shell/auth-bridge";
 
 export const metadata: Metadata = {
   title: "NIVA — Pregnancy Intelligence Platform",
@@ -39,6 +40,7 @@ export default function RootLayout({
       </head>
       <body className="antialiased bg-background text-foreground">
         <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+          <AuthBridge />
           {children}
           <Toaster />
         </ThemeProvider>

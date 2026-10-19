@@ -22,9 +22,9 @@ export async function POST(req: Request) {
     if (!user || !verifyPassword(body.password, user.passwordHash)) {
       return apiError(401, 'BAD_CREDENTIALS', 'Email or password is incorrect');
     }
-    await createSession(user.id);
+    const session = await createSession(user.id);
     await logAudit(user.id, 'USER_LOGIN', 'User', user.id, null, req.headers.get('x-forwarded-for'));
-    return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale });
+    return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale, token: session.token });
   } catch (err) {
     if (err instanceof z.ZodError) return apiError(400, 'VALIDATION', 'Invalid payload');
     console.error('[auth/login]', err);

@@ -35,9 +35,9 @@ export async function POST(req: Request) {
         entitlement: { create: { plan: 'FREE', features: JSON.stringify(PLAN_FEATURES.FREE) } },
       },
     });
-    await createSession(user.id);
+    const session = await createSession(user.id);
     await logAudit(user.id, 'USER_REGISTER', 'User', user.id, { emailHash: hashEmail(email) }, req.headers.get('x-forwarded-for'));
-    return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale }, 201);
+    return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale, token: session.token }, 201);
   } catch (err) {
     if (err instanceof z.ZodError) {
       return apiError(400, 'VALIDATION', err.issues.map((i) => `${i.path.join('.')}: ${i.message}`).join('; '));

@@ -1,13 +1,18 @@
 import { createHash, randomBytes, scryptSync, timingSafeEqual } from 'crypto';
-import { cookies } from 'next/headers';
+import { cookies, headers } from 'next/headers';
 import { db } from '@/lib/db';
 import type { User } from '@prisma/client';
 
 /**
  * NIVA session authentication.
  * - Passwords: scrypt (N=16384) with per-user salt, constant-time comparison.
- * - Sessions: 256-bit random tokens, HttpOnly + SameSite=Lax cookies, 30-day expiry,
+ * - Sessions: 256-bit random tokens, HttpOnly cookies, 30-day expiry,
  *   rotation on login, server-side revocation (logout / logout-all).
+ * - Embedding support: over HTTPS (x-forwarded-proto) cookies are issued as
+ *   SameSite=None; Secure so the session also works inside cross-origin
+ *   embeds (e.g. preview panels). Clients that block third-party cookies can
+ *   authenticate via `Authorization: Bearer <token>` which src/middleware.ts
+ *   bridges into the session cookie for every /api route.
  * Production hardening path (MFA, refresh-token rotation, device binding): docs/07-security-privacy.md
  */
 
@@ -38,10 +43,13 @@ export async function createSession(userId: string): Promise<{ token: string; ex
   const expiresAt = new Date(Date.now() + SESSION_DAYS * 86_400_000);
   await db.session.create({ data: { token, userId, expiresAt } });
   const jar = await cookies();
+  const h = await headers();
+  const isHttps = (h.get('x-forwarded-proto') ?? 'http').split(',')[0].trim() === 'https';
   jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
-    sameSite: 'lax',
-    secure: process.env.NODE_ENV === 'production',
+    // Cross-origin embeds (preview panels) need SameSite=None; Secure over HTTPS.
+    sameSite: isHttps ? 'none' : 'lax',
+    secure: isHttps,
     path: '/',
     expires: expiresAt,
   });

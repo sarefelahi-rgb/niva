@@ -9,6 +9,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Loader2, ShieldCheck } from 'lucide-react';
+import { setToken } from '@/lib/auth-token';
 
 type Mode = 'login' | 'register';
 
@@ -37,13 +38,12 @@ export function AuthView() {
         setError(data?.error?.message ?? t('common.error'));
         return;
       }
+      // Persist the session token so auth also works in embedding contexts
+      // where cookies are unavailable (e.g. preview-panel iframes).
+      if (data.token) setToken(data.token);
       await refresh();
-      setView(data.user ? 'dashboard' : 'onboarding');
-      // New users need onboarding
-      if (mode === 'register') {
-        const me = await fetch('/api/auth/me').then((r) => r.json());
-        setView(me.pregnancy ? 'dashboard' : 'onboarding');
-      }
+      // Login lands on the dashboard; newly registered users go to onboarding.
+      setView(mode === 'login' ? 'dashboard' : 'onboarding');
     } catch {
       setError(t('common.error'));
     } finally {
@@ -56,12 +56,16 @@ export function AuthView() {
     setBusy(true);
     try {
       const res = await fetch('/api/auth/demo', { method: 'POST' });
+      const data = await res.json().catch(() => null);
       if (!res.ok) {
-        setError(t('common.error'));
+        setError(data?.error?.message ?? t('common.error'));
         return;
       }
+      if (data?.token) setToken(data.token);
       await refresh();
       setView('dashboard');
+    } catch {
+      setError(t('common.error'));
     } finally {
       setBusy(false);
     }

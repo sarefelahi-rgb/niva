@@ -20,7 +20,7 @@ export async function POST(req: Request) {
   if (user.email === 'demo@niva.health' && !verifyPassword('NivaDemo!2025', user.passwordHash)) {
     return apiError(500, 'INTERNAL', 'Demo account integrity failure');
   }
-  await createSession(user.id);
+  const session = await createSession(user.id);
   await logAudit(user.id, 'DEMO_LOGIN', 'User', user.id, null, req.headers.get('x-forwarded-for'));
-  return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale });
+  return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale, token: session.token });
 }
