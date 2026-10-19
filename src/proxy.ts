@@ -1,14 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 /**
- * Bridges `Authorization: Bearer <session-token>` into the session cookie for
- * every /api route. This allows authenticated calls from contexts where the
+ * Next.js 16 proxy (formerly middleware): bridges
+ * `Authorization: Bearer <session-token>` into the session cookie for every
+ * /api route. This allows authenticated calls from contexts where the
  * HttpOnly session cookie is unavailable — e.g. cross-origin preview-panel
  * iframes that block third-party cookies. Must stay in sync with
- * SESSION_COOKIE ('niva_session') in src/lib/auth.ts (kept literal here so the
- * edge middleware does not pull in the Prisma client).
+ * SESSION_COOKIE ('niva_session') in src/lib/auth.ts (kept literal here so
+ * the edge proxy does not pull in the Prisma client).
  */
-export function middleware(req: NextRequest) {
+export default function proxy(req: NextRequest) {
   const auth = req.headers.get('authorization');
   if (auth && auth.toLowerCase().startsWith('bearer ')) {
     const token = auth.slice(7).trim();
