@@ -64,17 +64,96 @@ export function paramsForWeek(week: number): StageParams {
   return STAGE_KEYFRAMES[STAGE_KEYFRAMES.length - 1].p;
 }
 
-/** Anatomical hotspot anchors in model space (recomputed from params). */
+// ---------------------------------------------------------------------------
+// Shared sculpt math — anatomical landmarks in normalized "sculpt space"
+// (face toward +Z, spinal curl bends the head forward). The week-dependent
+// display size is applied by scaling the whole sculpted body.
+// ---------------------------------------------------------------------------
+
+export interface BodyMetrics {
+  torsoLen: number;
+  torsoR: number;
+  headR: number;
+  headC: [number, number, number];
+  neck: [number, number, number];
+  chest: [number, number, number];
+  abdomen: [number, number, number];
+  rump: [number, number, number];
+  cordInsert: [number, number, number];
+}
+
+const qBez = (a: number, b: number, c: number, t: number) => {
+  const u = 1 - t;
+  return u * u * a + 2 * u * t * b + t * t * c;
+};
+
+/** Head/body proportions: massive cranium early, ~1/3 body length at term. */
+export function headRadiusFor(p: StageParams): number {
+  return p.headRatio * 1.22 + 0.06;
+}
+
+/** Landmarks shared by the 3D sculptor, eyes, hotspots and the cord. */
+export function bodyMetrics(p: StageParams): BodyMetrics {
+  const L = 1.12; // chin–rump length (normalized)
+  const R = 0.3;  // belly radius (normalized)
+  const c = p.curl;
+  const headR = headRadiusFor(p);
+
+  // Spine: quadratic bezier rump → neck, control bows the back posteriorly.
+  const p0y = -L * 0.52, p0z = 0;
+  const p1y = 0, p1z = -L * 0.45 * Math.sin(c);
+  const p2y = L * 0.5 * Math.cos(c * 0.75), p2z = L * 0.5 * Math.sin(c);
+  const at = (t: number): [number, number, number] => [0, qBez(p0y, p1y, p2y, t), qBez(p0z, p1z, p2z, t)];
+
+  const rump = at(0);
+  const abdomen = at(0.42);
+  const chest = at(0.66);
+  const neck = at(1);
+
+  // Head folds forward around the neck as curl increases (fetal tuck).
+  const th = c * 0.85;
+  const headC: [number, number, number] = [
+    0,
+    neck[1] + Math.cos(th) * headR * 0.72,
+    neck[2] + Math.sin(th) * headR * 0.72,
+  ];
+  const cordInsert: [number, number, number] = [0, abdomen[1] - 0.02, abdomen[2] + R * 0.92];
+
+  return { torsoLen: L, torsoR: R, headR, headC, neck, chest, abdomen, rump, cordInsert };
+}
+
+/** Point along the spinal bezier (t in 0..1, rump→neck), sculpt space. */
+export function spinePoint(p: StageParams, t: number): [number, number, number] {
+  const L = 1.12;
+  const c = p.curl;
+  const p0y = -L * 0.52, p0z = 0;
+  const p1y = 0, p1z = -L * 0.45 * Math.sin(c);
+  const p2y = L * 0.5 * Math.cos(c * 0.75), p2z = L * 0.5 * Math.sin(c);
+  return [0, qBez(p0y, p1y, p2y, t), qBez(p0z, p1z, p2z, t)];
+}
+
+/** Sculpt→world display factor: snug inside the uterine cavity at every stage. */
+export function sculptScale(p: StageParams): number {
+  const t = (p.scale - 0.06) / 0.94;
+  return 0.2 + 1.12 * Math.min(1, Math.max(0, t));
+}
+
+/** Global vertical placement of the fetus inside the uterine cavity. */
+export const SCULPT_Y_OFFSET = -0.07;
+
+/** Anatomical hotspot anchors in model/world space (recomputed from params). */
 export function hotspotPositions(p: StageParams): Record<string, [number, number, number]> {
-  const torsoLen = p.scale * 1.05;
-  const headR = p.headRatio * torsoLen;
-  const headY = torsoLen * 0.62 * Math.cos(p.curl * 0.45) + headR * 0.75;
-  const headZ = torsoLen * 0.62 * Math.sin(p.curl * 0.45);
-  const torsoY = 0;
+  const m = bodyMetrics(p);
+  const k = sculptScale(p);
+  const oy = SCULPT_Y_OFFSET;
   return {
-    brain: [headZ * 0.4, headY + headR * 0.45, headR * 0.35],
-    heart: [0, torsoY + torsoLen * 0.18, torsoLen * 0.22],
-    cord: [0, torsoY - torsoLen * 0.28, torsoLen * 0.5],
+    brain: [
+      m.headC[0] * k,
+      m.headC[1] * k + m.headR * k * 0.4 + oy,
+      m.headC[2] * k + m.headR * k * 0.25,
+    ],
+    heart: [0, m.chest[1] * k + oy, m.chest[2] * k + m.torsoR * k * 0.55],
+    cord: [m.cordInsert[0] * k, m.cordInsert[1] * k + oy, m.cordInsert[2] * k],
     placenta: [0, p.uterus * 0.55, -p.uterus * 0.62],
   };
 }

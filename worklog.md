@@ -194,3 +194,23 @@ Work Log:
 
 Stage Summary:
 - NIVA sandbox build complete and browser-verified; honest handoff delivered.
+
+---
+Task ID: 11
+Agent: main (Z.ai Code)
+Task: "گرافیک را طبیعی سه بعدی کن" — natural organic 3D graphics for the fetal studio
+
+Work Log:
+- Replaced the primitive capsule/sphere fetus with a fused METABALL body (three.js MarchingCubes, ~46 anatomical field balls: spine bezier, cranium/face cluster, limb chains with fusion midpoint balls, embryonic tail, umbilical ring). Body re-polygonizes only when stage params change (dirty flag) or on high-tier gentle drift (18 Hz throttle); quality tiers res 26/36/48.
+- Fixed a critical transform bug found via screenshot+numeric debugging: MC grid spans sculpt/EXT, so object scale must be k×EXT — previously the body rendered 1.78× too small and eyes/glow anchors floated off-body.
+- Fixed detached limb fragments at late stages by inserting midpoint balls per limb segment (metaball fusion spacing guarantee).
+- Skin: MeshPhysicalMaterial with vertex-color palette (vascular red-pink early → vernix soft late, dorsal/belly/extremity variation, per-ball asymmetry hash), sheen + clearcoat driven per week (wet→dry maturation).
+- Head: cranium/occiput/crown/forehead/brow/cheek/jaw/chin/nose/ear ball cluster; eyes are local-space groups (closed lids = skin seam → dark irises from ~week 26 with highlight dot; protrusion factor tied to openness); sculpted ears.
+- Umbilical cord rebuilt as helical (Wharton's-jelly coil) tapered tube with quantized-key imperative geometry rebuild; placenta as organic lathe with vertex-color vascular gradient, edge wobble, and 7 chorionic vessel tubes; uterus as custom fresnel-rim shader membrane.
+- Scene (new scene.tsx): photographic 3-point lighting with soft shadows + local Environment lightformers (no CDN), amniotic particles (reduced-motion aware), CSS vignette; heartbeat glow sprite (educational pulse, reduced-motion aware).
+- UI: render-quality selector (Light/Standard/Rich, bilingual), camera fov 40 + zoom 5.0, alpha canvas over niva-grad.
+- Browser E2E (agent-browser): weeks 4/6/12/20/32/40 verified visually (organic form, fused limbs, cord, vessels, membrane); eyes verified via depthTest x-ray then protrusion fix; low tier + mobile 390px verified; found dev-server-down incident mid-session (restarted detached, rate-limit waits) and two earlier crashes were Fast-Refresh/Canvas-unmount dev-mode artifacts (previously documented).
+- lint: 0 errors (1 pre-existing font warning); tsc clean; dev.log 0 errors.
+
+Stage Summary:
+- Studio graphics upgraded from schematic primitives to a natural organic metaball fetus with physically-based skin, studio lighting, helical cord, vascular placenta and fresnel membrane. Scientific-integrity labeling unchanged (educational demonstration asset). New exports in params.ts: bodyMetrics, spinePoint, sculptScale, SCULPT_Y_OFFSET, headRadiusFor.

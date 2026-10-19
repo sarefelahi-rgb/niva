@@ -9,7 +9,8 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { STAGE_WEEKS, paramsForWeek } from './params';
 import { FetusModel } from './fetus-model';
-import { Box, Play, Pause, RotateCcw, ZoomIn, ZoomOut, ScanEye, BookOpenText, Layers } from 'lucide-react';
+import { StudioLighting, AmnioticParticles } from './scene';
+import { Box, Play, Pause, RotateCcw, ZoomIn, ZoomOut, ScanEye, BookOpenText, Layers, Sparkles } from 'lucide-react';
 import type * as THREE from 'three';
 
 interface AssetInfo {
@@ -29,7 +30,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   const [guided, setGuided] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
   const [arSupported, setArSupported] = useState(false);
-  const [zoom, setZoom] = useState(4.2);
+  const [zoom, setZoom] = useState(5.0);
   const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium');
   const glRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<{ fov: number; updateProjectionMatrix(): void } | null>(null);
@@ -88,8 +89,8 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
     }
   };
 
-  const zoomIn = () => { zoomBy(-0.6); setCameraFov(40); };
-  const zoomOut = () => { zoomBy(0.6); setCameraFov(50); };
+  const zoomIn = () => { zoomBy(-0.6); setCameraFov(36); };
+  const zoomOut = () => { zoomBy(0.6); setCameraFov(46); };
 
   const layerBtn = (on: boolean, set: (v: boolean) => void, label: string, icon: React.ReactNode, locked = false) => (
     <button
@@ -109,8 +110,10 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
       {/* 3D canvas */}
       <div className="relative rounded-2xl border niva-grad overflow-hidden bg-card/40">
         <Canvas
-          dpr={[1, quality === 'low' ? 1.25 : 1.75]}
-          camera={{ position: [0, 0.4, zoom], fov: 45 }}
+          dpr={[1, quality === 'low' ? 1.25 : quality === 'medium' ? 1.6 : 2]}
+          shadows={quality !== 'low'}
+          gl={{ antialias: true, alpha: true }}
+          camera={{ position: [0.55, 0.32, zoom], fov: 40 }}
           onCreated={({ gl, camera }) => {
             glRef.current = gl;
             cameraRef.current = camera as unknown as { fov: number; updateProjectionMatrix(): void };
@@ -118,10 +121,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           aria-label={t('studio.title')}
           role="application"
         >
-          <color attach="background" args={['#f7ede6']} />
-          <hemisphereLight intensity={0.85} groundColor="#e8d5c8" color="#fff4ec" />
-          <directionalLight position={[3, 4, 3]} intensity={1.1} />
-          <directionalLight position={[-3, -2, -2]} intensity={0.25} />
+          <StudioLighting quality={quality} />
           <Suspense fallback={null}>
             <FetusModel
               week={week}
@@ -134,14 +134,26 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
               labelsLang={locale === 'fa' ? 'fa' : 'en'}
             />
           </Suspense>
+          <AmnioticParticles
+            count={quality === 'low' ? 36 : quality === 'medium' ? 90 : 150}
+            reduceMotion={reduceMotion}
+          />
           <OrbitControls
             enablePan={false}
             minDistance={1.6}
-            maxDistance={8}
+            maxDistance={9}
+            target={[0, 0.05, 0]}
             autoRotate={false}
             makeDefault
           />
         </Canvas>
+
+        {/* Photographic vignette */}
+        <div
+          aria-hidden
+          className="pointer-events-none absolute inset-0"
+          style={{ background: 'radial-gradient(ellipse 75% 70% at 50% 42%, transparent 55%, rgba(94,44,52,0.16) 100%)' }}
+        />
 
         {/* Viewport chrome */}
         <div className="absolute top-3 start-3 flex flex-col gap-1.5">
@@ -159,7 +171,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={zoomOut} aria-label={t('studio.zoomOut')}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={() => { setZoom(4.2); setCameraFov(45); }} aria-label={t('studio.reset')}>
+          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={() => { setZoom(5.0); setCameraFov(40); }} aria-label={t('studio.reset')}>
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
@@ -214,6 +226,23 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
             ) : (
               <span className="text-[10px] text-muted-foreground self-center">{t('studio.arUnsupported')}</span>
             )}
+          </div>
+          <div className="border-t pt-3 space-y-1.5">
+            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="h-3 w-3" />{t('studio.quality')}
+            </div>
+            <div className="grid grid-cols-3 gap-1" role="group" aria-label={t('studio.quality')}>
+              {([['low', t('studio.qLow')], ['medium', t('studio.qMed')], ['high', t('studio.qHigh')]] as const).map(([q, label]) => (
+                <button
+                  key={q}
+                  onClick={() => setQuality(q)}
+                  aria-pressed={quality === q}
+                  className={`h-8 rounded-md text-[10px] transition-colors min-h-8 ${quality === q ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-primary/15'}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
