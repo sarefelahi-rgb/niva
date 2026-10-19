@@ -52,3 +52,9 @@ prompt
 server.log
 # Skills directory
 /skills/
+# runtime database (recreate with: bun run db:push && bunx prisma db exec --file prisma/seed.ts)
+db/*.db
+db/*.db-journal
+
+# runtime state
+*.pid
