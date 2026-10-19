@@ -214,3 +214,22 @@ Work Log:
 
 Stage Summary:
 - Studio graphics upgraded from schematic primitives to a natural organic metaball fetus with physically-based skin, studio lighting, helical cord, vascular placenta and fresnel membrane. Scientific-integrity labeling unchanged (educational demonstration asset). New exports in params.ts: bodyMetrics, spinePoint, sculptScale, SCULPT_Y_OFFSET, headRadiusFor.
+
+---
+Task ID: hotfix-login-1
+Agent: main (Z.ai Code)
+Task: User reported "cannot log in — the button doesn't work". Diagnose and fix.
+
+Work Log:
+- Verified API works via curl (POST /api/auth/login 200) -> issue was client/embedding side.
+- Reproduced full login flow with agent-browser: succeeded locally, but identified two real bugs.
+- Bug 1: auth-view.tsx checked `data.user` but login/register/demo APIs return the user object directly -> successful logins always routed to onboarding instead of dashboard.
+- Bug 2: session cookie SameSite=Lax is blocked inside the cross-origin preview-panel iframe -> /api/auth/me returned null right after login and the shell bounced back to landing ("button does nothing").
+- Fix: hybrid session auth. lib/auth.ts issues SameSite=None; Secure over HTTPS (x-forwarded-proto) and Lax on plain HTTP. Auth APIs now return the session token. New AuthBridge client component patches fetch to attach Authorization: Bearer on same-origin /api calls. Auth (proxy) layer bridges the bearer token into the session cookie for every /api route so all endpoints work unchanged.
+- Migrated deprecated middleware.ts to Next.js 16 proxy.ts convention after a deprecation warning appeared in dev.log.
+- Fixed routing: login/demo -> dashboard, register -> onboarding. Logout clears the stored token.
+- Verified end-to-end with agent-browser: fresh login -> dashboard; cookies cleared -> session restored via Bearer on reload; logout works. Lint clean (1 pre-existing warning). Pushed to github.com/sarefelahi-rgb/niva (commits da951b3, 1eee2b2).
+
+Stage Summary:
+- Login now works in normal tabs AND inside the preview-panel iframe (no-cookie Bearer flow verified).
+- Key artifacts: src/proxy.ts (bearer->cookie bridge), src/lib/auth-token.ts, src/components/shell/auth-bridge.tsx, updated lib/auth.ts + auth routes + auth-view + store.
