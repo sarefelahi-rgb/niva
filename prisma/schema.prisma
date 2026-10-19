@@ -415,6 +415,20 @@ model AuditEvent {
   @@index([actorId])
 }
 
+/// Anonymous, consent-gated landing analytics (backlog 1.8). Aggregate daily
+/// counters only — no user id, no IP, no user agent, no cookies. Rows are
+/// written exclusively by the public beacon endpoint after explicit consent.
+model LandingMetric {
+  id      String   @id @default(cuid())
+  day     DateTime
+  name    String
+  variant String   @default("A")
+  count   Int      @default(1)
+
+  @@unique([day, name, variant])
+  @@index([day])
+}
+
 model Notification {
   id        String    @id @default(cuid())
   userId    String

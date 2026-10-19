@@ -343,3 +343,25 @@ Stage Summary:
 - Phase 1: brand identity implemented and verified (fonts loaded, tokens applied, icons rendered).
 - Known residuals: R3F+React19 StrictMode dev-only unmount warning (upstream, studio verified functional); THREE.Clock/PCFSoftShadowMap deprecation warnings from drei internals; tsc 0 errors, eslint 0 errors 0 warnings.
 - Next: Phase 2 premium landing rebuild.
+
+---
+Task ID: phase2-landing
+Agent: main (Z.ai Code)
+Task: Phase 2 — premium landing rebuild with measurable CWV (backlog 1.6–1.8)
+
+Work Log:
+- Rebuilt landing-view.tsx: sticky glass header w/ logo lockup + anchor nav (6 sections), hero (kicker, review badge, H1=LCP, sized img fetchPriority=high), stats strip (12/24/40+), sticky footer w/ mt-auto.
+- New src/components/landing/: hero-bloom.tsx (lightweight R3F ambient scene — low-poly lavender core + coral/sage satellites, low-power GL, prefers-reduced-motion single frame, NOT the fetal model), sections.tsx (Journey 3 trimesters / Science+methodology / Assistant boundaries can-cant / 9-module features / transparent pricing / trust / FAQ accordion).
+- Code splitting: sections + hero-bloom via next/dynamic (ssr:false for bloom, idle-gated variant B); skeleton fallback.
+- Single source pricing: new src/lib/plans.ts (client-safe PLAN_FEATURES + PLAN_CATALOG); entitlements.ts re-exports — landing shows real catalog values (2.49M/24.9M/3.99M Toman), dataExport corrected to always-free per Wave 0 0.8.
+- i18n: +106 keys fa+en (468/468 symmetric) — journey, science, boundaries, features, pricing rows, trust, FAQ×6, consent bar, footer.
+- SEO: metadataBase+canonical+hreflang fa/en/x-default, OpenGraph; /?lang= deep links read at boot (real working alternates); app/sitemap.ts w/ language alternates; robots.txt Sitemap line; JSON-LD Organization+SoftwareApplication (static) + FAQPage (mirrors visible accordion).
+- Analytics 1.8: Prisma LandingMetric (day/name/variant/count — NO user id/IP/UA), POST /api/analytics/landing (zod enum whitelist, rate-limited, ZodError→400 per withUser convention), src/lib/landing-analytics.ts (localStorage consent + 50/50 sticky variant, decline records NOTHING), consent bar on landing.
+- A/B: variant B swaps hero art for lazy 3D bloom after idle; assignment only after consent.
+
+Stage Summary:
+- CWV measured (docs/audit/05-landing-cwv.md): LCP 700ms ✓ (≤2500), CLS 0.0128 ✓ (≤0.1), INP ~104ms ✓ (≤200). DOMContentLoaded 318ms, doc 96KB.
+- E2E verified: fa RTL + en LTR + ?lang deep links; consent accept/decline flow; beacons in DB (landing_view/cta_demo/ab_consent_granted w/ variant); negative tests 400/CSRF; FAQ accordion; pricing values; footer flush; mobile 390px.
+- Fixed en route: analytics route file initially missing (first Write failed on absent dir) — caught by 404 in browser test, rewritten + error-convention aligned.
+- tsc 0 / lint 0 / i18n symmetric 468/468. Dev-overlay "1 Issue" = documented upstream THREE.Clock deprecation (drei), dev-only.
+- Next: Phase 3 (onboarding) + Phase 4 (dashboard v2) per Wave 2.

@@ -88,15 +88,18 @@ function PregnancyGateBanner() {
 }
 
 export default function Home() {
-  const { refresh, view, user, pregnancy, openTour, tourDone } = useApp();
+  const { refresh, view, user, pregnancy, openTour, tourDone, setLocale } = useApp();
 
   useEffect(() => {
+    // Deep-linkable locale: /?lang=fa|en (matches the hreflang alternates).
+    const lang = new URLSearchParams(window.location.search).get('lang');
+    if (lang === 'fa' || lang === 'en') setLocale(lang);
     refresh();
     // PWA service worker registration (network-first, shell-cache fallback)
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('/sw.js').catch(() => undefined);
     }
-     
+
   }, []);
 
   // Auto-open the tour once, after first successful load into the app.

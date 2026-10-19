@@ -7,76 +7,16 @@
 
 import { db } from '@/lib/db';
 import type { Prisma } from '@prisma/client';
+import { PLAN_FEATURES, PLAN_CATALOG } from './plans';
 
-export type Plan = 'FREE' | 'PREMIUM_MONTHLY' | 'PREMIUM_ANNUAL' | 'FAMILY';
+// Single shared source for the plan matrix & catalog (client-safe, no db import).
+// Re-exported here so every server API keeps its existing import path.
+export { PLAN_FEATURES, PLAN_CATALOG };
+export type { Plan, PlanFeatures, PlanPrice } from './plans';
+import type { Plan, PlanFeatures } from './plans';
 
 /** Any Prisma client (root db or interactive-transaction client). */
 export type DbClient = Prisma.TransactionClient | typeof db;
-
-export interface PlanFeatures {
-  aiMessagesPerDay: number; // -1 = unlimited
-  advanced3DLayers: boolean; // placenta/cord/uterus + all gestational stages
-  guidedMode: boolean;
-  familyAccess: boolean;
-  dataExport: boolean;
-  communityPosting: boolean;
-  journalExport: boolean;
-}
-
-export const PLAN_FEATURES: Record<Plan, PlanFeatures> = {
-  FREE: {
-    aiMessagesPerDay: 5,
-    advanced3DLayers: false,
-    guidedMode: false,
-    familyAccess: false,
-    dataExport: false,
-    communityPosting: true,
-    journalExport: false,
-  },
-  PREMIUM_MONTHLY: {
-    aiMessagesPerDay: -1,
-    advanced3DLayers: true,
-    guidedMode: true,
-    familyAccess: true,
-    dataExport: true,
-    communityPosting: true,
-    journalExport: true,
-  },
-  PREMIUM_ANNUAL: {
-    aiMessagesPerDay: -1,
-    advanced3DLayers: true,
-    guidedMode: true,
-    familyAccess: true,
-    dataExport: true,
-    communityPosting: true,
-    journalExport: true,
-  },
-  FAMILY: {
-    aiMessagesPerDay: -1,
-    advanced3DLayers: true,
-    guidedMode: true,
-    familyAccess: true,
-    dataExport: true,
-    communityPosting: true,
-    journalExport: true,
-  },
-};
-
-export interface PlanPrice {
-  plan: Plan;
-  amountMinor: number;
-  currency: 'IRR' | 'USD';
-  periodDays: number;
-  labelEn: string;
-  labelFa: string;
-}
-
-// Sandbox catalog. Regional pricing strategy documented in docs/10-backlog-risk.md.
-export const PLAN_CATALOG: PlanPrice[] = [
-  { plan: 'PREMIUM_MONTHLY', amountMinor: 2_490_000_0, currency: 'IRR', periodDays: 30, labelEn: 'Premium Monthly', labelFa: 'پریمیوم ماهانه' },
-  { plan: 'PREMIUM_ANNUAL', amountMinor: 24_900_000_0, currency: 'IRR', periodDays: 365, labelEn: 'Premium Annual', labelFa: 'پریمیوم سالانه' },
-  { plan: 'FAMILY', amountMinor: 3_990_000_0, currency: 'IRR', periodDays: 30, labelEn: 'Family Monthly', labelFa: 'خانواده ماهانه' },
-];
 
 export async function getEntitlementFeatures(userId: string): Promise<{ plan: Plan; features: PlanFeatures; expired: boolean }> {
   const ent = await db.entitlement.findUnique({ where: { userId } });
