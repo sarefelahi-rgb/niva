@@ -1,0 +1,691 @@
+     1→'use client';
+     2→
+     3→import { useEffect, useMemo, useRef } from 'react';
+     4→import { useFrame } from '@react-three/fiber';
+     5→import { Html } from '@react-three/drei';
+     6→import * as THREE from 'three';
+     7→import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
+     8→import {
+     9→  paramsForWeek,
+    10→  hotspotPositions,
+    11→  bodyMetrics,
+    12→  spinePoint,
+    13→  sculptScale,
+    14→  SCULPT_Y_OFFSET,
+    15→  type StageParams,
+    16→} from './params';
+    17→
+    18→/**
+    19→ * Organic parametric fetus + placenta + umbilical cord + uterus.
+    20→ *
+    21→ * The body is a fused METABALL surface (marching cubes) sculpted from ~40
+    22→ * anatomical field sources (spine, cranium, face, limbs, tail bud), giving a
+    23→ * smooth, natural, seamless organic form that morphs fluidly between
+    24→ * gestational-stage proportion keyframes. Educational schematic only.
+    25→ */
+    26→
+    27→const EXT = 1.78;            // sculpt space half-extent mapped onto the MC grid
+    28→const ISO = 80;              // marching cubes isolation
+    29→const SUB = 12;              // ball subtract
+    30→const STRENGTH_K = (ISO + SUB) / 4 / (EXT * EXT); // strength for a sculpt-space radius r
+    31→const FUSION = 0.92;         // radius shrink to compensate metaball union bulge
+    32→
+    33→const clamp01 = (v: number) => Math.min(1, Math.max(0, v));
+    34→const smooth = (a: number, b: number, v: number) => {
+    35→  const t = clamp01((v - a) / (b - a));
+    36→  return t * t * (3 - 2 * t);
+    37→};
+    38→const hash = (n: number) => {
+    39→  const s = Math.sin(n * 127.1 + 311.7) * 43758.5453;
+    40→  return s - Math.floor(s);
+    41→};
+    42→
+    43→export interface FetusModelProps {
+    44→  week: number;
+    45→  showFetus: boolean;
+    46→  showPlacenta: boolean;
+    47→  showUterus: boolean;
+    48→  showLabels: boolean;
+    49→  autoRotate: boolean;
+    50→  quality: 'low' | 'medium' | 'high';
+    51→  labelsLang: 'fa' | 'en';
+    52→  onFrameParams?: (p: StageParams) => void;
+    53→}
+    54→
+    55→interface Ball {
+    56→  x: number; y: number; z: number;
+    57→  r: number;
+    58→  c: THREE.Color;
+    59→}
+    60→
+    61→/* ------------------------------------------------------------------ */
+    62→/*  Sculptor — builds the anatomical ball field for the current stage  */
+    63→/* ------------------------------------------------------------------ */
+    64→
+    65→function buildBalls(p: StageParams, week: number, phase: number, detail: boolean, out: Ball[]): number {
+    66→  const m = bodyMetrics(p);
+    67→  const hr = m.headR;
+    68→  const R = m.torsoR;
+    69→  const tW = clamp01((week - 6) / 16);
+    70→  const drift = detail ? 1 : 0;
+    71→  let n = 0;
+    72→
+    73→  // Living palette: vascular translucent red-pink early → soft vernix skin late.
+    74→  const base = new THREE.Color('#d8836e').lerp(new THREE.Color('#eec4af'), tW);
+    75→  const dorsal = base.clone().multiplyScalar(0.88);
+    76→  const belly = base.clone().lerp(new THREE.Color('#ffffff'), 0.14);
+    77→  const rosy = base.clone().lerp(new THREE.Color('#e07f6a'), 0.4);
+    78→  const rosyDeep = base.clone().lerp(new THREE.Color('#d96a58'), 0.55);
+    79→
+    80→  const push = (x: number, y: number, z: number, r: number, c: THREE.Color) => {
+    81→    const b = out[n];
+    82→    if (!b) { out[n] = { x, y, z, r, c }; n++; return; }
+    83→    b.x = x; b.y = y; b.z = z; b.r = r; b.c = c; n++;
+    84→  };
+    85→
+    86→  /* ---- torso along the curled spine ---- */
+    87→  const spineT: Array<[number, number, number]> = [];
+    88→  for (let i = 0; i < 5; i++) {
+    89→    const t = i / 4;
+    90→    const sp = spinePoint(p, t);
+    91→    const d = drift * Math.sin(phase * 0.8 + i * 1.1) * 0.012;
+    92→    spineT.push(sp);
+    93→    const r = [0.95, 1.04, 1.05, 0.93, 0.55][i] * R;
+    94→    const col = i <= 1 ? dorsal : i === 2 ? belly : i === 3 ? base.clone().multiplyScalar(0.95) : base;
+    95→    push(sp[0], sp[1] + d, sp[2] + drift * Math.cos(phase * 0.6 + i) * 0.012, r * FUSION, col);
+    96→  }
+    97→  // Buttocks
+    98→  const bu = spineT[0];
+    99→  push(0.34 * R, bu[1] - 0.04 * R, bu[2] + 0.02, 0.64 * R * FUSION, dorsal);
+   100→  push(-0.34 * R, bu[1] - 0.04 * R, bu[2] + 0.02, 0.64 * R * FUSION, dorsal);
+   101→
+   102→  /* ---- embryonic tail (weeks ≤ ~9) ---- */
+   103→  const tf = clamp01(1 - (week - 7) / 2.5);
+   104→  if (tf > 0.02) {
+   105→    const p1 = spinePoint(p, 0.04);
+   106→    const dir = new THREE.Vector3(0, bu[1] - p1[1], bu[2] - p1[2]).normalize();
+   107→    const t1 = [bu[0] - dir.x * 0.34 * R * tf, bu[1] - dir.y * 0.34 * R * tf, bu[2] - dir.z * 0.34 * R * tf];
+   108→    push(t1[0], t1[1], t1[2], (0.2 + 0.12 * tf) * R * FUSION, rosyDeep);
+   109→    const t2 = [bu[0] - dir.x * 0.58 * R * tf, bu[1] - dir.y * 0.58 * R * tf, bu[2] - dir.z * 0.58 * R * tf];
+   110→    push(t2[0], t2[1], t2[2], 0.12 * R * FUSION * tf + 0.02, rosyDeep);
+   111→  }
+   112→
+   113→  /* ---- head cluster (relative to head center, +Z face, +Y crown) ---- */
+   114→  const hc = m.headC;
+   115→  const hdx = drift * Math.sin(phase * 0.45) * 0.02;
+   116→  const H = (dx: number, dy: number, dz: number) =>
+   117→    [hc[0] + dx * hr + hdx, hc[1] + dy * hr, hc[2] + dz * hr] as const;
+   118→
+   119→  push(...H(0, 0.2, -0.16), 0.9 * hr * 0.95, dorsal);                    // cranium
+   120→  push(...H(0, 0.08, -0.92), 0.58 * hr * FUSION, dorsal);                // occiput
+   121→  push(...H(0, 0.66, -0.3), 0.6 * hr * FUSION, dorsal);                  // crown
+   122→  push(...H(0, 0.6, 0.52), 0.56 * hr * FUSION, base);                    // forehead
+   123→  push(...H(0.32, 0.22, 0.9), 0.2 * hr * FUSION, base);                 // brow R
+   124→  push(...H(-0.32, 0.22, 0.9), 0.2 * hr * FUSION, base);               // brow L
+   125→  push(...H(0.56, -0.3, 0.64), 0.34 * hr * FUSION, base.clone().multiplyScalar(1.04)); // cheek
+   126→  push(...H(-0.56, -0.3, 0.64), 0.34 * hr * FUSION, base.clone().multiplyScalar(1.04));
+   127→  push(...H(0, -0.52, 0.62), 0.5 * hr * (0.75 + 0.25 * tW) * FUSION, base);   // jaw
+   128→  push(...H(0, -0.82, 0.72), 0.3 * hr * (0.7 + 0.3 * tW) * FUSION, base);     // chin
+   129→  push(...H(0, -0.18, 0.88), 0.2 * hr * FUSION, rosy);                        // nose
+   130→  push(...H(0.95, -0.02, -0.02), 0.22 * hr * FUSION, base);                   // ear R
+   131→  push(...H(-0.95, -0.02, -0.02), 0.22 * hr * FUSION, base);                  // ear L
+   132→
+   133→  /* ---- umbilical ring ---- */
+   134→  const ci = m.cordInsert;
+   135→  push(ci[0], ci[1], ci[2] - 0.05, 0.3 * R * FUSION, rosy);
+   136→
+   137→  /* ---- limbs: fused two-segment fetal folds with hands/feet ----
+   138→     Each segment places midpoint balls so consecutive ball spacing stays
+   139→     within the metaball fusion radius (no detached fragments at any stage). */
+   140→  const limb = p.limb;
+   141→  if (limb > 0.02) {
+   142→    const armLen = 0.64 * limb;
+   143→    const legLen = 0.7 * limb;
+   144→    const sh = spinePoint(p, 0.8);
+   145→    const hp = spinePoint(p, 0.06);
+   146→    for (const side of [1, -1]) {
+   147→      const sway = drift * Math.sin(phase * 0.7 + side) * 0.02;
+   148→      // Arm
+   149→      const root: [number, number, number] = [side * 0.52 * R, sh[1] - 0.02 * R, sh[2] + 0.1 * R];
+   150→      const uA = new THREE.Vector3(side * 0.28, -0.8, 0.55).normalize();
+   151→      const elbow: [number, number, number] = [
+   152→        root[0] + uA.x * (0.5 * armLen + 0.05),
+   153→        root[1] + uA.y * (0.5 * armLen + 0.05) + sway,
+   154→        root[2] + uA.z * (0.5 * armLen + 0.05),
+   155→      ];
+   156→      const fA = new THREE.Vector3(-side * 0.5, -0.5, 0.68).normalize();
+   157→      const wrist: [number, number, number] = [
+   158→        elbow[0] + fA.x * (0.44 * armLen + 0.04) + sway,
+   159→        elbow[1] + fA.y * (0.44 * armLen + 0.04),
+   160→        elbow[2] + fA.z * (0.44 * armLen + 0.04) + sway * 0.5,
+   161→      ];
+   162→      const rRoot = 0.46 * R, rElbow = 0.34 * R, rWrist = 0.26 * R;
+   163→      push(root[0], root[1], root[2], rRoot * FUSION, base);
+   164→      push((root[0] + elbow[0]) / 2, (root[1] + elbow[1]) / 2, (root[2] + elbow[2]) / 2, (rRoot + rElbow) * 0.44 * FUSION, base);
+   165→      push(elbow[0], elbow[1], elbow[2], rElbow * FUSION, base);
+   166→      push((elbow[0] + wrist[0]) / 2, (elbow[1] + wrist[1]) / 2, (elbow[2] + wrist[2]) / 2, (rElbow + rWrist) * 0.44 * FUSION, rosy);
+   167→      push(wrist[0], wrist[1], wrist[2], rWrist * FUSION, rosy);
+   168→      const hand: [number, number, number] = [wrist[0] + fA.x * 0.08, wrist[1] + fA.y * 0.08, wrist[2] + fA.z * 0.08];
+   169→      push(hand[0], hand[1], hand[2], 0.29 * R * FUSION, rosy);
+   170→      if (limb > 0.3) {
+   171→        push(hand[0] + side * 0.12 * R, hand[1] - 0.02 * R, hand[2] + 0.02, 0.15 * R * FUSION, rosy); // thumb
+   172→        if (detail && limb > 0.5) {
+   173→          for (let f = 0; f < 3; f++) {
+   174→            const ang = (f - 1) * 0.55;
+   175→            const fd = fA.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), side * (0.4 + ang));
+   176→            push(hand[0] + fd.x * 0.15 * R, hand[1] + fd.y * 0.15 * R, hand[2] + fd.z * 0.15 * R, 0.1 * R * FUSION, rosyDeep);
+   177→          }
+   178→        }
+   179→      }
+   180→      // Leg (knee drawn up under the body, foot near rump)
+   181→      const rootL: [number, number, number] = [side * 0.4 * R, hp[1] - 0.02 * R, hp[2] + 0.06 * R];
+   182→      const uL = new THREE.Vector3(side * 0.14, -0.3, 0.94).normalize();
+   183→      const knee: [number, number, number] = [
+   184→        rootL[0] + uL.x * (0.48 * legLen + 0.05),
+   185→        rootL[1] + uL.y * (0.48 * legLen + 0.05) + sway * 0.7,
+   186→        rootL[2] + uL.z * (0.48 * legLen + 0.05),
+   187→      ];
+   188→      const lA = new THREE.Vector3(side * 0.1, -0.92, 0.38).normalize();
+   189→      const ankle: [number, number, number] = [
+   190→        knee[0] + lA.x * (0.42 * legLen + 0.04),
+   191→        knee[1] + lA.y * (0.42 * legLen + 0.04) + sway * 0.4,
+   192→        knee[2] + lA.z * (0.42 * legLen + 0.04),
+   193→      ];
+   194→      const rHip = 0.48 * R, rKnee = 0.36 * R, rAnkle = 0.26 * R;
+   195→      push(rootL[0], rootL[1], rootL[2], rHip * FUSION, base);
+   196→      push((rootL[0] + knee[0]) / 2, (rootL[1] + knee[1]) / 2, (rootL[2] + knee[2]) / 2, (rHip + rKnee) * 0.44 * FUSION, base);
+   197→      push(knee[0], knee[1], knee[2], rKnee * FUSION, base);
+   198→      push((knee[0] + ankle[0]) / 2, (knee[1] + ankle[1]) / 2, (knee[2] + ankle[2]) / 2, (rKnee + rAnkle) * 0.44 * FUSION, rosy);
+   199→      push(ankle[0], ankle[1], ankle[2], rAnkle * FUSION, rosy);
+   200→      push(ankle[0], ankle[1] - 0.05 * R, ankle[2] + 0.1 * R, 0.28 * R * FUSION, rosy); // foot
+   201→    }
+   202→  }
+   203→
+   204→  /* ---- organic asymmetry ---- */
+   205→  for (let i = 0; i < n; i++) {
+   206→    const b = out[i];
+   207→    const h1 = hash(i);
+   208→    const h2 = hash(i + 57.3);
+   209→    b.x += (h1 - 0.5) * 0.024;
+   210→    b.y += (h2 - 0.5) * 0.024;
+   211→    b.z += (hash(i + 91.7) - 0.5) * 0.024;
+   212→    b.r *= 0.96 + h1 * 0.08;
+   213→  }
+   214→  return n;
+   215→}
+   216→
+   217→/* ------------------------------------------------------------------ */
+   218→/*  Main model                                                         */
+   219→/* ------------------------------------------------------------------ */
+   220→
+   221→const EYE_DIR = 0.42; // yaw of eyes from +Z
+   222→
+   223→export function FetusModel(props: FetusModelProps) {
+   224→  const { week, showFetus, showPlacenta, showUterus, showLabels, autoRotate, quality, labelsLang } = props;
+   225→  const group = useRef<THREE.Group>(null);
+   226→  const target = useMemo(() => paramsForWeek(week), [week]);
+   227→  const current = useRef<StageParams>({ ...target });
+   228→  const reduceMotion = !autoRotate; // labels/heartbeat follow the same switch
+   229→
+   230→  /* ---- metaball body (imperative three.js object owned by this component) ---- */
+   231→  const mc = useMemo(() => {
+   232→    const res = quality === 'low' ? 26 : quality === 'medium' ? 36 : 48;
+   233→    const maxPoly = quality === 'low' ? 32000 : quality === 'medium' ? 64000 : 120000;
+   234→    const mat = new THREE.MeshPhysicalMaterial({
+   235→      vertexColors: true,
+   236→      color: 0xffffff,
+   237→      roughness: 0.4,
+   238→      metalness: 0,
+   239→      sheen: 1,
+   240→      sheenColor: new THREE.Color('#ff9d8a'),
+   241→      sheenRoughness: 0.5,
+   242→      clearcoat: 0.12,
+   243→      clearcoatRoughness: 0.55,
+   244→      specularIntensity: 0.55,
+   245→      envMapIntensity: 0.8,
+   246→    });
+   247→    const inst = new MarchingCubes(res, mat, false, true, maxPoly);
+   248→    inst.isolation = ISO;
+   249→    inst.castShadow = quality !== 'low';
+   250→    inst.receiveShadow = quality !== 'low';
+   251→    return inst;
+   252→  }, [quality]);
+   253→
+   254→  useEffect(() => {
+   255→    return () => {
+   256→      mc.geometry.dispose();
+   257→      (mc.material as THREE.Material).dispose();
+   258→    };
+   259→  }, [mc]);
+   260→
+   261→  const balls = useRef<Ball[]>([]);
+   262→  const lastParams = useRef<StageParams>({ ...target });
+   263→  const needsInit = useRef(true);
+   264→  const driftAcc = useRef(999);
+   265→
+   266→  useEffect(() => {
+   267→    needsInit.current = true; // fresh MC instance → force first polygonization
+   268→  }, [mc]);
+   269→
+   270→  /* eslint-disable react-hooks/immutability -- imperative three.js object owned by this component */
+   271→
+   272→  /* ---- cord + placenta (imperative rebuild on quantized param change) ---- */
+   273→  const cordRef = useRef<THREE.Mesh>(null);
+   274→  const cordKey = useRef('');
+   275→  const placentaRef = useRef<THREE.Group>(null);
+   276→  const placentaBodyRef = useRef<THREE.Mesh>(null);
+   277→  const placentaKey = useRef('');
+   278→  const placentaVesselsRef = useRef<THREE.Group>(null);
+   279→
+   280→  /* ---- eyes / heartbeat refs ---- */
+   281→  const eyeL = useRef<THREE.Group>(null);
+   282→  const eyeR = useRef<THREE.Group>(null);
+   283→  const irisL = useRef<THREE.MeshStandardMaterial>(null);
+   284→  const irisR = useRef<THREE.MeshStandardMaterial>(null);
+   285→  const hlL = useRef<THREE.Mesh>(null);
+   286→  const hlR = useRef<THREE.Mesh>(null);
+   287→  const heartRef = useRef<THREE.Sprite>(null);
+   288→
+   289→  /* ---- membrane shader ---- */
+   290→  const membraneMat = useMemo(
+   291→    () =>
+   292→      new THREE.ShaderMaterial({
+   293→        uniforms: {
+   294→          uColor: { value: new THREE.Color('#c98a95') },
+   295→          uRim: { value: new THREE.Color('#f2c4cc') },
+   296→        },
+   297→        vertexShader: /* glsl */ `
+   298→          varying vec3 vN; varying vec3 vW; varying vec3 vP;
+   299→          void main() {
+   300→            vN = normalize(mat3(modelMatrix) * normal);
+   301→            vec4 wp = modelMatrix * vec4(position, 1.0);
+   302→            vW = wp.xyz; vP = position;
+   303→            gl_Position = projectionMatrix * viewMatrix * wp;
+   304→          }`,
+   305→        fragmentShader: /* glsl */ `
+   306→          uniform vec3 uColor; uniform vec3 uRim;
+   307→          varying vec3 vN; varying vec3 vW; varying vec3 vP;
+   308→          void main() {
+   309→            vec3 n = normalize(vN);
+   310→            vec3 v = normalize(cameraPosition - vW);
+   311→            float f = pow(1.0 - abs(dot(n, v)), 2.4);
+   312→            float shade = smoothstep(-2.2, 1.6, vP.y);
+   313→            vec3 col = mix(uColor * 0.4, uRim, f) * (0.5 + 0.5 * shade);
+   314→            float a = 0.05 + f * 0.5;
+   315→            gl_FragColor = vec4(col, a);
+   316→          }`,
+   317→        transparent: true,
+   318→        depthWrite: false,
+   319→        side: THREE.DoubleSide,
+   320→      }),
+   321→    []
+   322→  );
+   323→  useEffect(() => () => membraneMat.dispose(), [membraneMat]);
+   324→
+   325→  /* ---- glow texture (heartbeat + particles share the generator) ---- */
+   326→  const glowTex = useMemo(() => makeGlowTexture(), []);
+   327→
+   328→  const openness = smooth(24, 27, week);
+   329→  const tW = clamp01((week - 6) / 16);
+   330→
+   331→  const membraneRef = useRef<THREE.Mesh>(null);
+   332→
+   333→  useFrame((state, delta) => {
+   334→    const c = current.current;
+   335→    const k = Math.min(1, delta * 3.2);
+   336→    let dirty = false;
+   337→    const keys: Array<keyof StageParams> = ['scale', 'headRatio', 'curl', 'limb', 'limbWidth', 'eye', 'cord', 'placenta', 'uterus'];
+   338→    for (const key of keys) {
+   339→      const d = target[key] - c[key];
+   340→      if (Math.abs(d) > 0.00001) {
+   341→        c[key] += d * k;
+   342→        dirty = true;
+   343→      }
+   344→    }
+   345→    const lp = lastParams.current;
+   346→    if (
+   347→      dirty ||
+   348→      Math.abs(lp.scale - c.scale) > 0.0025 ||
+   349→      Math.abs(lp.curl - c.curl) > 0.0025 ||
+   350→      Math.abs(lp.limb - c.limb) > 0.0025
+   351→    ) {
+   352→      dirty = true;
+   353→    }
+   354→
+   355→    const T = state.clock.elapsedTime;
+   356→    const detail = quality === 'high' && !reduceMotion;
+   357→
+   358→    // Re-polygonize only when morphing (or on gentle drift for high tier).
+   359→    if (showFetus && (needsInit.current || dirty || (detail && (driftAcc.current += delta) > 1 / 18))) {
+   360→      needsInit.current = false;
+   361→      if (!dirty) driftAcc.current = 0;
+   362→      const n = buildBalls(c, week, T, detail, balls.current);
+   363→      mc.reset();
+   364→      const tmp = new THREE.Color();
+   365→      for (let i = 0; i < n; i++) {
+   366→        const b = balls.current[i];
+   367→        const gx = Math.min(0.97, Math.max(0.03, b.x / EXT / 2 + 0.5));
+   368→        const gy = Math.min(0.97, Math.max(0.03, b.y / EXT / 2 + 0.5));
+   369→        const gz = Math.min(0.97, Math.max(0.03, b.z / EXT / 2 + 0.5));
+   370→        const strength = STRENGTH_K * b.r * b.r;
+   371→        tmp.copy(b.c).multiplyScalar(1.18);
+   372→        mc.addBall(gx, gy, gz, strength, SUB, tmp);
+   373→      }
+   374→      mc.update();
+   375→      lastParams.current = { ...c };
+   376→    }
+   377→    mc.visible = showFetus;
+   378→    // Grid spans sculpt/EXT in local space, so the object scale must restore
+   379→    // the full sculpt→world factor: world = (sculpt/EXT) × (k×EXT) = sculpt×k.
+   380→    mc.scale.setScalar(sculptScale(c) * EXT);
+   381→    mc.position.y = SCULPT_Y_OFFSET;
+   382→
+   383→    // Uterine membrane tracks the damped morph every frame.
+   384→    if (membraneRef.current) {
+   385→      const u = c.uterus;
+   386→      membraneRef.current.scale.set(u * 0.95, u * 1.08, u * 0.95);
+   387→    }
+   388→
+   389→    // Wet → dry skin maturation.
+   390→    const mat = mc.material as THREE.MeshPhysicalMaterial;
+   391→    mat.roughness = 0.52 - 0.18 * tW;
+   392→    mat.clearcoat = 0.2 - 0.12 * tW;
+   393→
+   394→    if (group.current && autoRotate) group.current.rotation.y += delta * 0.25;
+   395→    props.onFrameParams?.({ ...c });
+   396→
+   397→    /* ---- eyes track the damped head ---- */
+   398→    const m = bodyMetrics(c);
+   399→    const kk = sculptScale(c);
+   400→    // Open eyes sit proud of the fused facial surface; closed lids stay submerged.
+   401→    const protrude = 0.58 + 0.26 * openness;
+   402→    const s = m.headR * kk * (0.13 + 0.05 * openness);
+   403→    const open = Math.max(0.16, openness);
+   404→    // Closed lids read as a subtle skin seam; open eyes show the dark iris.
+   405→    const lid = new THREE.Color('#dda089').lerp(new THREE.Color('#5a3330'), openness);
+   406→    for (const [ref, iris, hl, side] of [[eyeL, irisL, hlL, -1], [eyeR, irisR, hlR, 1]] as const) {
+   407→      if (!ref.current) continue;
+   408→      const yaw = side * EYE_DIR;
+   409→      const dx = Math.sin(yaw), dz = Math.cos(yaw);
+   410→      ref.current.position.set(
+   411→        m.headC[0] * kk + dx * m.headR * kk * protrude * 0.6,
+   412→        m.headC[1] * kk + 0.04 * m.headR * kk + SCULPT_Y_OFFSET,
+   413→        m.headC[2] * kk + dz * m.headR * kk * protrude
+   414→      );
+   415→      ref.current.rotation.set(0, yaw, 0);
+   416→      ref.current.scale.set(s, s * open, s);
+   417→      if (iris.current) iris.current.color.copy(lid);
+   418→      if (hl.current) hl.current.visible = openness > 0.5;
+   419→    }
+   420→
+   421→    /* ---- heartbeat (educational pulse) ---- */
+   422→    if (heartRef.current) {
+   423→      const pulse = reduceMotion ? 0.45 : Math.max(0, Math.sin(T * Math.PI * 2 * 1.1)) ** 4;
+   424→      const mat2 = heartRef.current.material as THREE.SpriteMaterial;
+   425→      mat2.opacity = 0.12 + 0.3 * pulse;
+   426→      const base = 0.5 * (0.35 + 0.65 * c.scale) * kk * 2.2;
+   427→      heartRef.current.scale.setScalar(base * (1 + 0.22 * pulse));
+   428→      heartRef.current.position.set(0, m.chest[1] * kk + SCULPT_Y_OFFSET, m.chest[2] * kk + m.torsoR * kk * 0.72);
+   429→    }
+   430→
+   431→    /* ---- umbilical cord (helical tube, rebuilt on quantized change) ---- */
+   432→    if (cordRef.current && showPlacenta) {
+   433→      const key = `${c.scale.toFixed(2)}|${c.curl.toFixed(2)}|${c.cord.toFixed(2)}|${c.uterus.toFixed(2)}`;
+   434→      if (key !== cordKey.current || !cordRef.current.geometry.userData.built) {
+   435→        cordKey.current = key;
+   436→        const g = buildCordGeometry(c, m, kk);
+   437→        const old = cordRef.current.geometry;
+   438→        cordRef.current.geometry = g;
+   439→        old.dispose();
+   440→        cordRef.current.geometry.userData.built = true;
+   441→      }
+   442→    }
+   443→
+   444→    /* ---- placenta ---- */
+   445→    if (placentaRef.current) {
+   446→      placentaRef.current.visible = showPlacenta;
+   447→      if (showPlacenta) {
+   448→        placentaRef.current.position.set(0, c.uterus * 0.55, -c.uterus * 0.62);
+   449→        const key = c.placenta.toFixed(2);
+   450→        if (key !== placentaKey.current || !(placentaBodyRef.current?.geometry.userData.built)) {
+   451→          placentaKey.current = key;
+   452→          const built = buildPlacentaGeometry(c.placenta);
+   453→          if (placentaBodyRef.current) {
+   454→            const old = placentaBodyRef.current.geometry;
+   455→            placentaBodyRef.current.geometry = built.body;
+   456→            old.dispose();
+   457→            placentaBodyRef.current.geometry.userData.built = true;
+   458→          }
+   459→          if (placentaVesselsRef.current) {
+   460→            placentaVesselsRef.current.clear();
+   461→            for (const v of built.vessels) {
+   462→              const mesh = new THREE.Mesh(v, vesselMaterial);
+   463→              mesh.castShadow = quality !== 'low';
+   464→              placentaVesselsRef.current.add(mesh);
+   465→            }
+   466→          }
+   467→        }
+   468→      }
+   469→    }
+   470→  });
+   471→
+   472→  return (
+   473→    <group ref={group} dispose={null}>
+   474→      {/* Uterine membrane — fresnel shell */}
+   475→      {showUterus && (
+   476→        <mesh ref={membraneRef} material={membraneMat} renderOrder={10} scale={[current.current.uterus * 0.95, current.current.uterus * 1.08, current.current.uterus * 0.95]}>
+   477→          <sphereGeometry args={[1.05, 48, 32]} />
+   478→        </mesh>
+   479→      )}
+   480→
+   481→      {/* Placenta with chorionic vessels */}
+   482→      <group ref={placentaRef} rotation={[Math.PI / 2.35, 0, 0]}>
+   483→        <mesh ref={placentaBodyRef} castShadow={quality !== 'low'}>
+   484→          <meshPhysicalMaterial vertexColors roughness={0.62} clearcoat={0.08} sheen={0.6} sheenColor="#c96a6a" />
+   485→        </mesh>
+   486→        <group ref={placentaVesselsRef} />
+   487→      </group>
+   488→
+   489→      {/* Umbilical cord — helical Wharton's-jelly tube */}
+   490→      {showPlacenta && (
+   491→        <mesh ref={cordRef} castShadow={quality !== 'low'}>
+   492→          <meshPhysicalMaterial color="#e8b39e" roughness={0.42} sheen={1} sheenColor="#ffc9b4" sheenRoughness={0.4} clearcoat={0.15} clearcoatRoughness={0.5} />
+   493→        </mesh>
+   494→      )}
+   495→
+   496→      {/* Fused organic body (marching cubes, attached imperatively) */}
+   497→      <primitive object={mc} />
+   498→
+   499→      {/* Eyes — fused lids early, dark irises from ~week 26 */}
+   500→      {showFetus && week >= 8 && (
+   501→        <>
+   502→          <group ref={eyeL}>
+   503→            <mesh>
+   504→              <sphereGeometry args={[1, 16, 12]} />
+   505→              <meshStandardMaterial ref={irisL} color="#dda089" roughness={0.3} metalness={0.05} />
+   506→            </mesh>
+   507→            <mesh ref={hlL} position={[0.3, 0.35, 0.8]} scale={0.28} visible={false}>
+   508→              <sphereGeometry args={[1, 8, 8]} />
+   509→              <meshBasicMaterial color="#fff5ee" />
+   510→            </mesh>
+   511→          </group>
+   512→          <group ref={eyeR}>
+   513→            <mesh>
+   514→              <sphereGeometry args={[1, 16, 12]} />
+   515→              <meshStandardMaterial ref={irisR} color="#dda089" roughness={0.3} metalness={0.05} />
+   516→            </mesh>
+   517→            <mesh ref={hlR} position={[0.3, 0.35, 0.8]} scale={0.28} visible={false}>
+   518→              <sphereGeometry args={[1, 8, 8]} />
+   519→              <meshBasicMaterial color="#fff5ee" />
+   520→            </mesh>
+   521→          </group>
+   522→        </>
+   523→      )}
+   524→
+   525→      {/* Heartbeat glow (educational demonstration, not a real FHR display) */}
+   526→      {showFetus && (
+   527→        <sprite ref={heartRef} renderOrder={5}>
+   528→          <spriteMaterial map={glowTex} color="#ff7460" transparent opacity={0.3} depthWrite={false} blending={THREE.AdditiveBlending} />
+   529→        </sprite>
+   530→      )}
+   531→
+   532→      {/* Educational hotspots */}
+   533→      {showLabels && <Hotspots week={week} lang={labelsLang} />}
+   534→    </group>
+   535→  );
+   536→}
+   537→
+   538→/* ------------------------------------------------------------------ */
+   539→/*  Umbilical cord — helical tube with taper                           */
+   540→/* ------------------------------------------------------------------ */
+   541→
+   542→function buildCordGeometry(p: StageParams, m: ReturnType<typeof bodyMetrics>, k: number): THREE.TubeGeometry {
+   543→  const A = new THREE.Vector3(m.cordInsert[0] * k, m.cordInsert[1] * k + SCULPT_Y_OFFSET, m.cordInsert[2] * k);
+   544→  const D = new THREE.Vector3(0, p.uterus * 0.53, -p.uterus * 0.5);
+   545→  const B = A.clone().add(new THREE.Vector3(0.06 * p.cord, 0.08, 0.3 * p.cord));
+   546→  const C = B.clone().lerp(D, 0.6).add(new THREE.Vector3(0.04, 0.14, -0.02));
+   547→  const base = new THREE.CatmullRomCurve3([A, B, C, D], false, 'catmullrom', 0.5);
+   548→
+   549→  const N = 56;
+   550→  const turns = 2.4 * p.cord;
+   551→  const helixR = 0.014 + 0.014 * p.scale;
+   552→  const pts: THREE.Vector3[] = [];
+   553→  for (let i = 0; i <= N; i++) {
+   554→    const t = i / N;
+   555→    const pt = base.getPoint(t);
+   556→    const tan = base.getTangent(t);
+   557→    const up = Math.abs(tan.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
+   558→    const nrm = new THREE.Vector3().crossVectors(tan, up).normalize();
+   559→    const bin = new THREE.Vector3().crossVectors(tan, nrm).normalize();
+   560→    const ang = t * turns * Math.PI * 2;
+   561→    pts.push(
+   562→      pt.clone().addScaledVector(nrm, Math.cos(ang) * helixR).addScaledVector(bin, Math.sin(ang) * helixR)
+   563→    );
+   564→  }
+   565→  const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, 0.014 + 0.016 * p.scale, 8, false);
+   566→  // Taper toward both ends for a natural organic cord.
+   567→  const pos = tube.attributes.position as THREE.BufferAttribute;
+   568→  const rings = 97, radial = 9;
+   569→  for (let i = 0; i < rings; i++) {
+   570→    const t = i / (rings - 1);
+   571→    const taper = 0.78 + 0.34 * Math.sin(Math.PI * Math.min(1, t * 1.15));
+   572→    const ctr = pts[Math.min(N, Math.round(t * N))];
+   573→    for (let j = 0; j < radial; j++) {
+   574→      const idx = i * radial + j;
+   575→      pos.setXYZ(
+   576→        idx,
+   577→        ctr.x + (pos.getX(idx) - ctr.x) * taper,
+   578→        ctr.y + (pos.getY(idx) - ctr.y) * taper,
+   579→        ctr.z + (pos.getZ(idx) - ctr.z) * taper
+   580→      );
+   581→    }
+   582→  }
+   583→  pos.needsUpdate = true;
+   584→  tube.computeVertexNormals();
+   585→  return tube;
+   586→}
+   587→
+   588→/* ------------------------------------------------------------------ */
+   589→/*  Placenta — organic lathe disc + chorionic vessel arcs              */
+   590→/* ------------------------------------------------------------------ */
+   591→
+   592→const vesselMaterial = new THREE.MeshStandardMaterial({ color: '#6e2f38', roughness: 0.55 });
+   593→
+   594→function buildPlacentaGeometry(pr: number): { body: THREE.LatheGeometry; vessels: THREE.BufferGeometry[] } {
+   595→  const R = 0.55 * pr + 0.1;
+   596→  const profile: THREE.Vector2[] = [
+   597→    new THREE.Vector2(0.001, 0),
+   598→    new THREE.Vector2(0.55 * R, 0.004),
+   599→    new THREE.Vector2(0.85 * R, 0.02),
+   600→    new THREE.Vector2(R, 0.05),
+   601→    new THREE.Vector2(0.97 * R, 0.1),
+   602→    new THREE.Vector2(0.8 * R, 0.145),
+   603→    new THREE.Vector2(0.45 * R, 0.163),
+   604→    new THREE.Vector2(0.001, 0.17),
+   605→  ];
+   606→  const geo = new THREE.LatheGeometry(profile, 56);
+   607→  // Organic edge irregularity + radial vascular gradient via vertex colors.
+   608→  const pos = geo.attributes.position as THREE.BufferAttribute;
+   609→  const colors = new Float32Array(pos.count * 3);
+   610→  const cCore = new THREE.Color('#6e3038');
+   611→  const cMid = new THREE.Color('#96454e');
+   612→  const cRim = new THREE.Color('#a8505a');
+   613→  const tmp = new THREE.Color();
+   614→  for (let i = 0; i < pos.count; i++) {
+   615→    const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
+   616→    const rad = Math.sqrt(x * x + z * z);
+   617→    const ang = Math.atan2(z, x);
+   618→    const wob = 1 + (hash(ang * 3.7) - 0.5) * 0.1 * Math.min(1, rad / R);
+   619→    pos.setX(i, x * wob);
+   620→    pos.setZ(i, z * wob);
+   621→    const u = clamp01(rad / R + (hash(i * 1.7) - 0.5) * 0.15);
+   622→    tmp.copy(cCore).lerp(cMid, smooth(0, 0.6, u)).lerp(cRim, smooth(0.55, 1, u));
+   623→    if (y > 0.12) tmp.lerp(new THREE.Color('#b25a60'), 0.25);
+   624→    colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
+   625→  }
+   626→  geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+   627→  geo.computeVertexNormals();
+   628→
+   629→  const vessels: THREE.BufferGeometry[] = [];
+   630→  const nv = 7;
+   631→  for (let i = 0; i < nv; i++) {
+   632→    const a = (i / nv) * Math.PI * 2 + 0.4;
+   633→    const end = new THREE.Vector3(Math.cos(a) * 0.82 * R, 0.105, Math.sin(a) * 0.82 * R);
+   634→    const start = new THREE.Vector3(0.01, 0.16, 0);
+   635→    const mid = start.clone().lerp(end, 0.5).add(new THREE.Vector3(0, 0.035, 0));
+   636→    const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
+   637→    vessels.push(new THREE.TubeGeometry(curve, 20, 0.006 + 0.008 * pr, 5, false));
+   638→  }
+   639→  return { body: geo, vessels };
+   640→}
+   641→
+   642→/* ------------------------------------------------------------------ */
+   643→/*  Hotspot labels (bilingual, anchored to anatomy)                    */
+   644→/* ------------------------------------------------------------------ */
+   645→
+   646→function Hotspots({ week, lang }: { week: number; lang: 'fa' | 'en' }) {
+   647→  const p = useMemo(() => paramsForWeek(week), [week]);
+   648→  const spots = hotspotPositions(p);
+   649→  const L: Record<string, [string, string]> = {
+   650→    brain: lang === 'fa' ? ['مغز', 'بزرگ‌ترین بخش بدن در هفته‌های اول؛ رشد سریع'] : ['Brain', 'The largest body region early on; rapid growth'],
+   651→    heart: lang === 'fa' ? ['قلب', 'از هفته ششم ضربان قابل مشاهده است (نمایش آموزشی)'] : ['Heart', 'Visible pulsing motion from week 6 (educational)'],
+   652→    cord: lang === 'fa' ? ['بند ناف', 'مسیر مواد غذایی و اکسیژن از جفت'] : ['Umbilical cord', 'Carries nutrients and oxygen from the placenta'],
+   653→    placenta: lang === 'fa' ? ['جفت', 'اندام تبادل مواد بین مادر و جنین'] : ['Placenta', 'Exchange organ between mother and fetus'],
+   654→  };
+   655→  return (
+   656→    <>
+   657→      {Object.entries(spots).map(([key, pos]) => (
+   658→        <Html key={key} position={pos} center distanceFactor={6} zIndexRange={[10, 0]}>
+   659→          <div
+   660→            className="niva-card rounded-lg border px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg pointer-events-none"
+   661→            role="note"
+   662→          >
+   663→            <span className="font-semibold text-primary">{L[key][0]}</span>
+   664→            <span className="block text-[10px] text-muted-foreground max-w-40 leading-snug">{L[key][1]}</span>
+   665→          </div>
+   666→        </Html>
+   667→      ))}
+   668→    </>
+   669→  );
+   670→}
+   671→
+   672→/* ------------------------------------------------------------------ */
+   673→/*  Soft radial glow texture (shared generator)                        */
+   674→/* ------------------------------------------------------------------ */
+   675→
+   676→export function makeGlowTexture(size = 64): THREE.CanvasTexture {
+   677→  const canvas = document.createElement('canvas');
+   678→  canvas.width = size;
+   679→  canvas.height = size;
+   680→  const ctx = canvas.getContext('2d')!;
+   681→  const g = ctx.createRadialGradient(size / 2, size / 2, 0, size / 2, size / 2, size / 2);
+   682→  g.addColorStop(0, 'rgba(255,255,255,1)');
+   683→  g.addColorStop(0.35, 'rgba(255,255,255,0.55)');
+   684→  g.addColorStop(1, 'rgba(255,255,255,0)');
+   685→  ctx.fillStyle = g;
+   686→  ctx.fillRect(0, 0, size, size);
+   687→  const tex = new THREE.CanvasTexture(canvas);
+   688→  tex.needsUpdate = true;
+   689→  return tex;
+   690→}
+   691→

@@ -1,0 +1,33 @@
+# NIVA — Risk Register (Phase 0 Baseline)
+
+Statuses: OPEN / MITIGATED / ACCEPTED. Severity: CRITICAL > HIGH > MEDIUM > LOW.
+Each risk has an owner phase in the reengineering backlog (02-backlog.md).
+
+| ID | Severity | Risk | Evidence | Impact | Mitigation plan | Status |
+| --- | --- | --- | --- | --- | --- | --- |
+| R-01 | CRITICAL | Payment self-minting: `GET /api/subscription/cancel` signs any paymentId:result for the owner → webhook accepts → free plan upgrades. Secret has hardcoded fallback. | `subscription/cancel/route.ts:9-22`, `webhook/route.ts:25`, `subscription-view.tsx:62` | Revenue integrity destroyed; fraud vector | Remove signature minting from client path; server-side payment provider abstraction; env-only secret (fail closed); rate limit webhook; idempotent transactional writes | OPEN → Phase 12 |
+| R-02 | CRITICAL | Unauthenticated admin escalation: demo login falls back to ADMIN account when demo user missing | `demo/route.ts:16-18` | Total authorization bypass | Remove fallback or restrict to non-privileged demo user; env-gate demo route entirely in production | OPEN → Phase 0 hotfix |
+| R-03 | HIGH | Zero `db.$transaction` usage: pregnancy dating, appointment+reminder+notification chains, webhook 4-write chain, account delete — all non-atomic; partial-write states possible | grep across src/app/api | Corrupt domain state | Wrap multi-step writes; transactional outbox for side effects | OPEN → Phase 9 |
+| R-04 | HIGH | AI quota TOCTOU: count-then-act; concurrency defeats FREE cap. Rate limiter in-memory, fixed-window, keyed on spoofable XFF | `ai/chat/route.ts:28-42,68-77`, `rate-limit.ts:13-28` | Entitlement bypass; abuse at scale | Atomic daily counter row (unique constraint + conditional update) or serialized tx; trusted proxy IP resolution | OPEN → Phase 9 |
+| R-05 | HIGH | Unconditional `log:['query']` dumps all health queries to stdout/logs | `db.ts:10` | PHI leakage into logs (policy + legal exposure) | Env-gate query logging to dev; structured logger with field redaction | OPEN → Phase 9 |
+| R-06 | HIGH | GDPR gaps: export 402 for FREE plan; consent withdrawal impossible (`withdrawAt` reset to null on every upsert); delete residue via `SafetyEvent.userId` (no FK) + `PartnerAccess.partnerEmail` | `privacy/export/route.ts:10-12`, `privacy/consent/route.ts:15-18`, schema.prisma:287,320 | Legal/compliance | Make export free for all; true withdrawal semantics; FK + residue sweep | OPEN → Phase 11 |
+| R-07 | HIGH | AI output never re-scanned for red-flag taxonomy; journal (10k chars) and community bodies skip assessSafety; CAUTION + ungrounded answers ungated; history/system-role injection gaps | `rag.ts:132-148`, `journal/route.ts:22-30`, `community/route.ts` | Medical-safety regression | Output-side classifier pass; scan all free-text surfaces; proper system role + fenced history | OPEN → Phase 7 |
+| R-08 | HIGH | Community moderation dead-end: no approve/reject route; ModerationAction orphaned; feed can never show content | `community/route.ts`, schema:349-356 | Feature broken + misinformation exposure | Implement moderation queue + actions + audit; FK repair | OPEN → Phase 8 |
+| R-09 | HIGH | Brand fonts undefined (`--font-niva-sans/-rtl`) → Vazirmatn/Inter never apply; identity failure across whole product | `globals.css:9,131,142` | Brand/Premium look impossible | Define tokens, move to self-hosted variable fonts w/ licensing check | OPEN → Phase 1 |
+| R-10 | MEDIUM | Client-side SPA routing for 21 views: no deep links, no per-view SEO, no code splitting, landing flash on reload, view state lost | `page.tsx:7-28`, `store/app.ts:124` | SEO, shareability, bundle size, UX | Migrate to App Router routes per view (ADR-002) | OPEN → Phase 2/4 |
+| R-11 | MEDIUM | 3D studio GPU leaks: vessel TubeGeometries + glow CanvasTextures never disposed; dead per-frame allocation | `fetus-model.tsx:326,395,460-465`, `scene.tsx:58` | Crashes on long sessions/mobile | Dispose in cleanup; remove dead prop; memory budget test | OPEN → Phase 5 |
+| R-12 | MEDIUM | Toolchain integrity: `ignoreBuildErrors:true`, `noImplicitAny:false`, `reactStrictMode:false`, no CI, no tests, `db:push --accept-data-loss` | `next.config.ts`, `tsconfig.json`, `package.json` | Hidden breakage ships | Strict config, exclude scaffold dirs, CI gates (build+type+lint+tests), migrations discipline | OPEN → Phase 14 (config fixes Phase 0) |
+| R-13 | MEDIUM | Session token in localStorage (XSS→theft) + `assertSameOrigin` fails open without Origin header | `auth-token.ts`, `api.ts:21` | Session hijack in embedded contexts | Document tradeoff; add CSP; fail-closed CSRF when Origin present-but-mismatched only; rotate tokens; short TTL option | OPEN → Phase 3/14 |
+| R-14 | MEDIUM | No background jobs/delivery channels: reminders & notifications fire only on client poll; safety escalations have no staff alerting | `appointments/route.ts:49-59`, `notifications/route.ts` | Missed reminders = user harm risk | Job queue + outbox; push/email providers with consent | OPEN → Phase 9 |
+| R-15 | MEDIUM | Partner access consent theater: auto-ACTIVATE without partner acceptance; no route serves partner data (dead capability) | `family/route.ts:49-51` | Privacy + broken promise | Invitation-accept flow; partner-scoped read endpoints; revoke everywhere | OPEN → Phase 8 |
+| R-16 | LOW | Dead/duplicated code: sandbox-checkout view id unused, community dead ternary, settings fires empty consent POST on locale switch, dead tailwind.config, 10× duplicated data-fetch pattern | multiple (audit §3) | Maintainability | Cleanup sweep + shared useApi hook | OPEN → Phase 2/4 |
+| R-17 | LOW | Seed credentials committed (`admin@niva.health/NivaAdmin!2025` etc.) | `seed.ts:50-52` | Known passwords in public repo | Rotate at deploy; env-provided dev credentials only; never seed prod admins | OPEN → Phase 15 |
+| R-18 | LOW | Manifest icon mislabeling (512 file declared as 192); unbounded SW runtime cache | `manifest.webmanifest`, `sw.js:26-28` | Install UX, storage bloat | Fix icons; cache versioning + LRU eviction | OPEN → Phase 13 |
+
+## Accepted residual risks (documented, not actionable in sandbox)
+
+| ID | Risk | Rationale |
+| --- | --- | --- |
+| A-01 | In-memory rate limiting is single-node only | Acceptable for sandbox scale; distributed limiter scheduled with Postgres/Redis move (Phase 9) |
+| A-02 | SQLite in dev | Production migration path defined in ADR-003; data-preserving rehearsal required before switch |
+| A-03 | Bearer token in localStorage for embedded preview contexts | Compensating controls documented in ADR-004; CSP + token rotation scheduled |
