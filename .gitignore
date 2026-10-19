@@ -58,3 +58,6 @@ db/*.db-journal
 
 # runtime state
 *.pid
+
+# but keep the example env file
+!.env.example
