@@ -1,16 +1,20 @@
 'use client';
 
 /**
- * NIVA premium landing (Phase 2 / backlog items 1.6–1.8).
- * Architecture:
- * - Hero renders synchronously: the H1 is the LCP element, the visual is a
- *   sized <img> (no CLS). The 3D "bloom" is variant B only and mounts after
- *   idle via dynamic import so it never competes with LCP.
- * - Below-fold sections live in one dynamically-imported chunk.
- * - Structured data: Organization + SoftwareApplication (static, in head of
- *   the document) and FAQPage (rendered with the FAQ section itself).
- * - Analytics are anonymous + strictly consent-gated (landing-analytics.ts);
- *   A/B (hero static vs hero 3D) is assigned only after consent.
+ * NIVA premium landing — Wave 8 full rebuild ("Embrace / آغوش").
+ *
+ * Architecture (performance-first, budgets: LCP≤2.5s · CLS≤0.1 · INP≤200ms):
+ * - The H1 is the LCP element and renders synchronously in the server HTML.
+ * - The 3D "Embrace" scene mounts after idle via next/dynamic { ssr:false } —
+ *   three.js never enters the critical path, and the canvas pauses rendering
+ *   while offscreen (see hero-bloom.tsx).
+ * - The stage panel is aspect-ratio sized: zero layout shift when the scene
+ *   swaps in.
+ * - Below-fold sections live in one dynamically-imported chunk (sections.tsx).
+ * - Ambient background blobs are pure CSS (compositor-only transforms) and
+ *   freeze under prefers-reduced-motion via the global rule in globals.css.
+ * - Analytics remain anonymous + strictly consent-gated (landing-analytics.ts);
+ *   the former A/B hero experiment is retired — every visitor gets the 3D hero.
  */
 
 import { useApp } from '@/store/app';
@@ -25,7 +29,6 @@ import { useEffect, useState } from 'react';
 import { useMounted } from '@/lib/use-mounted';
 import {
   getAnalyticsConsent, setAnalyticsConsent, trackLandingEvent,
-  type AbVariant,
 } from '@/lib/landing-analytics';
 
 /** Below-fold sections — separate chunk, skeleton while streaming in. */
@@ -34,10 +37,10 @@ const LandingSections = dynamic(
   { loading: () => <SectionsSkeleton /> }
 );
 
-/** Variant-B hero 3D — mounts only after idle; ssr:false keeps three.js out of the initial path. */
+/** Hero 3D — mounts only after idle; ssr:false keeps three.js out of the initial path. */
 const HeroBloom = dynamic(() => import('@/components/landing/hero-bloom'), {
   ssr: false,
-  loading: () => <div className="absolute inset-0 niva-grad opacity-60" aria-hidden="true" />,
+  loading: () => <div className="absolute inset-0 niva-grad" aria-hidden="true" />,
 });
 
 const NAV_ANCHORS = [
@@ -49,51 +52,55 @@ const NAV_ANCHORS = [
   { id: 'faq', key: 'landing.navFaq' },
 ] as const;
 
+const STAGE_STATS = [
+  { v: '12', k: 'landing.statsStages' },
+  { v: '24', k: 'landing.statsSources' },
+  { v: '40+', k: 'landing.statsWeeks' },
+] as const;
+
 export function LandingView() {
   const { t, setView, user, locale, setLocale } = useApp();
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
   const [consentChoice, setConsentChoice] = useState<'granted' | 'denied' | null | undefined>(undefined);
-  const [variant, setVariant] = useState<AbVariant>('A');
   const [bloomReady, setBloomReady] = useState(false);
 
-  // Consent + variant boot (client-only state).
+  // Consent state is derived post-hydration (no setState-in-effect): the bar
+  // renders only after mount, so reading localStorage inline is SSR-safe.
+  const stored = mounted ? getAnalyticsConsent() : undefined;
   useEffect(() => {
-    const stored = getAnalyticsConsent();
-    setConsentChoice(stored);
-    if (stored === 'granted') {
-      import('@/lib/landing-analytics').then((m) => {
-        setVariant(m.getOrAssignVariant());
-        m.trackLandingEvent('landing_view');
-      });
-    }
-  }, []);
-
-  // Variant B: mount the 3D bloom after the page is settled (idle), never at first paint.
-  useEffect(() => {
-    if (variant !== 'B') return;
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
-    const cancel = () => {};
-    if (typeof w.requestIdleCallback === 'function') {
-      const id = w.requestIdleCallback(() => setBloomReady(true), { timeout: 2500 });
-      return () => { void id; cancel(); };
-    }
-    const t = setTimeout(() => setBloomReady(true), 1200);
-    return () => clearTimeout(t);
-  }, [variant]);
-
-  const go = user ? 'dashboard' : 'auth';
+    if (stored === 'granted') trackLandingEvent('landing_view');
+  }, [stored]);
 
   const handleConsent = (choice: 'granted' | 'denied') => {
-    const v = setAnalyticsConsent(choice);
-    setVariant(v);
+    setAnalyticsConsent(choice);
     setConsentChoice(choice);
     if (choice === 'granted') trackLandingEvent('ab_consent_granted');
     // Declining records nothing — by design.
   };
 
+  // The 3D embrace mounts after the page is settled (idle) — never at first paint.
+  useEffect(() => {
+    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
+    if (typeof w.requestIdleCallback === 'function') {
+      const id = w.requestIdleCallback(() => setBloomReady(true), { timeout: 2500 });
+      return () => { void id; };
+    }
+    const timer = setTimeout(() => setBloomReady(true), 1200);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const go = user ? 'dashboard' : 'auth';
+
   return (
-    <div className="min-h-screen flex flex-col niva-grad">
+    <div className="min-h-screen flex flex-col relative">
+      {/* Ambient background — soft floating blooms (CSS-only, compositor-friendly) */}
+      <div className="fixed inset-0 -z-10 niva-grad overflow-hidden" aria-hidden="true">
+        <div className="niva-blob h-72 w-72 sm:h-96 sm:w-96 -top-20 -start-16 bg-primary/25" />
+        <div className="niva-blob niva-blob-2 h-64 w-64 sm:h-80 sm:w-80 top-1/3 -end-20 bg-secondary/25" />
+        <div className="niva-blob niva-blob-3 h-56 w-56 sm:h-72 sm:w-72 bottom-0 start-1/4 bg-accent/30" />
+      </div>
+
       {/* Organization / SoftwareApplication structured data — locale-aware copy.
           Rendered AFTER mount: SSR text would otherwise mismatch the client's
           persisted locale (dangerouslySetInnerHTML is not covered by
@@ -134,12 +141,12 @@ export function LandingView() {
           <a href="#" className="flex items-center gap-2" aria-label="NIVA">
             <img src="/logo.svg" alt="" width={92} height={26} className="h-7 w-auto" />
           </a>
-          <nav className="hidden lg:flex items-center gap-1 mx-auto" aria-label={t('landing.footerExplore')}>
+          <nav className="hidden lg:flex items-center gap-1 mx-auto rounded-full border border-border/60 bg-background/50 px-2 py-1" aria-label={t('landing.footerExplore')}>
             {NAV_ANCHORS.map((a) => (
               <a
                 key={a.id}
                 href={`#${a.id}`}
-                className="px-3 py-2 rounded-lg text-sm text-muted-foreground hover:text-foreground hover:bg-primary/5 transition-colors min-h-11 inline-flex items-center"
+                className="px-3 py-1.5 rounded-full text-sm text-muted-foreground hover:text-foreground hover:bg-primary/10 transition-colors min-h-9 inline-flex items-center"
               >
                 {t(a.key)}
               </a>
@@ -155,7 +162,7 @@ export function LandingView() {
                 {resolvedTheme === 'dark' ? '☀️' : <Moon className="h-4 w-4" aria-hidden="true" />}
               </Button>
             )}
-            <Button size="sm" onClick={() => setView(go)} className="min-h-11">
+            <Button size="sm" onClick={() => setView(go)} className="min-h-11 rounded-full">
               {user ? t('nav.dashboard') : t('auth.signIn')}
             </Button>
           </div>
@@ -163,59 +170,62 @@ export function LandingView() {
       </header>
 
       <main className="flex-1">
-        {/* Hero */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-10 sm:pt-16 pb-12 grid lg:grid-cols-2 gap-10 items-center">
-          <div className="space-y-6">
-            <p className="text-sm font-medium text-primary tracking-wide">{t('landing.kicker')}</p>
+        {/* Hero — centered, calm, confident */}
+        <section className="mx-auto max-w-3xl px-4 sm:px-6 pt-14 sm:pt-20 pb-10 text-center space-y-5">
+          <p className="text-sm font-medium text-primary tracking-wide">{t('landing.kicker')}</p>
+          <div className="flex justify-center">
             <Badge variant="secondary" className="gap-1.5">
               <Lock className="h-3 w-3" aria-hidden="true" />
               {t('landing.reviewBadge')}
             </Badge>
-            <h1 className="text-4xl sm:text-5xl font-bold leading-[1.15] tracking-tight">
-              {t('landing.heroTitle')}
-            </h1>
-            <p className="text-lg text-muted-foreground leading-relaxed max-w-xl">
-              {t('landing.heroSub')}
-            </p>
-            <div className="flex flex-wrap gap-3">
-              <Button size="lg" onClick={() => { trackLandingEvent('cta_start'); setView(go); }} className="min-h-12 px-6 text-base" aria-label={t('landing.ctaStart')}>
-                {t('landing.ctaStart')}
-                <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-              </Button>
-              <Button size="lg" variant="outline" onClick={() => { trackLandingEvent('cta_demo'); setView('auth'); }} className="min-h-12 px-6 text-base">
-                {t('landing.ctaDemo')}
-              </Button>
-            </div>
-            <p className="text-xs text-muted-foreground max-w-md leading-relaxed border-s-2 border-primary/40 ps-3">
-              {t('landing.disclaimer')}
-            </p>
           </div>
+          <h1 className="text-4xl sm:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
+            {t('landing.heroTitle1')}{' '}
+            <span className="text-gradient">{t('landing.heroTitle2')}</span>
+          </h1>
+          <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
+            {t('landing.heroSub')}
+          </p>
+          <div className="flex flex-wrap gap-3 justify-center pt-1">
+            <Button size="lg" onClick={() => { trackLandingEvent('cta_start'); setView(go); }} className="min-h-12 px-7 text-base rounded-full" aria-label={t('landing.ctaStart')}>
+              {t('landing.ctaStart')}
+              <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+            </Button>
+            <Button size="lg" variant="outline" onClick={() => { trackLandingEvent('cta_demo'); setView('auth'); }} className="min-h-12 px-7 text-base rounded-full">
+              {t('landing.ctaDemo')}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
+            {t('landing.disclaimer')}
+          </p>
+        </section>
 
-          {/* Hero visual — sized containers prevent CLS. Variant B swaps the
-              static art for the lazy 3D bloom after idle. */}
+        {/* 3D stage — the Embrace scene in a calm, framed window */}
+        <section className="mx-auto max-w-5xl px-4 sm:px-6 pb-20 sm:pb-24" aria-label={t('landing.f1Title')}>
           <div className="relative">
-            <div className="aspect-[4/5] max-h-[520px] w-full overflow-hidden rounded-3xl border shadow-2xl niva-card relative">
-              {variant === 'B' && bloomReady ? (
-                <>
-                  <div className="absolute inset-0 niva-grad" aria-hidden="true" />
-                  <HeroBloom />
-                  <span className="absolute bottom-3 start-3 text-[11px] text-muted-foreground flex items-center gap-1">
-                    <Sparkles className="h-3 w-3" aria-hidden="true" />
-                    {t('studio.demoAsset')}
-                  </span>
-                </>
-              ) : (
-                <img
-                  src="/hero.png"
-                  alt={locale === 'fa' ? 'تصویر آرامش‌بخش بارداری' : 'Calm pregnancy illustration'}
-                  width={800}
-                  height={1000}
-                  fetchPriority="high"
-                  className="h-full w-full object-cover"
-                />
-              )}
+            <div
+              className="aspect-[4/3] sm:aspect-[16/9] w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border shadow-2xl niva-card relative"
+            >
+              {/* Base gradient always present → no flash while three.js streams in */}
+              <div className="absolute inset-0 niva-grad" aria-hidden="true" />
+              {bloomReady && <HeroBloom />}
+              {/* Honesty label — the scene is educational ambiance, not a fetal model */}
+              <span className="absolute top-3 end-3 text-[11px] text-muted-foreground bg-background/60 backdrop-blur rounded-full px-2.5 py-1 border border-border/50 flex items-center gap-1">
+                <Sparkles className="h-3 w-3" aria-hidden="true" />
+                {t('studio.demoAsset')}
+              </span>
+              {/* Truthful stat chips — glass, wrap-safe on mobile */}
+              <div className="absolute bottom-3 start-3 end-3 flex flex-wrap gap-2 justify-center">
+                {STAGE_STATS.map((s) => (
+                  <div key={s.k} className="rounded-full border border-border/60 bg-background/60 backdrop-blur px-3.5 py-1.5 text-center">
+                    <span className="text-sm font-bold num text-primary">{s.v}</span>{' '}
+                    <span className="text-[11px] text-muted-foreground">{t(s.k)}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <Card className="absolute -bottom-5 start-4 end-10 niva-card shadow-lg">
+            {/* Floating reassurance card */}
+            <Card className="hidden sm:block absolute -bottom-7 start-8 end-auto w-72 niva-card shadow-lg">
               <CardContent className="flex items-center gap-3 p-4">
                 <span className="grid place-items-center h-10 w-10 rounded-xl bg-secondary/20 text-secondary-foreground shrink-0">
                   <Sparkles className="h-5 w-5" aria-hidden="true" />
@@ -226,22 +236,6 @@ export function LandingView() {
                 </div>
               </CardContent>
             </Card>
-          </div>
-        </section>
-
-        {/* Stats strip */}
-        <section className="mx-auto max-w-6xl px-4 sm:px-6 pb-4" aria-label={t('landing.navFeatures')}>
-          <div className="grid grid-cols-3 gap-3 max-w-2xl mx-auto text-center">
-            {[
-              { v: '12', k: 'landing.statsStages' },
-              { v: '24', k: 'landing.statsSources' },
-              { v: '40+', k: 'landing.statsWeeks' },
-            ].map((s) => (
-              <div key={s.k} className="rounded-2xl border bg-background/50 py-4 px-2">
-                <p className="text-2xl sm:text-3xl font-bold num text-primary">{s.v}</p>
-                <p className="text-xs text-muted-foreground mt-1">{t(s.k)}</p>
-              </div>
-            ))}
           </div>
         </section>
 
@@ -281,7 +275,7 @@ export function LandingView() {
       </footer>
 
       {/* Consent bar — anonymous analytics opt-in (declining records nothing) */}
-      {consentChoice === null && (
+      {mounted && stored === null && (
         <div
           role="dialog"
           aria-label={t('landing.abText')}

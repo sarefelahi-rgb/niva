@@ -849,3 +849,30 @@ Work Log:
 Stage Summary:
 - VERIFIED LIVE: the complete Wave 0–7 backlog (all 15 master-prompt phases represented) is implemented, pushed, and the running app passes the golden path end-to-end with no errors.
 - Remaining items are exclusively production-environment actions and external sign-offs, all documented in docs/audit/08-release-checklist.md: real PSP credentials, PG migration rehearsal execution, backup/restore drill execution, EMAIL transport, per-locale path URLs (i18n routing), NIVA_SITE_URL, clinical + legal sign-off. None can be faked in the sandbox by design.
+---
+Task ID: wave8-landing
+Agent: main (Z.ai Code)
+Task: Landing full rebuild — modern, 3D, maternal/childlike («Embrace / آغوش») per user request «لندینگ را بروز کن. بازسازی کلی و مدرن و 3 بعدی مادرانه و فرزندانه»
+
+Work Log:
+- Redesigned the hero from a 2-column split to a modern centered composition: kicker → review badge → two-segment H1 with a brand-gradient second segment (new i18n keys landing.heroTitle1/2, fa+en symmetric) → sub → pill CTAs → disclaimer. Ambient background = fixed niva-grad layer + three CSS niva-blob shapes (compositor-only transform keyframes, frozen under prefers-reduced-motion).
+- Retired the A/B hero experiment in the UI (every visitor gets the 3D hero); analytics stay anonymous + consent-gated (landing_view, cta_start, cta_demo, ab_consent_granted tracked as before).
+- Rewrote hero-bloom.tsx as the «Embrace» scene (pure r3f + three, no new deps): translucent lavender cradle shell with breathing wobble + rim-glow backside shell; inner glowing pearl (the child) with a double-thump heartbeat envelope (scale+glow pulse); cubic-bezier coral cord; nursery mobile (sage torus, coral bead, lavender capsule on hair-thin strings) drifting overhead; 64-point additive stardust field (imperative BufferGeometry, disposed on unmount — R-11 lesson); pointer parallax (lerped, subtle). Perf: dpr [1,1.5], low-power GL, no shadows/post, IntersectionObserver flips frameloop to 'never' when offscreen, reduced-motion = frameloop 'demand' single frame. Canvas mounts after requestIdleCallback via next/dynamic {ssr:false}.
+- Rebuilt sections.tsx: Reveal wrapper (framer-motion whileInView, once, transform/opacity only, disabled under useReducedMotion); SectionHeading with kicker + proper id wiring for every aria-labelledby (a11y fix: ids were dangling before); Journey cards with oversized ghost numerals 01-03 + gradient connecting thread; Features converted to a bento grid (4-col, studio spotlight spans 2×2 with a CSS mini-visual, 8 modules fill the remaining cells); Pricing cards pill-CTA'd with niva-ring highlight + lift on premium; new closing CTA band (rounded niva-ring panel, gradient wash, blobs, dual CTAs — new i18n keys landing.ctaBandTitle/Sub fa+en). Pricing math unchanged (single source plans.ts via formatToman).
+- Header polish: pill nav container, rounded-full CTAs. Footer/stats: stats strip removed as separate band and folded into three glass chips over the 3D stage (12 stages / 24 sources / 40+ weeks — same truthful numbers); studio.demoAsset honesty badge kept on the stage (educational ambiance, explicitly NOT a fetal model).
+- globals.css additions: niva-blob float keyframes + variants, .text-gradient (oklch gradient text via background-clip), .niva-ring (soft glow border).
+- Infra note: dev compiler served a stale globals chunk after the edit (documented sandbox overlayfs issue); forced recompile with an appended marker comment — served CSS then contained all new classes (verified via curl grep).
+- ESLint react-hooks v6: replaced setState-in-effect patterns — consent bar now derives state post-hydration (useMounted-gated inline read, re-render triggered in handleConsent); hero-bloom reads prefers-reduced-motion lazily in useState initializer; IntersectionObserver callbacks unaffected.
+
+Evidence (all real):
+- Gates: bunx tsc --noEmit → 0; bun run lint → 0; dev.log compiles clean, no errors.
+- Browser E2E (agent-browser): fa RTL desktop — hero + gradient H1 (computed backgroundClip:text verified), 3D Embrace renders (canvas present, screenshot: shell+pearl+cord+mobile+stardust), stat chips + demo badge overlay; consent bar grants/dismisses; #journey reveal opacity 0→1 on scroll; bento + pricing (premium ring/lift) + CTA band screenshots OK; footer flush gap=0 (scrollHeight − footer bottom).
+- Dark mode: aubergine scene reads as a night nursery — screenshot verified, no contrast regressions.
+- Mobile 390px: no horizontal scroll (scrollWidth==clientWidth==390), chips wrap, CTAs stack — screenshots.
+- EN LTR: h1 "Understand every week of *your pregnancy*" with gradient span, dir/lang flip verified.
+- CWV (fresh load, dev mode): LCP 1492ms (≤2500 budget), CLS 0 (≤0.1). INP safe by construction (transform/opacity-only motion, offscreen canvas paused).
+- FAQ accordion opens (answer text verified). Console: only harmless THREE.Clock deprecation (r3f internal) + HMR info; zero page errors.
+
+Stage Summary:
+- Wave 8 IMPLEMENTED+VERIFIED: the landing is a complete modern rebuild — centered gradient hero, maternal «Embrace» 3D scene (heartbeat pearl in a cradle under a nursery mobile), bento features, scroll-reveals, highlighted pricing, closing CTA band — bilingual fa/en, dark-mode-safe, mobile-clean, within CWV budgets, with the honesty badges (pending-review + educational-demo) intact.
+- No new dependencies; three.js stays out of the critical path; A/B gating retired in favor of 3D-for-all with unchanged consent-gated analytics.

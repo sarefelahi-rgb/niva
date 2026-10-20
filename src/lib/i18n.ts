@@ -34,6 +34,8 @@ const en: Dict = {
   'landing.heroTitle': 'Understand every week of your pregnancy',
   'landing.heroSub': 'NIVA turns trusted perinatal guidance into a calm, personal experience — a scientific 3D development studio, week-by-week education, and an AI assistant that cites its sources and never replaces your clinician.',
   'landing.ctaStart': 'Create your account', 'landing.ctaDemo': 'Explore the demo',
+  'landing.heroTitle1': 'Understand every week of',
+  'landing.heroTitle2': 'your pregnancy',
   'landing.f1Title': 'Scientific 3D studio', 'landing.f1Body': 'Stage-specific schematic development with anatomical layers and guided learning — clearly labeled as educational.',
   'landing.f2Title': 'Evidence-grounded AI', 'landing.f2Body': 'Answers retrieved from curated public-health sources with visible citations. Emergency warning signs bypass the AI entirely.',
   'landing.f3Title': 'You own your data', 'landing.f3Body': 'Granular family permissions, one-click export, and deletion — with an audit trail you can inspect.',
@@ -561,6 +563,10 @@ const en: Dict = {
   'support.staff': 'NIVA Support',
   'support.closedNote': 'This ticket is closed. Open a new ticket if you still need help.',
   'support.backToList': 'Back to my tickets',
+
+  // Landing rebuild (Wave 8) — CTA band
+  'landing.ctaBandTitle': 'Ready to meet every week of the journey?',
+  'landing.ctaBandSub': 'Start free — the 3D studio, week-by-week guidance and your private journal are one tap away. No credit card, no ads, no data sale.',
 };
 
 const fa: Dict = {
@@ -582,6 +588,8 @@ const fa: Dict = {
   'landing.heroTitle': 'هر هفته بارداری‌تان را بشناسید',
   'landing.heroSub': 'نیوا راهنماهای معتبر دوره پری‌ناتال را به تجربه‌ای آرام و شخصی تبدیل می‌کند — استودیوی سه‌بعدی علمی رشد، آموزش هفته‌به‌هفته و دستیاری هوشمند که منبع می‌آورد و هرگز جایگزین پزشک شما نمی‌شود.',
   'landing.ctaStart': 'ساخت حساب کاربری', 'landing.ctaDemo': 'کاوش نسخه نمونه',
+  'landing.heroTitle1': 'هر هفته',
+  'landing.heroTitle2': 'بارداری‌تان را بشناسید',
   'landing.f1Title': 'استودیوی سه‌بعدی علمی', 'landing.f1Body': 'مدل‌های شماتیک متناسب با هر مرحله با لایه‌های کالبدشناختی و یادگیری هدایت‌شده — با برچسب صریح «آموزشی».',
   'landing.f2Title': 'دستیار مستند و علمی', 'landing.f2Body': 'پاسخ‌ها از منابع منتخب سلامت عمومی بازیابی می‌شوند و منبعشان نمایش داده می‌شود. علائم اورژانسی اصلاً از دستیار عبور نمی‌کنند.',
   'landing.f3Title': 'داده‌ها مال شماست', 'landing.f3Body': 'دسترسی خانوادگی دقیق، خروجی یک‌کلیکی و حذف کامل — با ثبت بازرسی‌پذیر رویدادها.',
@@ -1109,6 +1117,10 @@ const fa: Dict = {
   'support.staff': 'پشتیبانی نیوا',
   'support.closedNote': 'این تیکت بسته شده است. اگر هنوز کمک لازم دارید، تیکت جدیدی ثبت کنید.',
   'support.backToList': 'بازگشت به تیکت‌های من',
+
+  // بازسازی لندینگ (ویو ۸) — نوار دعوت پایانی
+  'landing.ctaBandTitle': 'آماده‌اید هر هفته‌ی این سفر را از نزدیک بشناسید؟',
+  'landing.ctaBandSub': 'رایگان شروع کنید — استودیوی سه‌بعدی، راهنمای هفته‌به‌هفته و دفتر خاطرات خصوصی‌تان فقط یک لمس فاصله دارد. بدون کارت بانکی، بدون تبلیغ، بدون فروش داده.',
 };
 
 export const DICTS: Record<Locale, Dict> = { en, fa };
