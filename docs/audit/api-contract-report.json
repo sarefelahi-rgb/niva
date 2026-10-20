@@ -1,0 +1,142 @@
+{
+  "baseUrl": "http://localhost:3000",
+  "ranAt": "2026-10-20T17:01:56.630Z",
+  "total": 19,
+  "passed": 19,
+  "failed": 0,
+  "cases": [
+    {
+      "group": "auth-boundary",
+      "case": "GET pregnancy unauth → 401",
+      "expect": "status=401",
+      "got": "status=401",
+      "pass": true
+    },
+    {
+      "group": "auth-boundary",
+      "case": "GET appointments unauth → 401",
+      "expect": "status=401",
+      "got": "status=401",
+      "pass": true
+    },
+    {
+      "group": "auth-boundary",
+      "case": "GET conversations unauth → 401",
+      "expect": "status=401",
+      "got": "status=401",
+      "pass": true
+    },
+    {
+      "group": "auth-boundary",
+      "case": "GET notifications unauth → 401",
+      "expect": "status=401",
+      "got": "status=401",
+      "pass": true
+    },
+    {
+      "group": "auth-boundary",
+      "case": "GET assets (user) unauth → 401",
+      "expect": "status=401",
+      "got": "status=401",
+      "pass": true
+    },
+    {
+      "group": "rbac",
+      "case": "USER on ADMIN ai-metrics → 403",
+      "expect": "status=403",
+      "got": "status=403",
+      "pass": true
+    },
+    {
+      "group": "rbac",
+      "case": "USER on ADMIN platform-metrics → 403",
+      "expect": "status=403",
+      "got": "status=403",
+      "pass": true
+    },
+    {
+      "group": "rbac",
+      "case": "USER on ADMIN review queue → 403",
+      "expect": "status=403",
+      "got": "status=403",
+      "pass": true
+    },
+    {
+      "group": "csrf",
+      "case": "cross-origin POST → 403",
+      "expect": "status=403",
+      "got": "status=403",
+      "pass": true
+    },
+    {
+      "group": "csrf",
+      "case": "cross-origin cancel → 403",
+      "expect": "status=403",
+      "got": "status=403",
+      "pass": true
+    },
+    {
+      "group": "idor",
+      "case": "demo cannot read admin conversation",
+      "expect": "status=404 or 403 (not 200 with admin data)",
+      "got": "status=404",
+      "pass": true
+    },
+    {
+      "group": "idor",
+      "case": "demo delete foreign notification → non-200",
+      "expect": "status=404/400/403",
+      "got": "status=404",
+      "pass": true
+    },
+    {
+      "group": "validation",
+      "case": "empty chat fields → 400",
+      "expect": "status=400/404",
+      "got": "status=400",
+      "pass": true
+    },
+    {
+      "group": "validation",
+      "case": "oversized payload → 400",
+      "expect": "status=400",
+      "got": "status=400",
+      "pass": true
+    },
+    {
+      "group": "validation",
+      "case": "invalid date → 400",
+      "expect": "status=400",
+      "got": "status=400",
+      "pass": true
+    },
+    {
+      "group": "replay",
+      "case": "forged subscription id → 404",
+      "expect": "status=404",
+      "got": "status=404",
+      "pass": true
+    },
+    {
+      "group": "method",
+      "case": "DELETE /api/assets → 405",
+      "expect": "status=405",
+      "got": "status=405",
+      "pass": true
+    },
+    {
+      "group": "tracing",
+      "case": "x-request-id echoed",
+      "expect": "status=200 + header present",
+      "got": "status=200 requestId=f91e20ac…",
+      "pass": true
+    },
+    {
+      "group": "ratelimit",
+      "case": "demo burst 12× → 429 within window",
+      "expect": "status=429",
+      "got": "status=429",
+      "pass": true
+    }
+  ]
+}

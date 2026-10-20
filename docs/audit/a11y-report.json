@@ -1,0 +1,11 @@
+{
+  "tool": "axe-core 4.10.2 (injected via script, resultTypes violations)",
+  "ranAt": "2026-10-20T17:05:00Z",
+  "scopes": [
+    { "view": "landing (logged out, fa RTL)", "violations": 0, "fixedDuringWave5": ["landmark-unique: two nav[aria-label=کاوش] → footer nav relabeled کاوش — پاصفحه (landing.footerExploreFooter)"] },
+    { "view": "dashboard (demo session, fa RTL)", "violations": 0 },
+    { "view": "3D studio (week 12, annotations visible)", "violations": 0, "fixedDuringWave5": ["aria-input-field-name: Slider thumb role=slider lacked accessible name → ui/slider.tsx forwards component aria-label to every thumb", "aria-roles: invalid role=description → role=note on narration paragraph"] },
+    { "view": "AI assistant (conversation list + composer)", "violations": 0 }
+  ],
+  "notes": "Scan is per-rendered-view on the single-route SPA; all four primary surfaces scanned at desktop width. Keyboard walkthrough evidence from Wave 3 E2E (annotation popovers close via Escape, guided tour, slider operable). Remaining honesty note: dark-mode and 200% zoom passes are covered by manual testing in Wave 4 E2E, not by axe."
+}

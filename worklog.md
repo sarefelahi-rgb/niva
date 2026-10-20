@@ -599,3 +599,27 @@ Stage Summary:
 - Wave 3 COMPLETE: 3.1 RAG v2 hybrid + versioned chunks + re-rank + per-locale; 3.2 provider gateway + circuit breaker + budgets + safe cache + PHI-free observability + admin metrics; 3.3 asset pipeline split (content/params/geometry) + per-model review workflow; 3.4 LOD presets + adaptive degrade + WebGL fallback + context-loss recovery + memory budget proven; 3.5 narrated education + read-aloud + contextual annotations with citations + size comparisons.
 - Honest residuals: embeddings are deterministic lexical+ngram (no SDK endpoint — production swap-in documented); cache/breaker/counters per-process; EMAIL channel still dormant (Wave 4 residual); real PSP, MFA, ICU plurals remain Wave 5/6.
 - Next per backlog: Wave 5 (platform hardening: 5.1 bounded contexts, 5.2 Postgres rehearsal, 5.3 structured logging, 5.4 test pyramid, 5.5 CI/CD + OWASP) or Wave 6; recommend Wave 5.4+5.5 (test pyramid + CI gates) next.
+
+---
+Task ID: wave5
+Agent: main (Z.ai Code)
+Task: Wave 5 — platform hardening (5.1 bounded contexts, 5.2 Postgres rehearsal plan, 5.3 structured logging, 5.4 contract verification + a11y, 5.5 CI/CD gates)
+
+Work Log:
+- 5.5 CI/CD: .github/workflows/ci.yml — quality job (frozen-lockfile install → prisma generate → tsc --noEmit → eslint → db:push to throwaway CI db → production build with NODE_ENV=production → bun audit high+ → git-grep secret scan for key patterns) + smoke job (db:push → db:seed → build → boot on :3100 → health probe → scripts/verify-contracts.ts as a blocking gate). .github/dependabot.yml (bun weekly, actions monthly). Sandbox `bun run build` ban applies to the local dev machine only — CI runs in isolated runners (documented in the workflow header).
+- 5.3 Structured logging: src/lib/observability.ts — JSON-line logEvent with source-level redaction (password/token/authorization/cookie/secret keys → [REDACTED:len]; emails → sha256 prefix; deep + cycle-safe; bearer/long-hex value patterns caught), NIVA_LOG_LEVEL + prod-default info floor; newRequestId/requestIdOf; in-memory request counters (per-process, honest). src/lib/api.ts withUser integration: every request logs {requestId, route, method, status, code, latencyMs}, response echoes x-request-id, unhandled errors log name+message+stack-head without body data. New ADMIN-only /api/admin/platform-metrics (uptime, total, byStatus, topRoutes, 5xx rate — counts only, no content). Verified in dev.log: JSON lines present; grep for password/admin password/Bearer in log lines = 0 hits.
+- 5.4 Contract verification: scripts/verify-contracts.ts (operational self-check, same nature as the eval harness) — 19 assertions across auth-boundary(5)/rbac(3)/csrf(2)/idor(2)/validation(3)/replay(2)/method(1)/tracing(1)/ratelimit(1, last — burns the window). Real result: 19/19 PASS (runs at 16:52:53Z and 17:01:56Z), report at docs/audit/ai… api-contract-report.json. a11y: axe-core 4.10.2 injected per-view — landing 0 (after fix), dashboard 0, studio 0 (after 2 fixes), assistant 0; report docs/audit/a11y-report.json.
+- a11y fixes applied: ui/slider.tsx forwards component aria-label onto every SliderThumb (role=slider must carry its own name — axe serious); fetal-studio narration role="description"→role="note" (axe critical, invalid ARIA role); landing duplicate nav landmark relabeled (landing.footerExploreFooter i18n key fa+en, axe moderate landmark-unique).
+- 5.1: docs/audit/05-bounded-contexts.md — 11 bounded contexts with owned models + API surfaces + guarded invariants; API contract standards (error envelope, status semantics incl. no-existence-leak IDOR policy, versioning decision → /api/v1 reserved for Wave 6 external surface, ADR-011 noted); validation audit: 30/30 mutating routes zod-validated (audited by enumeration, central readJson ceiling 256KB).
+- 5.2: docs/audit/06-postgres-rehearsal.md — full non-destructive drill script (freeze → export → migrate → 6 verify gates incl. verify-contracts 19/19 + p95 budget → go/no-go → rollback < 30min box; dual-write alternative recorded-and-not-recommended). Baseline DDL captured: docs/audit/migration-rehearsal/0001-initial-sqlite.sql (698 lines, prisma migrate diff --from-empty). NOT EXECUTED in sandbox per platform guard — needs prod env + explicit approval.
+- package.json scripts: db:seed, verify:contracts, ai:eval added (CI + ops ergonomics).
+
+Evidence (real outputs):
+- tsc 0 errors; eslint 0 errors.
+- verify-contracts 19/19 PASS ×2 runs; axe violations 0 on all four primary views post-fix.
+- platform-metrics: {uptimeSeconds:549, totalRequests:48, byStatus:{200:19,201:1,400:6,401:10,403:8,404:4}, topRoutes…}.
+- dev.log structured lines verified; zero secret leakage by grep.
+
+Stage Summary:
+- Wave 5 IMPLEMENTED+VERIFIED (sandbox scope). Honest residuals: 5.2 is a rehearsal PLAN ONLY (platform guard; not executed — needs production environment + user approval); 5.6 object storage/CDN deferred (sandbox 3D assets are parametric + manifest-versioned; real storage lands with the authored-asset pipeline in production); metrics are per-process in-memory (external metrics pipeline is the production target); audit non-blocking `bun audit` stays advisory until first deployment (6.6).
+- Next per backlog: Wave 6 — 6.1 real PSP adapter + webhook idempotency, 6.2 admin role spectrum, 6.3 ICU message formatting/pluralization, 6.4 jurisdiction privacy pack, 6.5 PWA polish, 6.6 release checklist incl. clinical sign-off.

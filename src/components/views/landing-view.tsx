@@ -255,7 +255,7 @@ export function LandingView() {
             <img src="/logo.svg" alt="NIVA" width={92} height={26} className="h-7 w-auto" />
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">{t('landing.footerRights')}</p>
           </div>
-          <nav aria-label={t('landing.footerExplore')} className="space-y-2">
+          <nav aria-label={t('landing.footerExploreFooter')} className="space-y-2">
             <h2 className="text-sm font-semibold">{t('landing.footerExplore')}</h2>
             <ul className="space-y-1.5">
               {NAV_ANCHORS.slice(0, 4).map((a) => (

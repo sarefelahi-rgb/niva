@@ -459,7 +459,7 @@ function NarrationCard({
           {speaking ? t('studio.stopReading') : t('studio.readAloud')}
         </button>
       </div>
-      <p className="text-xs leading-relaxed text-muted-foreground" role="description">
+      <p className="text-xs leading-relaxed text-muted-foreground" role="note">
         {locale === 'fa' ? content.narrationFa : content.narrationEn}
       </p>
       <div className="space-y-0.5">

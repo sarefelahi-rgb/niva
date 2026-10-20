@@ -1,0 +1,18 @@
+version: 2
+updates:
+  # Runtime + build dependencies: weekly patch-level awareness.
+  - package-ecosystem: 'bun'
+    directory: '/'
+    schedule:
+      interval: weekly
+    open-pull-requests-limit: 5
+    labels: ['dependencies']
+    commit-message:
+      prefix: 'chore(deps)'
+
+  # GitHub Actions themselves (checkout, setup-bun) — monthly.
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule:
+      interval: monthly
+    labels: ['dependencies', 'ci']
