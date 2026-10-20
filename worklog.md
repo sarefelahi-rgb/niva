@@ -525,3 +525,20 @@ Evidence (orchestrator-run, real):
 
 Stage Summary:
 - Wave 4 items 4.1–4.5 all implemented. Residual honesty notes: EMAIL channel is consent-gated and dormant until SMTP_URL is set (documented in UI); push/web-push deliberately deferred (Wave 5/6); ModerationAction FK relations verified in generated client.
+
+---
+Task ID: wave4-final
+Agent: main (Z.ai Code)
+Task: Wave 4 consolidated E2E verification + repo integrity + push
+
+Work Log:
+- Browser E2E (demo fa + en, admin, mobile 390px): community mine-status badges (PENDING/در حال بازبینی، APPROVED/منتشرشده، REMOVED/حذف‌شده + moderation note) ✓; birth-prep persistent checklist (toggle → API persisted: support-person/car-seat true) + live contraction timer (start → 00:0x elapsed → stop → POST durationSec 26 → toast) ✓; postpartum feeding form submit → BREAST/LEFT row + feedsLast24h + toast ✓; family tabs (grants با فعال badge، shared tab correct empty state) ✓; notifications bell (per-row mark-read/delete + scheduled section w/ Persian due dates) ✓; settings email-reminders switch (on→hint, API true; off→false) ✓; admin scheduler card (pending count + manual tick result line) ✓; mobile 390px no-hscroll + footer flush (bottom==viewport) ✓; EN LTR dir/lang/labels ✓.
+- Scheduler E2E (curl): secret 403 / admin-session tick 200; reminder +2h → job created (mini-service raced first — 60s cadence confirmed via /tmp/niva-scheduler.log); re-tick idempotent (0 new); fast-forward → materialized=3 → feed-visible, scheduled=0; T-24h appointment → apptRemindersCreated=1; email consent on w/o SMTP_URL → emailTransportConfigured=false, zero EMAIL rows. Test artifacts cleaned (test reminder/appointment/notifications/contraction/feeding rows deleted; consent reset).
+- Repo integrity: sandbox FS overlay replication bug repeatedly ate the 2-byte sequence "[m" (useState destructuring + prisma relation fields) and served divergent layer views per-process (tsc/grep/git/python saw different bytes at different times). Mitigation: single-process read→fix→git-add→commit→git-show-verify cycles ×3 over 20min — all clean; full-tree signature scan 0 hits; HEAD blob checks 0 failures; origin/main == HEAD verified after push. Runtime health re-proven each cycle (tsc 0, eslint 0, browser E2E passing).
+- Pushed f85e401..b7ed12e → github.com/sarefelahi-rgb/niva main.
+
+Stage Summary:
+- Wave 4 COMPLETE: 4.1 moderation loop, 4.2 partner flow, 4.3 wellness modules, 4.4 birth/baby, 4.5 notification scheduler — all IMPLEMENTED+VERIFIED.
+- Honest residuals: EMAIL channel dormant until SMTP_URL configured (UI states this); web-push deferred (Wave 5/6); email transport + MFA + translation review track remain Wave 5/6 per backlog.
+- Sandbox note for future agents: if you see syntax like "const ine, setMine]" in files that tsc reports as clean, you are reading a stale overlay layer — re-check in a fresh process before "fixing", and always commit+verify within one process.
+- Next per backlog: Wave 3 (RAG v2 + studio excellence) or Wave 5 (platform hardening); recommend Wave 3.1 RAG v2 + 3.2 provider abstraction next.
