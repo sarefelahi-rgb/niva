@@ -835,3 +835,17 @@ Evidence (all real, agent-browser):
 Stage Summary:
 - Wave 7.b IMPLEMENTED+VERIFIED: the last Wave 6.2 residual (user-side ticket UI) is closed. Support loop is now end-to-end: user form → staff queue → conversation → terminal states, with localized notifications already in place from Wave 6.
 - Honest residuals: email transport still dormant (EMAIL channel), real PSP credentials + PG/backup drills + clinical/legal sign-off remain production actions; cookie-SSR covers the single-route app — per-locale path URLs still need i18n routing.
+---
+Task ID: final-verify
+Agent: main (Z.ai Code)
+Task: Final live verification pass after full backlog completion (user asked «همه تکمیل شد؟»)
+
+Work Log:
+- Confirmed repo state: working tree clean, local HEAD == origin/main (dd4d2e8 wave7). All backlog waves 0–7 committed and pushed (91e054e wave0+phase1 → be2a5ad phase2 → f85e401 wave2 → ae8ba4e/1cb9025/68fb70b/b7ed12e/1c62ab1 wave4 → a0be218 wave3 → ef033d0 wave5 → e23ab05 wave6 → dd4d2e8 wave7).
+- Live health: GET / → 200 (70ms), /api/flags/public → all flags true, /sitemap.xml → 200, /robots.txt → 200. dev.log tail shows healthy 200 traffic with structured api.request logs.
+- Browser E2E golden path (agent-browser, all real): landing renders full RTL Persian (nav, journey trimesters, science, assistant boundaries, features, transparent pricing, FAQ); ورود view opens; demo login succeeds; onboarding tour wizard advances through all steps (welcome → dashboard → 3D studio → assistant → data rules) via Next; dashboard loads with 17-item Primary nav, pregnancy progress region with bidi-isolated greeting (⁨Demo⁩), quick actions, emergency-guide notice; zero page errors, console clean (only React DevTools info + HMR).
+- No code changes made this pass (verification-only); nothing to commit.
+
+Stage Summary:
+- VERIFIED LIVE: the complete Wave 0–7 backlog (all 15 master-prompt phases represented) is implemented, pushed, and the running app passes the golden path end-to-end with no errors.
+- Remaining items are exclusively production-environment actions and external sign-offs, all documented in docs/audit/08-release-checklist.md: real PSP credentials, PG migration rehearsal execution, backup/restore drill execution, EMAIL transport, per-locale path URLs (i18n routing), NIVA_SITE_URL, clinical + legal sign-off. None can be faked in the sandbox by design.
