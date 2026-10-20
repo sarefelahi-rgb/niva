@@ -13,7 +13,7 @@ import { TrackingView } from '@/components/views/tracking-view';
 import { AssistantView } from '@/components/views/assistant-view';
 import { RecordsView } from '@/components/views/records-view';
 import { AppointmentsView } from '@/components/views/appointments-view';
-import { NutritionView } from '@/components/views/nutrition-view';
+import { WellnessView } from '@/components/views/wellness-view';
 import { BirthPrepView } from '@/components/views/birth-prep-view';
 import { PostpartumView } from '@/components/views/postpartum-view';
 import { FamilyView } from '@/components/views/family-view';
@@ -43,7 +43,7 @@ function Views() {
       case 'assistant': return <AssistantView />;
       case 'records': return <RecordsView />;
       case 'appointments': return <AppointmentsView />;
-      case 'nutrition': return <NutritionView />;
+      case 'wellness': return <WellnessView />;
       case 'birth': return <BirthPrepView />;
       case 'postpartum': return <PostpartumView />;
       case 'family': return <FamilyView />;

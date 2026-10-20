@@ -31,7 +31,7 @@ const PRIMARY_NAV: NavItem[] = [
 const SECONDARY_NAV: NavItem[] = [
   { view: 'appointments', icon: Stethoscope, labelKey: 'nav.appointments' },
   { view: 'records', icon: FolderLock, labelKey: 'nav.records' },
-  { view: 'nutrition', icon: Salad, labelKey: 'nav.nutrition' },
+  { view: 'wellness', icon: Salad, labelKey: 'nav.wellness' },
   { view: 'birth', icon: Baby, labelKey: 'nav.birth' },
   { view: 'postpartum', icon: Flower2, labelKey: 'nav.postpartum' },
   { view: 'safety', icon: HeartPulse, labelKey: 'nav.safety' },
