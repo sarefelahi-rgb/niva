@@ -9,7 +9,12 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, CheckCircle2, Users, Activity, Coins, ToggleLeft, Sparkles } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Users, Activity, Coins, ToggleLeft, Sparkles, Gavel } from 'lucide-react';
+import { Input } from '@/components/ui/input';
+import { useToast } from '@/hooks/use-toast';
+
+/** Must match AUTO_REPORT_NOTE written by /api/community (localized via mod.autoFlagNote). */
+const AUTO_REPORT_NOTE = 'Auto-queued after repeated reports';
 
 interface Overview {
   users: number; pregnancies: number; contentPending: number; postsPending: number; safetyOpen: number;
@@ -22,29 +27,42 @@ interface UserRow { id: string; email: string; name: string; role: string; local
 interface AuditRow { id: string; action: string; entity: string; entityId: string | null; actor: { name: string; email: string } | null; createdAt: string }
 interface FinanceRow { id: string; plan: string; amount: number; currency: string; status: string; user: string; createdAt: string }
 interface Flags { community: boolean; family: boolean; studio: boolean; ar: boolean }
+interface ModPost {
+  id: string; authorAlias: string; topic: string; body: string; language: string; status: string;
+  flagCount: number; moderationNote: string | null; createdAt: string;
+  author: { email: string; name: string | null };
+}
+interface ModActionRow { id: string; action: string; reason: string | null; createdAt: string; moderator: { email: string } | null; post: { authorAlias: string } | null }
+interface ModData { queue: ModPost[]; recent: ModActionRow[]; counts: { pending: number; todayDecisions: number } }
 
 export function AdminView() {
   const { t, locale } = useApp();
+  const { toast } = useToast();
   const [overview, setOverview] = useState<Overview | null>(null);
   const [users, setUsers] = useState<UserRow[]>([]);
   const [audit, setAudit] = useState<AuditRow[]>([]);
   const [finance, setFinance] = useState<{ revenueByPlan: Record<string, number>; payments: FinanceRow[] } | null>(null);
   const [flags, setFlags] = useState<Flags>({ community: true, family: true, studio: true, ar: true });
+  const [mod, setMod] = useState<ModData | null>(null);
+  const [reasons, setReasons] = useState<Record<string, string>>({});
+  const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
-    const [o, u, a, f, fl] = await Promise.all([
+    const [o, u, a, f, fl, m] = await Promise.all([
       fetch('/api/admin/overview').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/users').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/audit').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/finance').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/flags').then((r) => r.json()).catch(() => null),
+      fetch('/api/admin/moderation').then((r) => r.json()).catch(() => null),
     ]);
     if (o) setOverview(o);
     if (u) setUsers(u.users ?? []);
     if (a) setAudit(a.events ?? []);
     if (f) setFinance(f);
     if (fl?.flags) setFlags(fl.flags);
+    if (m?.queue) setMod(m);
     setLoading(false);
   }, []);
 
@@ -63,6 +81,28 @@ export function AdminView() {
     await load();
   };
 
+  const decide = async (postId: string, action: 'APPROVE' | 'REJECT' | 'REMOVE') => {
+    setBusyId(postId);
+    try {
+      const note = reasons[postId]?.trim();
+      const res = await fetch('/api/admin/moderation', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ postId, action, ...(note ? { note } : {}) }),
+      });
+      if (res.ok) {
+        toast({ description: t('mod.decided') });
+        setReasons((prev) => { const next = { ...prev }; delete next[postId]; return next; });
+        await load();
+      } else {
+        const data = await res.json().catch(() => null);
+        toast({ description: data?.error?.message ?? t('err.validation'), variant: 'destructive' });
+      }
+    } finally {
+      setBusyId(null);
+    }
+  };
+
   if (loading) return <Skeleton className="h-96 w-full" />;
 
   return (
@@ -76,6 +116,7 @@ export function AdminView() {
           <TabsTrigger value="overview">{t('admin.overview')}</TabsTrigger>
           <TabsTrigger value="users">{t('admin.users')}</TabsTrigger>
           <TabsTrigger value="safety">{t('admin.safety')}</TabsTrigger>
+          <TabsTrigger value="moderation">{t('mod.tab')}</TabsTrigger>
           <TabsTrigger value="audit">{t('admin.audit')}</TabsTrigger>
           <TabsTrigger value="finance">{t('admin.finance')}</TabsTrigger>
           <TabsTrigger value="flags">{t('admin.flags')}</TabsTrigger>
@@ -151,6 +192,77 @@ export function AdminView() {
               <Button variant="outline" size="sm" className="min-h-9" onClick={() => resolveSafety(e.id)}>{t('admin.resolve')}</Button>
             </CardContent></Card>
           ))}
+        </TabsContent>
+
+        <TabsContent value="moderation" className="space-y-4">
+          <div className="flex flex-wrap items-center gap-2">
+            <h2 className="text-base font-semibold flex items-center gap-2"><Gavel className="h-4 w-4 text-primary" />{t('mod.queue')}</h2>
+            <Badge variant="secondary" className="num">{mod?.counts.pending ?? 0}</Badge>
+            <span className="text-xs text-muted-foreground">{t('mod.queueCount')}</span>
+          </div>
+          {mod === null ? <Skeleton className="h-40 w-full" /> : mod.queue.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('mod.empty')}</p>
+          ) : (
+            <div className="space-y-3">
+              {mod.queue.map((p) => (
+                <Card key={p.id} className="niva-card">
+                  <CardContent className="p-4 space-y-2">
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                      <span className="font-semibold">{p.authorAlias}</span>
+                      <Badge variant="secondary" className="text-[10px]">{p.topic}</Badge>
+                      <Badge variant="outline" className="text-[10px] uppercase">{p.language}</Badge>
+                      {p.flagCount > 0 && <Badge variant="destructive" className="text-[10px]">{t('mod.flaggedBadge')}</Badge>}
+                      <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                    </div>
+                    <p className="text-sm leading-relaxed max-h-32 overflow-y-auto whitespace-pre-wrap" dir="auto">{p.body}</p>
+                    <p className="text-xs text-muted-foreground" dir="ltr">{t('mod.author')}: {p.author.email}</p>
+                    {p.moderationNote && (
+                      <p className="text-xs text-amber-700 dark:text-amber-400" dir="auto">{p.moderationNote === AUTO_REPORT_NOTE ? t('mod.autoFlagNote') : p.moderationNote}</p>
+                    )}
+                    <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                      <Input
+                        value={reasons[p.id] ?? ''}
+                        onChange={(e) => setReasons((prev) => ({ ...prev, [p.id]: e.target.value }))}
+                        placeholder={t('mod.reason')}
+                        maxLength={500}
+                        className="min-h-11 sm:flex-1"
+                        aria-label={t('mod.reason')}
+                      />
+                      <div className="flex gap-2">
+                        <Button size="sm" className="min-h-11 flex-1 sm:flex-none" disabled={busyId === p.id} onClick={() => decide(p.id, 'APPROVE')}>{t('mod.approve')}</Button>
+                        <Button size="sm" variant="outline" className="min-h-11 flex-1 sm:flex-none" disabled={busyId === p.id} onClick={() => decide(p.id, 'REJECT')}>{t('mod.reject')}</Button>
+                        <Button size="sm" variant="destructive" className="min-h-11 flex-1 sm:flex-none" disabled={busyId === p.id} onClick={() => decide(p.id, 'REMOVE')}>{t('mod.remove')}</Button>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
+          <Card className="niva-card">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-base flex items-center gap-2">{t('mod.decisions')} <Badge variant="outline" className="num">{mod?.counts.todayDecisions ?? 0}</Badge></CardTitle>
+            </CardHeader>
+            <CardContent className="p-0">
+              <div className="max-h-96 overflow-y-auto">
+                {(mod?.recent ?? []).length === 0 ? (
+                  <p className="p-4 text-sm text-muted-foreground">{t('common.empty')}</p>
+                ) : (
+                  <ul className="divide-y text-sm">
+                    {mod?.recent.map((a) => (
+                      <li key={a.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
+                        <Badge variant={a.action === 'APPROVE' ? 'default' : a.action === 'REMOVE' || a.action === 'REJECT' ? 'destructive' : 'outline'} className="text-[10px]">{a.action}</Badge>
+                        <span className="text-xs font-medium" dir="auto">{a.post?.authorAlias ?? '—'}</span>
+                        <span className="text-xs text-muted-foreground truncate flex-1 min-w-24" dir="auto">{a.reason ?? ''}</span>
+                        <span className="text-[10px] text-muted-foreground num">{new Date(a.createdAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                        <span className="text-xs text-muted-foreground" dir="ltr">{a.moderator?.email ?? '—'}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </CardContent>
+          </Card>
         </TabsContent>
 
         <TabsContent value="audit">

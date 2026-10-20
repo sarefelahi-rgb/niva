@@ -14,7 +14,7 @@ import { Users, Loader2, Flag } from 'lucide-react';
 
 interface Post {
   id: string; authorAlias: string; topic: string; body: string;
-  status?: string; createdAt: string; mine: boolean;
+  status?: string; moderationNote?: string | null; createdAt: string; mine: boolean;
 }
 const TOPICS = ['GENERAL', 'NUTRITION', 'SUPPORT', 'BIRTH', 'POSTPARTUM', 'PRODUCTS'] as const;
 
@@ -69,6 +69,21 @@ export function CommunityView() {
     toast({ description: t('common.done') });
   };
 
+  const statusBadge = (status: string) => {
+    switch (status) {
+      case 'PENDING':
+        return <Badge variant="outline" className="text-[10px] bg-amber-500/15 text-amber-700 dark:text-amber-400 border-amber-500/40">{t('mod.pendingBadge')}</Badge>;
+      case 'APPROVED':
+        return <Badge variant="outline" className="text-[10px] bg-emerald-500/15 text-emerald-700 dark:text-emerald-400 border-emerald-500/40">{t('mod.approvedBadge')}</Badge>;
+      case 'REJECTED':
+        return <Badge variant="outline" className="text-[10px] text-destructive border-destructive/40">{t('mod.rejectedBadge')}</Badge>;
+      case 'REMOVED':
+        return <Badge variant="destructive" className="text-[10px]">{t('mod.removedBadge')}</Badge>;
+      default:
+        return null;
+    }
+  };
+
   return (
     <div className="space-y-5 max-w-4xl">
       <header>
@@ -116,28 +131,37 @@ export function CommunityView() {
         </Button>
       </div>
 
-      {loading ? <Skeleton className="h-40 w-full" /> : posts.length === 0 ? (
-        <p className="text-sm text-muted-foreground">{t('common.empty')}</p>
-      ) : (
+      {loading ? <Skeleton className="h-40 w-full" /> : (
         <div className="space-y-3">
-          {posts.map((p) => (
-            <Card key={p.id} className="niva-card">
-              <CardContent className="p-4 space-y-1.5">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-semibold text-sm">{p.authorAlias}</span>
-                  <Badge variant="secondary" className="text-[10px]">{p.topic}</Badge>
-                  {p.mine && p.status && p.status !== 'APPROVED' && <Badge variant="outline" className="text-[10px]">{t(`status.${p.status}`)}</Badge>}
-                  <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
-                  {!p.mine && (
-                    <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => flag(p.id)} aria-label={t('community.report')}>
-                      <Flag className="h-3.5 w-3.5 text-muted-foreground" />
-                    </Button>
-                  )}
-                </div>
-                <p className="text-sm leading-relaxed">{p.body}</p>
-              </CardContent>
-            </Card>
-          ))}
+          {mine && <h2 className="text-sm font-semibold">{t('community.mineStatus')}</h2>}
+          {posts.length === 0 ? (
+            <p className="text-sm text-muted-foreground">{t('common.empty')}</p>
+          ) : (
+            <div className="space-y-3">
+              {posts.map((p) => (
+                <Card key={p.id} className="niva-card">
+                  <CardContent className="p-4 space-y-1.5">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="font-semibold text-sm">{p.authorAlias}</span>
+                      <Badge variant="secondary" className="text-[10px]">{p.topic}</Badge>
+                      {mine && p.status && statusBadge(p.status)}
+                      <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                      {!p.mine && (
+                        <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => flag(p.id)} aria-label={t('community.report')}>
+                          <Flag className="h-3.5 w-3.5 text-muted-foreground" />
+                        </Button>
+                      )}
+                    </div>
+                    <p className="text-sm leading-relaxed">{p.body}</p>
+                    {mine && p.status === 'PENDING' && <p className="text-xs text-muted-foreground">{t('community.statusPending')}</p>}
+                    {mine && p.moderationNote && (p.status === 'REJECTED' || p.status === 'REMOVED') && (
+                      <p className="text-xs text-muted-foreground" dir="auto">{p.moderationNote}</p>
+                    )}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          )}
         </div>
       )}
     </div>

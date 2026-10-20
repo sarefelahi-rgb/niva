@@ -12,6 +12,11 @@ import { assessSafety } from '@/lib/safety';
  */
 const MISINFO = /(cure|guaranteed|miracle|detox|anti.?vax|induce labor instantly|درمان قطعی|تضمینی|معجزه|دی.?توکس|سقط فوری)/i;
 
+/** Anti-harassment auto-queue threshold: reported posts return to moderation. */
+const AUTO_REPORT_THRESHOLD = 3;
+/** Must match the note checked by the admin Moderation tab (localizes via mod.autoFlagNote). */
+const AUTO_REPORT_NOTE = 'Auto-queued after repeated reports';
+
 const postSchema = z.object({
   body: z.string().min(5).max(1500),
   alias: z.string().min(2).max(30),
@@ -39,6 +44,7 @@ export async function GET(req: Request) {
         topic: p.topic,
         body: p.body,
         status: p.userId === user.id ? p.status : undefined,
+        moderationNote: p.userId === user.id ? p.moderationNote : undefined,
         createdAt: p.createdAt,
         mine: p.userId === user.id,
       })),
@@ -60,21 +66,31 @@ export async function POST(req: Request) {
     if (safety.level === 'EMERGENCY') {
       await logSafetyEvent(user.id, 'MODERATION', 'HIGH', `Community post matches red-flag categories: ${safety.categories.join(',')}`);
     }
-    const post = await db.communityPost.create({
-      data: {
-        userId: user.id,
-        authorAlias: body.alias,
-        topic: body.topic,
-        body: body.body,
-        language: body.lang,
-        status: 'PENDING',
-        flagCount: flagged || safety.level === 'EMERGENCY' ? 1 : 0,
-        moderationNote: flagged
-          ? 'Auto-flagged: possible medical misinformation or promotional claim'
-          : safety.level === 'EMERGENCY'
-            ? `Auto-flagged: red-flag language (${safety.categories.join(',')}) — urgent review`
-            : null,
-      },
+    // Post + its FLAG audit row are written atomically so the moderation trail
+    // can never miss a misinfo-pattern post.
+    const post = await db.$transaction(async (tx) => {
+      const created = await tx.communityPost.create({
+        data: {
+          userId: user.id,
+          authorAlias: body.alias,
+          topic: body.topic,
+          body: body.body,
+          language: body.lang,
+          status: 'PENDING',
+          flagCount: flagged || safety.level === 'EMERGENCY' ? 1 : 0,
+          moderationNote: flagged
+            ? 'Auto-flagged: possible medical misinformation or promotional claim'
+            : safety.level === 'EMERGENCY'
+              ? `Auto-flagged: red-flag language (${safety.categories.join(',')}) — urgent review`
+              : null,
+        },
+      });
+      if (flagged) {
+        await tx.moderationAction.create({
+          data: { postId: created.id, moderatorId: null, action: 'FLAG', reason: 'misinfo-pattern' },
+        });
+      }
+      return created;
     });
     if (flagged) {
       await logSafetyEvent(user.id, 'MODERATION', 'MEDIUM', 'Community post auto-flagged for misinformation review');
@@ -90,7 +106,20 @@ export async function PATCH(req: Request) {
     const post = await db.communityPost.findUnique({ where: { id } });
     if (!post) return apiError(404, 'NOT_FOUND', 'Post not found');
     if (post.status !== 'APPROVED') return apiError(404, 'NOT_FOUND', 'Post not available');
-    await db.communityPost.update({ where: { id }, data: { flagCount: { increment: 1 } } });
+    const updated = await db.communityPost.update({ where: { id }, data: { flagCount: { increment: 1 } } });
+    // Anti-harassment auto-flag: once a live post accumulates enough reports it
+    // returns to the moderation queue (AUTO_FLAG trail row, no moderator yet).
+    if (updated.flagCount >= AUTO_REPORT_THRESHOLD && updated.status === 'APPROVED') {
+      await db.$transaction([
+        db.communityPost.update({
+          where: { id },
+          data: { status: 'PENDING', moderationNote: AUTO_REPORT_NOTE },
+        }),
+        db.moderationAction.create({
+          data: { postId: id, moderatorId: null, action: 'AUTO_FLAG', reason: `flagCount=${updated.flagCount}` },
+        }),
+      ]);
+    }
     await logSafetyEvent(user.id, 'MODERATION', 'LOW', `User flagged post ${id} for review`);
     return json({ ok: true });
   });
