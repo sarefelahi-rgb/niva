@@ -41,6 +41,16 @@ model User {
   reviewsAuthored  ClinicalReview[]  @relation("Reviewer")
   preference       Preference?
   safetyEvents     SafetyEvent[]
+  postsModerated   CommunityPost[]   @relation("PostModerator")
+  moderationActions ModerationAction[] @relation("Moderator")
+  nutritionEntries NutritionEntry[]
+  exerciseEntries  ExerciseEntry[]
+  sleepEntries     SleepEntry[]
+  moodEntries      MoodEntry[]
+  birthPlanItems   BirthPlanItem[]
+  contractionEntries ContractionEntry[]
+  feedingEntries   FeedingEntry[]
+  babyCareEntries  BabyCareEntry[]
 }
 
 model Session {
@@ -64,6 +74,7 @@ model Consent {
   healthAnalytics   Boolean   @default(false)
   marketing         Boolean   @default(false)
   familySharingAck  Boolean   @default(false)
+  emailReminders    Boolean   @default(false) // consent for service emails (appointment/reminder nudges)
   withdrawnAt       DateTime?
   updatedAt         DateTime  @updatedAt
 }
@@ -328,11 +339,15 @@ model PartnerAccess {
   partnerEmail  String
   partnerName   String?
   permissions   String    @default("[]") // JSON string[]: VIEW_TIMELINE | VIEW_APPOINTMENTS | VIEW_TRACKING | VIEW_JOURNAL
-  status        String    @default("INVITED") // INVITED | ACTIVE | REVOKED
+  status        String    @default("INVITED") // INVITED | ACTIVE | REVOKED | DECLINED
   invitedAt     DateTime  @default(now())
   revokedAt     DateTime?
+  declinedAt    DateTime?
+  inviteToken   String?   @unique // single-use claim token; consumed on accept
+  inviteExpiresAt DateTime?
 
   @@index([granterId])
+  @@index([partnerEmail])
 }
 
 model CommunityPost {
@@ -347,6 +362,8 @@ model CommunityPost {
   flagCount      Int       @default(0)
   moderationNote String?
   moderatedById  String?
+  moderatedBy    User?     @relation("PostModerator", fields: [moderatedById], references: [id], onDelete: SetNull)
+  moderationActions ModerationAction[]
   createdAt      DateTime  @default(now())
 
   @@index([status])
@@ -354,12 +371,16 @@ model CommunityPost {
 }
 
 model ModerationAction {
-  id          String   @id @default(cuid())
+  id          String        @id @default(cuid())
   postId      String
-  moderatorId String
-  action      String // APPROVE | REJECT | REMOVE | FLAG
+  post        CommunityPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  moderatorId String?
+  moderator   User?         @relation("Moderator", fields: [moderatorId], references: [id], onDelete: SetNull)
+  action      String // APPROVE | REJECT | REMOVE | FLAG | AUTO_FLAG
   reason      String?
-  createdAt   DateTime @default(now())
+  createdAt   DateTime      @default(now())
+
+  @@index([postId])
 }
 
 // ─── Commerce ────────────────────────────────────────────────────────────────
@@ -437,16 +458,21 @@ model LandingMetric {
 }
 
 model Notification {
-  id        String    @id @default(cuid())
-  userId    String
-  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-  title     String
-  body      String
-  type      String    @default("SYSTEM") // SYSTEM | APPOINTMENT | REVIEW | PAYMENT | SAFETY
-  readAt    DateTime?
-  createdAt DateTime  @default(now())
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title       String
+  body        String
+  type        String    @default("SYSTEM") // SYSTEM | APPOINTMENT | REVIEW | PAYMENT | SAFETY
+  channel     String    @default("IN_APP") // IN_APP | EMAIL (EMAIL rows require Consent.emailReminders)
+  scheduledFor DateTime? // set + sentAt null = pending scheduler job, hidden from feed
+  sentAt      DateTime? // materialization timestamp (scheduler flips it when due)
+  dedupeKey   String?   @unique // idempotent scheduler jobs, e.g. reminder:{id}:{dueAt}
+  readAt      DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([userId, readAt])
+  @@index([scheduledFor, sentAt])
 }
 
 // ─── Onboarding preferences (progressive profiling) ──────────────────────────
@@ -465,4 +491,133 @@ model Preference {
 model Setting {
   key   String @id
   value String // JSON
+}
+
+// ─── Wave 4: Wellness Trackers ──────────────────────────────────────────────
+
+/// One row per user per local day (upsert by [userId, date]).
+model NutritionEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date       DateTime // local-day bucket (UTC midnight of that day)
+  waterMl    Int      @default(0)
+  fruits     Int      @default(0)
+  vegetables Int      @default(0)
+  protein    Int      @default(0)
+  dairy      Int      @default(0)
+  grains     Int      @default(0)
+  notes      String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model ExerciseEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  type      String   @default("WALK") // WALK | SWIM | YOGA | PILATES | STRENGTH | STRETCH | PELVIC_FLOOR | OTHER
+  minutes   Int
+  intensity String   @default("MODERATE") // LIGHT | MODERATE | VIGOROUS
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@index([userId, date])
+}
+
+model SleepEntry {
+  id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date          DateTime // night-of local day
+  hours         Float
+  quality       Int      @default(3) // 1..5
+  interruptions Int      @default(0)
+  notes         String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+model MoodEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime
+  mood      Int      @default(3) // 1..5
+  energy    Int      @default(3) // 1..5
+  anxiety   Int      @default(3) // 1..5
+  tags      String   @default("[]") // JSON string[]
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+// ─── Wave 4: Birth Prep & Baby ──────────────────────────────────────────────
+
+/// Persistent checklist state; the checklist definitions live client-side.
+model BirthPlanItem {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category  String   @default("BIRTH_PLAN") // BIRTH_PLAN | HOSPITAL_BAG
+  itemKey   String // stable slug from client checklist definition
+  done      Boolean  @default(false)
+  note      String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, category, itemKey])
+  @@index([userId])
+}
+
+model ContractionEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  startedAt   DateTime
+  durationSec Int
+  intensity   Int? // 1..5 self-reported
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, startedAt])
+}
+
+model FeedingEntry {
+  id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fedAt       DateTime
+  method      String   @default("BREAST") // BREAST | BOTTLE_BREASTMILK | BOTTLE_FORMULA | MIXED
+  side        String   @default("NONE") // LEFT | RIGHT | BOTH | NONE
+  durationMin Int?
+  amountMl    Int?
+  notes       String?
+  createdAt   DateTime @default(now())
+
+  @@index([userId, fedAt])
+}
+
+model BabyCareEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  happenedAt DateTime
+  kind       String // DIAPER | SLEEP | BATH | WEIGHT | NOTE
+  detail     String? // e.g. WET | SOILED | BOTH for DIAPER
+  value      Float? // sleep hours / weight grams / numeric context
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@index([userId, happenedAt])
 }

@@ -390,3 +390,19 @@ Stage Summary:
 - Wave 2 core: 2.2 IMPLEMENTED+VERIFIED, 2.3 IMPLEMENTED+VERIFIED, 2.4 IMPLEMENTED+VERIFIED, 2.5 IMPLEMENTED+VERIFIED, 2.1 PARTIAL (sessions/rotation/password done; email verification + MFA deliberately deferred to Wave 5, documented).
 - Honest deferrals: MFA (admin), email verification/recovery, translation review track (CMS), community moderation queue UI (Wave 4).
 - Next: Wave 3 (AI RAG v2 + studio excellence) or Wave 4 (ecosystem) per backlog order; recommend Wave 4 moderation loop + notifications scheduler next.
+
+---
+Task ID: wave4-foundation
+Agent: main (Z.ai Code)
+Task: Wave 4 foundation — schema v3 (moderation FKs, partner invites, wellness/birth/baby models, schedulable notifications) + seed + central i18n pre-add
+
+Work Log:
+- Schema: ModerationAction got real relations (post → CommunityPost Cascade, moderator → User SetNull); CommunityPost.moderatedBy wired (FK repair — model was dormant). PartnerAccess + inviteToken @unique / inviteExpiresAt / declinedAt, status enum + DECLINED, index on partnerEmail. Notification + channel/scheduledFor/sentAt/dedupeKey @unique (scheduler-ready, dedupe = idempotent jobs). Consent + emailReminders (service-email consent).
+- New models: NutritionEntry, ExerciseEntry, SleepEntry, MoodEntry (unique [userId,date] upsert-per-day; exercise many-per-day), BirthPlanItem (unique [userId,category,itemKey]), ContractionEntry, FeedingEntry, BabyCareEntry. User relations extended. db:push clean → 37 models; prisma validate OK.
+- Tooling note: MultiEdit partially applied + corrupted two FK lines (missing '['); fixed via python string replace; verified with prisma validate.
+- Seed: +6 APPROVED reviewed content items (EXERCISE/SLEEP/MOOD/NUTRITION-hydration/FEEDING×2) w/ evidenceGrade C, reviewedAt, 12-month expiry (Wave 2 CMS contract); +2 PENDING demo community posts (one misinfo-flagged flagCount:2) for moderation queue; typo fix in hydration bodyFa. Seed run OK.
+- i18n: +167 keys per locale across mod.*/community.*/family.*/wellness.*/birth.*/post.*/notifs.*/settings.notif*/admin.scheduler* — 695/695 symmetric, 0 duplicates; tsc --noEmit clean.
+
+Stage Summary:
+- Foundation ready for 5 parallel/serial agents. i18n.ts is CENTRALLY managed from here: subagents must NOT edit it (report MISSING_I18N_KEYS instead).
+- Task IDs: wave4-2a (moderation), wave4-2b (partner), wave4-2c (birth/baby), wave4-3a (wellness), wave4-3b (scheduler).

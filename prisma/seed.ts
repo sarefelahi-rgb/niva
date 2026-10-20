@@ -127,6 +127,109 @@ async function main() {
     });
   }
 
+  // ── Wave 4: reviewed wellness/feeding content (APPROVED w/ provenance) ──
+  const wave4Content = [
+    {
+      slug: 'wellness-exercise',
+      category: 'EXERCISE',
+      titleEn: 'Physical activity in pregnancy',
+      titleFa: 'فعالیت بدنی در بارداری',
+      bodyEn:
+        'For uncomplicated pregnancies, guidelines suggest at least 150 minutes of moderate-intensity activity per week (for example brisk walking, swimming, or prenatal yoga). Start slowly if you were inactive before. Avoid contact sports, activities with fall risk, and hot-humid environments. Stop and contact your clinician if you feel dizzy, have pain, bleeding, or fluid leakage.',
+      bodyFa:
+        'در بارداری بدون عارضه، رهنمودها حداقل ۱۵۰ دقیقه فعالیت متوسط در هفته را پیشنهاد می‌کنند (مثل پیاده‌روی تند، شنا یا یوگای بارداری). اگر قبل از بارداری فعال نبودید، آهسته شروع کنید. از ورزش‌های برخوردی، فعالیت‌های با خطر سقوط و محیط‌های گرم و مرطوب پرهیز کنید. در صورت سرگیجه، درد، خونریزی یا خروج مایع، ورزش را قطع و با پزشک تماس بگیرید.',
+      citation: 'ACOG Committee Opinion No. 804: Physical Activity and Exercise During Pregnancy (2020)',
+      year: 2020,
+      grade: 'C',
+    },
+    {
+      slug: 'wellness-sleep',
+      category: 'SLEEP',
+      titleEn: 'Sleep during pregnancy',
+      titleFa: 'خواب در بارداری',
+      bodyEn:
+        'Sleep needs rise in pregnancy, yet sleep often gets harder. Practical steps: keep a regular schedule, limit fluids right before bed, use pillows to support the belly, and sleep on your side from the second half of pregnancy. Frequent snoring, gasping, or severe insomnia deserve a conversation with your clinician.',
+      bodyFa:
+        'نیاز به خواب در بارداری بیشتر می‌شود، اما خوابیدن سخت‌تر می‌شود. راهکارهای عملی: ساعت خواب منظم، کم کردن مایعات قبل از خواب، استفاده از بالش برای حمایت شکم و خوابیدن به پهلو از نیمه دوم بارداری. خروپف مکرر، نفس‌نفس زدن در خواب یا بی‌خوابی شدید را با پزشک در میان بگذارید.',
+      citation: 'WHO Antenatal Care Recommendations (2016); ACOG patient education on sleep in pregnancy',
+      year: 2016,
+      grade: 'C',
+    },
+    {
+      slug: 'wellness-mood',
+      category: 'MOOD',
+      titleEn: 'Mood changes in pregnancy and after birth',
+      titleFa: 'تغییرات خلق در بارداری و بعد از زایمان',
+      bodyEn:
+        'Mood swings, worry, and tearfulness are common in pregnancy and the postpartum period. Gentle routines, movement, rest, and talking to people you trust help many people. If low mood, anxiety, or hopelessness lasts more than two weeks, or you have thoughts of harming yourself, seek professional help the same day — this is a medical situation, not a personal failure.',
+      bodyFa:
+        'نوسان خلق، نگرانی و گریه در بارداری و دوره پس از زایمان شایع است. برنامه‌های ملایم روزانه، حرکت، استراحت و صحبت با افراد مورد اعتماد به بسیاری کمک می‌کند. اگر خلق پایین، اضطراب یا ناامیدی بیش از دو هفته ادامه یابد یا فکر آسیب به خود داشتید، همان روز از متخصص کمک بگیرید — این یک وضعیت پزشکی است، نه ضعف شخصی.',
+      citation: 'WHO Guide for Integration of Perinatal Mental Health in Maternal and Child Health Services (2022)',
+      year: 2022,
+      grade: 'C',
+    },
+    {
+      slug: 'wellness-hydration',
+      category: 'NUTRITION',
+      titleEn: 'Hydration in pregnancy',
+      titleFa: 'آب‌رسانی در بارداری',
+      bodyEn:
+        'Water needs increase in pregnancy. Many guidelines suggest roughly 8 to 12 cups (about 2 to 3 liters) of fluids a day, more in hot weather or with activity. Thirst, urine color, and your clinician’s advice are better guides than any fixed number. Skip sweetened drinks; water and milk are good defaults.',
+      bodyFa:
+        'نیاز به آب در بارداری بیشتر می‌شود. بسیاری از رهنمودها حدود ۸ تا ۱۲ لیوان (تقریباً ۲ تا ۳ لیتر) مایعات در روز را پیشنهاد می‌کنند؛ در هوای گرم یا با فعالیت بیشتر. تشنگی، رنگ ادرار و توصیه پزشک راهنمای بهتری از هر عدد ثابتی است. از نوشیدنی‌های شیرین پرهیز کنید؛ آب و شیر انتخاب‌های خوبی هستند.',
+      citation: 'EFSA Dietary Reference Values for water; WHO guidance on maternal nutrition',
+      year: 2010,
+      grade: 'C',
+    },
+    {
+      slug: 'feeding-cues',
+      category: 'FEEDING',
+      titleEn: 'Newborn feeding cues',
+      titleFa: 'نشانه‌های گرسنگی نوزاد',
+      bodyEn:
+        'Feeding on demand — whenever the baby shows hunger cues — is the usual recommendation for newborns. Early cues include rooting, hand-to-mouth movements, and soft sounds; crying is a late cue. Typical newborns feed 8 to 12 times in 24 hours. If your baby is not waking to feed, is very sleepy, or feeds fewer than 8 times a day, contact your pediatrician or midwife.',
+      bodyFa:
+        'شیردهی بر اساس تقاضا — هر زمان نوزاد نشانه گرسنگی نشان داد — توصیه معمول برای نوزادان است. نشانه‌های اولیه شامل جست‌وجوی سینه، بردن دست به دهان و صداهای ملایم است؛ گریه نشانه دیرهنگام است. نوزادان معمولاً در ۲۴ ساعت ۸ تا ۱۲ بار شیر می‌خورند. اگر نوزاد شما برای شیرخوردن بیدار نمی‌شود، خیلی خواب‌آلود است یا کمتر از ۸ بار در روز شیر می‌خورد، با پزشک کودکان یا ماما تماس بگیرید.',
+      citation: 'WHO/UNICEF Baby-Friendly Hospital Initiative guidance (2018); AAP newborn feeding guidance',
+      year: 2018,
+      grade: 'C',
+    },
+    {
+      slug: 'feeding-positions',
+      category: 'FEEDING',
+      titleEn: 'Breastfeeding positions and latch',
+      titleFa: 'وضعیت‌های شیردهی و گرفتن سینه',
+      bodyEn:
+        'Comfortable, well-supported positions (cradle, cross-cradle, football hold, or side-lying) and a deep latch reduce nipple pain and help milk transfer. A lactation consultant or midwife can observe a feed and give practical adjustments. Persistent pain, cracked nipples, or poor weight gain in the baby deserve early professional support.',
+      bodyFa:
+        'وضعیت‌های راحت و با حمایت مناسب (گهواره، گهواره متقاطع، فوتبالی یا خوابیده به پهلو) و گرفتن عمیق سینه، درد نوک سینه را کم و انتقال شیر را بهتر می‌کند. مشاور شیردهی یا ماما می‌تواند یک وعده شیردهی را ببیند و اصلاح‌های عملی بدهد. درد مداوم، ترک نوک سینه یا افزایش وزن کم نوزاد نیازمند حمایت زودهنگام متخصص است.',
+      citation: 'WHO/UNICEF Baby-Friendly Hospital Initiative guidance (2018)',
+      year: 2018,
+      grade: 'C',
+    },
+  ] as const;
+  const nowD = new Date();
+  const expiry = new Date(nowD.getTime() + 365 * 24 * 3600 * 1000);
+  for (const c of wave4Content) {
+    await db.educationalContent.upsert({
+      where: { slug: c.slug },
+      update: { status: 'APPROVED', evidenceGrade: c.grade, reviewedAt: nowD, expiresAt: expiry },
+      create: {
+        slug: c.slug,
+        category: c.category,
+        titleEn: c.titleEn,
+        titleFa: c.titleFa,
+        bodyEn: c.bodyEn,
+        bodyFa: c.bodyFa,
+        sources: JSON.stringify([{ citation: c.citation, year: c.year }]),
+        evidenceGrade: c.grade,
+        status: 'APPROVED',
+        reviewedAt: nowD,
+        expiresAt: expiry,
+      },
+    });
+  }
+
   // ── 3D asset registry (DEMONSTRATION — never claimed as validated) ───────
   for (const stage of STAGES) {
     const info = STAGE_INFO[stage];
@@ -231,6 +334,13 @@ async function main() {
     });
     await db.communityPost.create({
       data: { userId: demoId, authorAlias: 'مامان‌آرام', topic: 'NUTRITION', body: 'برای مدیریت تهوع صبحگاهی چه تجربه‌های کاربردی دارید؟ (تجربه شخصی، نه توصیه پزشکی)', language: 'fa', status: 'APPROVED' },
+    });
+    // Moderation queue demo state (honest: posts await a human moderator decision)
+    await db.communityPost.create({
+      data: { userId: demoId, authorAlias: 'آرام', topic: 'SUPPORT', body: 'کسی تجربه‌ای از مدیریت اضطراب شب‌های آخر بارداری دارد؟ برای من هوای اتاق تازه کمک می‌کند.', language: 'fa', status: 'PENDING' },
+    });
+    await db.communityPost.create({
+      data: { userId: demoId, authorAlias: 'نیوشا', topic: 'PRODUCTS', body: 'این مکمل را به همه پیشنهاد می‌کنم، قطعاً سقط جنین را جلوگیری می‌کند و برای همه بی‌خطر است!', language: 'fa', status: 'PENDING', flagCount: 2, moderationNote: 'Auto-flagged: possible medical misinformation' },
     });
     await db.aIConversation.create({
       data: {
