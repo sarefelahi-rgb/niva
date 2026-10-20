@@ -132,9 +132,17 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     };
   }, []);
 
-  // SW update flow — toast only when a REAL waiting worker exists behind a live controller.
+  // SW update flow — toast only when a REAL waiting worker exists behind a live
+  // controller. Registration is production-only; dev/preview must never keep a
+  // worker alive that could serve a stale shell over a freshly built page.
   useEffect(() => {
     if (!('serviceWorker' in navigator)) return;
+    if (process.env.NODE_ENV !== 'production') {
+      navigator.serviceWorker.getRegistrations().then((regs) => {
+        for (const reg of regs) reg.unregister().catch(() => undefined);
+      }).catch(() => undefined);
+      return;
+    }
     const onControllerChange = () => {
       if (reloadOnController.current) window.location.reload();
     };

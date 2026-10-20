@@ -90,6 +90,13 @@ export interface FetusModelProps {
   labelsLang: 'fa' | 'en';
   /** Localized "Close" label for annotation popovers. */
   closeLabel?: string;
+  /**
+   * Stable portal target for the drei <Html> annotation labels. Providing a
+   * constant element keeps Html's layout-effect deps from ever changing (R3F
+   * event connect would otherwise flip the default target and synchronously
+   * unmount each label's ReactDOM root mid-commit — React 19 root race).
+   */
+  labelsPortal?: React.RefObject<HTMLElement>;
 }
 
 interface Ball {
@@ -262,7 +269,7 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
 const EYE_DIR = 0.42; // yaw of eyes from +Z
 
 export function FetusModel(props: FetusModelProps) {
-  const { week, showFetus, showPlacenta, showUterus, showLabels, autoRotate, quality, labelsLang, closeLabel = 'Close' } = props;
+  const { week, showFetus, showPlacenta, showUterus, showLabels, autoRotate, quality, labelsLang, closeLabel = 'Close', labelsPortal } = props;
   const group = useRef<THREE.Group>(null);
   const target = useMemo(() => paramsForWeek(week), [week]);
   const current = useRef<StageParams>({ ...target });
@@ -578,7 +585,7 @@ export function FetusModel(props: FetusModelProps) {
       )}
 
       {/* Educational annotations (studio-content driven, click popovers) */}
-      {showLabels && <AnnotationMarkers week={week} lang={labelsLang} closeLabel={closeLabel} />}
+      {showLabels && <AnnotationMarkers week={week} lang={labelsLang} closeLabel={closeLabel} portal={labelsPortal} />}
     </group>
   );
 }
@@ -704,7 +711,7 @@ function buildPlacentaGeometry(pr: number, latheSegs: number, vesselSegs: number
 /*  pulsing markers + click popovers with citations, keyboard-safe)     */
 /* ------------------------------------------------------------------ */
 
-function AnnotationMarkers({ week, lang, closeLabel }: { week: number; lang: 'fa' | 'en'; closeLabel: string }) {
+function AnnotationMarkers({ week, lang, closeLabel, portal }: { week: number; lang: 'fa' | 'en'; closeLabel?: string; portal?: React.RefObject<HTMLElement> }) {
   // Active popovers are stamped with their stage week; a popover from another
   // week is simply not rendered. This avoids remounting the drei <Html> roots
   // on stage change (React 19 "synchronously unmount a root" race) and avoids
@@ -723,7 +730,7 @@ function AnnotationMarkers({ week, lang, closeLabel }: { week: number; lang: 'fa
         const text = fa ? a.textFa : a.textEn;
         const citation = fa ? a.citationFa : a.citationEn;
         return (
-          <Html key={a.target} position={pos} center distanceFactor={6} zIndexRange={[10, 0]}>
+          <Html key={a.target} position={pos} center distanceFactor={6} zIndexRange={[10, 0]} portal={portal}>
             {openTarget === a.target ? (
               <Card
                 role="dialog"

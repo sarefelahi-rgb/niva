@@ -43,6 +43,30 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   const glRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<{ fov: number; updateProjectionMatrix(): void } | null>(null);
   const ctxHandlers = useRef<{ lost: (e: Event) => void; restored: () => void } | null>(null);
+  // Stable DOM target for drei <Html> annotation labels. Without it, Html's
+  // layout effect re-runs when R3F connects events (target flips from the
+  // canvas parent to events.connected), synchronously unmounting each label's
+  // ReactDOM root mid-commit — React 19's "Attempted to synchronously unmount
+  // a root while React was already rendering". A pre-created detached element
+  // keeps the target identity stable for the whole studio lifetime.
+  const [labelsPortalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
+  // Html's portal prop demands RefObject<HTMLElement>; the element is created
+  // eagerly on the client (studio is a client-only view), so the cast is sound.
+  const labelsPortal = useMemo(
+    () => ({ current: labelsPortalEl as unknown as HTMLElement }),
+    [labelsPortalEl]
+  );
+
+  useEffect(() => {
+    const el = labelsPortalEl;
+    const host = glRef.current?.domElement.parentElement ?? canvasHostRef.current;
+    if (!el || !host) return;
+    host.appendChild(el);
+    return () => {
+      el.remove();
+    };
+  }, [labelsPortalEl, webglOk]);
+  const canvasHostRef = useRef<HTMLDivElement | null>(null);
 
   const canAdvanced = features?.advanced3DLayers ?? false;
   const stage = useMemo(() => assets.find((a) => a.gestationalStage === week), [assets, week]);
@@ -152,8 +176,12 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
 
   const body = (
     <div className={`grid ${fullscreen ? 'h-[calc(100vh-3.5rem)]' : 'h-[70vh] min-h-[480px]'} lg:grid-cols-[1fr_320px] gap-3 p-3`}>
-      {/* 3D canvas (or graceful WebGL fallback — Wave 3.4) */}
-      <div className="relative rounded-2xl border niva-grad overflow-hidden bg-card/40">
+      {/* 3D canvas (or graceful WebGL fallback — Wave 3.4).
+          The Canvas mounts ONLY after WebGL detection resolves (null → true):
+          this isolates the R3F root's initial commit from the outer root's
+          detection re-render, avoiding React 19's nested-root unmount race
+          ("Attempted to synchronously unmount a root while rendering"). */}
+      <div ref={canvasHostRef} className="relative rounded-2xl border niva-grad overflow-hidden bg-card/40">
         {webglOk === false ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8 text-center">
             <MonitorPlay className="h-10 w-10 text-primary" aria-hidden />
@@ -163,7 +191,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
               {t('studio.openTimeline')}
             </Button>
           </div>
-        ) : (
+        ) : webglOk === true ? (
         <Canvas
           key={canvasKey}
           dpr={[1, preset.dprCap]}
@@ -197,6 +225,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
               quality={quality}
               labelsLang={locale === 'fa' ? 'fa' : 'en'}
               closeLabel={t('common.close')}
+              labelsPortal={labelsPortal}
             />
           </Suspense>
           <AmnioticParticles count={preset.particles} size={preset.particleSize} reduceMotion={reduceMotion} />
@@ -211,6 +240,10 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
             makeDefault
           />
         </Canvas>
+        ) : (
+          <div className="absolute inset-0 grid place-items-center" aria-hidden>
+            <div className="h-9 w-9 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
+          </div>
         )}
 
         {ctxLost && (

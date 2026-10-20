@@ -27,8 +27,11 @@ export function notificationPermission(): NotificationPermission | 'unsupported'
   return Notification.permission;
 }
 
-/** Registers /sw.js and returns the ready registration (null when unsupported). */
+/** Registers /sw.js and returns the ready registration (null when unsupported).
+ *  Dev/preview returns null — the PWA worker is a production-only feature, so
+  *  it can never resurrect itself over a freshly compiled dev page. */
 export async function registerServiceWorker(): Promise<ServiceWorkerRegistration | null> {
+  if (process.env.NODE_ENV !== 'production') return null;
   if (!isPushSupported()) return null;
   try {
     return await navigator.serviceWorker.register('/sw.js');

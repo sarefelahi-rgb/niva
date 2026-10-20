@@ -876,3 +876,20 @@ Evidence (all real):
 Stage Summary:
 - Wave 8 IMPLEMENTED+VERIFIED: the landing is a complete modern rebuild — centered gradient hero, maternal «Embrace» 3D scene (heartbeat pearl in a cradle under a nursery mobile), bento features, scroll-reveals, highlighted pricing, closing CTA band — bilingual fa/en, dark-mode-safe, mobile-clean, within CWV budgets, with the honesty badges (pending-review + educational-demo) intact.
 - No new dependencies; three.js stays out of the critical path; A/B gating retired in favor of 3D-for-all with unchanged consent-gated analytics.
+
+---
+Task ID: bugfix-full-review
+Agent: Z.ai Code (main)
+Task: «لندینگ هنوز قدیمی است و من نمی توانم وارد سامانه شوم. کل نرم افزار را از اول تا آخر بررسی کن و باگ ها را رفع کن» — full-app review + bug fixes
+
+Work Log:
+- Diagnosed login failure: database was EMPTY (container restart wiped db/custom.db; only seed-created accounts were gone) → /api/auth/demo returned 404 "Demo account is not seeded". Re-ran `bun prisma/seed.ts`: 5 users, 67 educational content items, 13 anatomical assets, demo pregnancy week 21 + sample tracking/journal/community data restored.
+- Diagnosed "old landing": PWA service worker (public/sw.js) pre-cached '/' on install and used network-first with a 3s timeout — on slow dev compiles it silently served the STALE cached shell (old landing). Fixed three-fold: (1) SW registration now production-only in page.tsx and app-shell.tsx; in dev the worker is actively unregistered and niva-* caches purged so the preview always serves the fresh build; (2) push-client.registerServiceWorker returns null outside production; (3) sw.js bumped to niva-v2 and the artificial 3s navigation timeout removed — stale-shell fallback now only on genuine offline.
+- Full API smoke test (demo session): /api/pregnancy, tracking, appointments, reminders, journal, birth-prep, community, notifications, subscription, preferences, flags/public, content, assets, documents, family, baby, wellness/*, ai/conversations, privacy/export, tickets → all 200; POST validation correctly 400 on empty bodies; /api/scheduler/tick fail-closed (403 without admin/secret).
+- Studio console bug (5× "Attempted to synchronously unmount a root while React was already rendering"): instrumented ReactDOM (react-dom/client) createRoot → captured stack — cleanup of drei <Html>'s layout effect fires when R3F connects events (target flips gl.domElement.parentNode → events.connected), synchronously unmounting each label root mid-commit. Fixed by passing a STABLE portal element (created once in StudioView, mounted into the canvas host) to all annotation <Html portal={…}>; FetusModel/AnnotationMarkers threaded the prop. Also: Canvas now mounts only after WebGL detection resolves (webglOk true/false/null → canvas/fallback/skeleton), isolating the R3F root's first commit. reactStrictMode kept true (verified NOT the cause).
+- Verification: bunx tsc --noEmit → 0; bun run lint → 0; agent-browser E2E: landing Wave 8 renders (gradient H1, 3D hero, sections), real-credentials login OK, demo login OK, dashboard week-21 seeded data OK, studio 3D + labels + popover dialog + week nav OK, logout → landing OK — ZERO unmount errors and zero console errors across the whole journey; SW registrations=0 and caches=[] after dev load (stale-shell class eliminated).
+
+Stage Summary:
+- Two user-facing bugs fixed at the root: (1) login was broken because the DB lost its seed (now re-seeded); (2) old landing was the service worker's stale shell cache (now production-only + actively retired in dev + v2 without the 3s timeout).
+- Studio React 19 nested-root race eliminated via stable Html portal; WebGL detection gating added; StrictMode preserved.
+- All fixes browser-verified E2E with zero errors; tsc/lint clean.

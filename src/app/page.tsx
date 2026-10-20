@@ -95,11 +95,23 @@ export default function Home() {
     const lang = new URLSearchParams(window.location.search).get('lang');
     if (lang === 'fa' || lang === 'en') setLocale(lang);
     refresh();
-    // PWA service worker registration (network-first, shell-cache fallback)
-    if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+    // PWA service worker — production only. In dev/preview any previously
+    // installed worker is actively retired and its caches purged, otherwise a
+    // stale network-first shell fallback can serve an outdated landing page.
+    if (process.env.NODE_ENV === 'production') {
+      if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('/sw.js').catch(() => undefined);
+      }
+    } else {
+      navigator.serviceWorker?.getRegistrations?.().then((regs) => {
+        for (const reg of regs) reg.unregister().catch(() => undefined);
+      }).catch(() => undefined);
+      if ('caches' in window) {
+        caches.keys().then((keys) => {
+          for (const key of keys) if (key.startsWith('niva-')) caches.delete(key).catch(() => undefined);
+        }).catch(() => undefined);
+      }
     }
-
   }, []);
 
   // Auto-open the tour once, after first successful load into the app.

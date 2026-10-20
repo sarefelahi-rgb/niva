@@ -9,14 +9,16 @@
  *  Total steady-state budget: ≤ ~5 MB. No HTML beyond the shell, no API caching.
  * ────────────────────────────────────────────────────────────────────────────────────────
  */
-const SW_VERSION = 'niva-v1';
+const SW_VERSION = 'niva-v2';
 const SHELL_CACHE = `niva-shell-${SW_VERSION}`;
 const RUNTIME_CACHE = `niva-runtime-${SW_VERSION}`;
 const RUNTIME_MAX_ENTRIES = 80;
 
 const SHELL_ASSETS = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/icons/icon-512.png'];
 
-/** Navigations: network-first with a ~3s timeout, then the cached shell, then offline shell. */
+/** Navigations: network-first (no artificial timeout — a slow network must
+  *  never silently downgrade the user to a stale shell), falling back to the
+  *  cached shell ONLY on genuine network failure (offline), then offline page. */
 async function handleNavigate(request, preloadResponse) {
   try {
     const preload = preloadResponse ? await preloadResponse : null;
@@ -26,10 +28,7 @@ async function handleNavigate(request, preloadResponse) {
     }
   } catch {}
   try {
-    const network = await Promise.race([
-      fetch(request),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000)),
-    ]);
+    const network = await fetch(request);
     try {
       const c = await caches.open(SHELL_CACHE);
       c.put('/', (network).clone());
