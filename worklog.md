@@ -793,3 +793,45 @@ Work Log:
 Stage Summary:
 - Wave 6 COMPLETE: 6.1 PSP adapter (sandbox live; Zarinpal/Stripe credential-gated) + idempotent webhooks + invoices + refunds + trials + period-end cancel + localized IRR/USD pricing; 6.2 role spectrum + user mgmt + tickets + incidents + flags wired to real gates with deterministic staged rollout; 6.3 ICU-lite (CLDR plurals via Intl) + Jalali dates + money conventions + bidi isolates + truthful SEO (sitemap/robots/JSON-LD); 6.4 privacy pack (GDPR/Iran/residency ADR-012) + self-declared age gate (13+); 6.5 PWA (manifest/SW budget/offline/update flow) + web-push (VAPID live, fail-soft) + store-compliance doc; 6.6 release checklist (12 gates incl. clinical sign-off) + backup/restore drill script + canary/blue-green plan.
 - Honest residuals (all documented in docs/audit/*): user-side support-ticket UI (staff queue complete); cookie-backed SSR locale for hydration; real PSP credentials/rehearsals/drills are production actions; EMAIL channel still dormant; iOS push needs A2HS; store screenshots are release tasks.
+---
+Task ID: wave7-a
+Agent: main (Z.ai Code)
+Task: Wave 7.a — cookie-backed SSR locale (close the documented hydration-regeneration residual)
+
+Work Log:
+- src/proxy.ts: locale resolution added next to the auth bridge. `?lang=` (validated against fa/en) outranks the `niva-locale` cookie, else default fa; result forwarded to the root layout as request header `x-niva-locale`; a `?lang=` override is persisted into the cookie (path=/, max-age=1y, samesite=lax) making the /?lang= hreflang alternates real. Matcher extended to ['/api/:path*', '/'].
+- src/app/layout.tsx: now async, reads `x-niva-locale` via headers() and renders `<html lang dir>` from it (fallback fa). documentLocale() rejects anything but 'en' → safe.
+- src/store/app.ts: setLocale now mirrors the cookie client-side (writeLocaleCookie); persist gains onRehydrateStorage → setLocale(bootLocale(...)) where bootLocale lets `?lang=` outrank the persisted locale; because localStorage rehydration is synchronous this runs BEFORE the first React render, so SSR document and client first render agree by construction.
+- Pre-existing lint blocker on HEAD fixed en route: react-hooks v6 `set-state-in-effect` flagged the landing mount-gates (`useEffect(() => setMounted(true), [])` in landing/sections.tsx FAQ + rAF variant in landing-view.tsx). Replaced both with new src/lib/use-mounted.ts (useSyncExternalStore-based useMounted()).
+- FS forensics (documented for future agents): repeated reads of sections.tsx/landing-view.tsx appeared as `const ounted, setMounted]` across sed/grep/python/node AND git-show — hexdump proved the real bytes are `const [mounted, …` : the tool-output transport strips `[m` sequences (ANSI-SGR artifact), NOT a filesystem corruption. All tsc/esbuild/git verdicts were correct throughout. Do not "repair" `[m`-looking text seen in terminal output.
+- Dev-compiler staleness hit once after edits (43 served chunks missing niva-locale) — resolved with the established cp/cat dentry round-trip on all changed files.
+
+Evidence (all real):
+- SSR matrix via curl: `/`→fa/rtl; cookie=en→en/ltr; `/?lang=en`→en/ltr + Set-Cookie niva-locale=en; jar follow-up→en/ltr; `?lang=de`→ignored (fa); `?lang=fa` over en-cookie→fa/rtl. 6/6 PASS.
+- Bearer bridge intact after proxy rewrite: login → token → GET /api/auth/me returns user.
+- Browser (agent-browser): `/?lang=en` → DOM en/ltr + persisted store locale=en; reload → 0 hydration warnings/issues in console; `?lang=fa` → fa/rtl. Landing renders, no page errors.
+- Gates: tsc 0 · eslint 0 (HEAD previously failed lint — now clean) · verify-contracts 19/19 (19:43Z).
+
+Stage Summary:
+- Wave 7.a IMPLEMENTED+VERIFIED: document locale is now cookie+param-backed server-side; SSR/client locale divergence (and the full-page hydration regeneration it caused) is gone for every normal path. One-time transition edge remains for users whose persisted locale predates the cookie (self-heals on first load, cookie written by onRehydrateStorage). Localized <head> metadata still fa-default — production task with i18n routing (documented).
+---
+Task ID: wave7-b
+Agent: main (Z.ai Code)
+Task: Wave 7.b — user-facing support tickets UI (close the Wave 6.2 residual)
+
+Work Log:
+- i18n: +36 `support.*` keys appended at dict ends (en+fa symmetric): title/subtitle (medical-questions→assistant, emergencies→services disclaimer), contact/myTickets, subject/category/message fields, 5 categories (BILLING/CLINICAL/TECHNICAL/PRIVACY/OTHER), 4 statuses, 3 priorities, ICU plural `msgOther` (`{n, plural, one {# message} other {# messages}}` — engine-backed, works in fa), reply labels, staff/you author labels, closedNote, backToList.
+- settings-view.tsx: new Support card between notification prefs and security. "Contact support" dialog (subject Input + category Select + Textarea, client min-length mirrors zod, submit disabled until category chosen, error line surfaces API messages) → POST /api/tickets. "My tickets" dialog: list (subject, status badge, category, ICU plural message-count, Jalali/locale date, min-h-44px targets, keyboard-focusable) ↔ conversation detail (back chevron flips with locale, status/category badges, bounded max-h-96 scrollable thread, staff messages tinted primary, owner reply form → POST /api/tickets/[id]/messages; CLOSED tickets show closedNote and drop the form). Detail mode keeps a sr-only DialogDescription (Radix a11y warning fixed).
+- /api/tickets route header updated: residual note replaced with Wave 7 ship note (documentation honesty).
+- Full-loop test executed live: demo user created ticket «آیکون زنگ اعلان‌ها نمایش داده نمی‌شود» (TECHNICAL) via the UI; staff (admin token) replied via /api/tickets/[id]/messages; ticket auto-transitioned OPEN→IN_PROGRESS (server logic); owner reply sent from UI (3 messages total); the pre-existing CLOSED demo ticket renders closedNote with no reply form.
+
+Evidence (all real, agent-browser):
+- Ticket created via form → toast «تیکت ثبت شد…»; list row shows باز / مشکل فنی / «۱ پیام» (fa ICU plural) / Jalali date ۱۴۰۵/۷/۲۸.
+- Staff reply visible in thread as «پشتیبانی نیوا»; status badge «در حال رسیدگی»; owner reply persisted (GET /api/tickets/[id] → messages:3, last isStaff:false).
+- CLOSED ticket → «این تیکت بسته شده است…» + no textbox (eval: #tk-reply absent).
+- Mobile 390px: no h-scroll, Support card verified in screenshot; desktop flow ran at default viewport.
+- Console clean after a11y fix (only pre-existing React DevTools info). Gates: tsc 0 · eslint 0 · contracts 19/19.
+
+Stage Summary:
+- Wave 7.b IMPLEMENTED+VERIFIED: the last Wave 6.2 residual (user-side ticket UI) is closed. Support loop is now end-to-end: user form → staff queue → conversation → terminal states, with localized notifications already in place from Wave 6.
+- Honest residuals: email transport still dormant (EMAIL channel), real PSP credentials + PG/backup drills + clinical/legal sign-off remain production actions; cookie-SSR covers the single-route app — per-locale path URLs still need i18n routing.

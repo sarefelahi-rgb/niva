@@ -8,7 +8,8 @@
  * Pricing mirrors the server-side catalog in src/lib/plans.ts (single source).
  */
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
+import { useMounted } from '@/lib/use-mounted';
 import { useApp, formatToman } from '@/store/app';
 import { PLAN_CATALOG } from '@/lib/plans';
 import { Button } from '@/components/ui/button';
@@ -307,8 +308,7 @@ function Trust() {
 function Faq() {
   const { t } = useApp();
   const faq = useLandingFaq();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+  const mounted = useMounted();
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',

@@ -22,6 +22,7 @@ import { ArrowRight, Lock, Languages, Moon, Sparkles } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
 import { useEffect, useState } from 'react';
+import { useMounted } from '@/lib/use-mounted';
 import {
   getAnalyticsConsent, setAnalyticsConsent, trackLandingEvent,
   type AbVariant,
@@ -51,15 +52,10 @@ const NAV_ANCHORS = [
 export function LandingView() {
   const { t, setView, user, locale, setLocale } = useApp();
   const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
+  const mounted = useMounted();
   const [consentChoice, setConsentChoice] = useState<'granted' | 'denied' | null | undefined>(undefined);
   const [variant, setVariant] = useState<AbVariant>('A');
   const [bloomReady, setBloomReady] = useState(false);
-
-  useEffect(() => {
-    const id = requestAnimationFrame(() => setMounted(true));
-    return () => cancelAnimationFrame(id);
-  }, []);
 
   // Consent + variant boot (client-only state).
   useEffect(() => {

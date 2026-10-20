@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
+import { headers } from "next/headers";
 import "./globals.css";
 import { Toaster } from "@/components/ui/toaster";
 import { ThemeProvider } from "next-themes";
 import { AuthBridge } from "@/components/shell/auth-bridge";
-import { translate } from "@/lib/i18n";
+import { translate, isRtl, type Locale } from "@/lib/i18n";
 
 /**
  * metadataBase resolution (wave 6.3, honest note):
@@ -103,6 +104,19 @@ export const metadata: Metadata = {
   },
 };
 
+/**
+ * Wave 7 — cookie-backed SSR locale. src/proxy.ts resolves the document
+ * locale (?lang= override, else niva-locale cookie, else fa) and forwards it
+ * in the `x-niva-locale` request header. Rendering <html lang dir> from that
+ * header makes the server output match the client's first render — removing
+ * the full-page hydration regeneration that occurred whenever the persisted
+ * client locale differed from the SSR default. Anything unexpected falls
+ * back to the Persian default.
+ */
+function documentLocale(h: Headers): Locale {
+  return h.get('x-niva-locale') === 'en' ? 'en' : 'fa';
+}
+
 export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
@@ -113,11 +127,12 @@ export const viewport: Viewport = {
   ],
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
+  const locale = documentLocale(await headers());
   return (
-    <html lang="fa" dir="rtl" suppressHydrationWarning>
+    <html lang={locale} dir={isRtl(locale) ? 'rtl' : 'ltr'} suppressHydrationWarning>
       <head>
         {/* Brand fonts are self-hosted via @font-face in globals.css (OFL) —
             no third-party font CDN, no tracking, offline-capable. */}

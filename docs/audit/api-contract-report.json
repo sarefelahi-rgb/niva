@@ -1,6 +1,6 @@
 {
   "baseUrl": "http://localhost:3000",
-  "ranAt": "2026-10-20T19:17:06.980Z",
+  "ranAt": "2026-10-20T19:43:15.216Z",
   "total": 19,
   "passed": 19,
   "failed": 0,
@@ -128,7 +128,7 @@
       "group": "tracing",
       "case": "x-request-id echoed",
       "expect": "status=200 + header present",
-      "got": "status=200 requestId=c7aa96bb…",
+      "got": "status=200 requestId=cdd2cada…",
       "pass": true
     },
     {

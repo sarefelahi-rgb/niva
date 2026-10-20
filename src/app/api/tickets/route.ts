@@ -13,10 +13,9 @@ import { TICKET_CATEGORIES } from '@/lib/tickets';
  * GET  /api/tickets  — the caller's own tickets (id, subject, category,
  *                      status, priority, message count, last activity).
  *
- * NOTE (Wave 6 residual, documented honestly): the user-side ticket UI (a
- * "contact support" form + own-ticket list outside the admin console) is NOT
- * built this wave — the APIs are complete and the staff queue ships in
- * admin-view. Wiring the user form into a user-facing view is a follow-up.
+ * NOTE (Wave 7 update): the user-side ticket UI now ships in the settings
+ * view ("Support" card — contact form + own-ticket list + conversation). The
+ * staff queue remains in admin-view.
  */
 
 const createSchema = z.object({

@@ -61,6 +61,25 @@ interface AppState {
   logout: () => Promise<void>;
 }
 
+/**
+ * Wave 7 — client mirror of the SSR locale resolution (src/proxy.ts). Every
+ * locale change writes the `niva-locale` cookie so the next server render
+ * (full load / RSC prefetch) resolves to the same document locale the client
+ * will render — the server/client pair never diverges again after boot.
+ */
+function writeLocaleCookie(l: Locale) {
+  if (typeof document !== 'undefined') {
+    document.cookie = `niva-locale=${l}; path=/; max-age=31536000; samesite=lax`;
+  }
+}
+
+/** The `?lang=` deep link outranks the persisted preference on boot. */
+function bootLocale(rehydrated: Locale): Locale {
+  if (typeof window === 'undefined') return rehydrated;
+  const q = new URLSearchParams(window.location.search).get('lang');
+  return q === 'fa' || q === 'en' ? q : rehydrated;
+}
+
 export const useApp = create<AppState>()(
   persist(
     (set, get) => ({
@@ -83,6 +102,7 @@ export const useApp = create<AppState>()(
           document.documentElement.lang = l;
           document.documentElement.dir = isRtl(l) ? 'rtl' : 'ltr';
         }
+        writeLocaleCookie(l);
       },
       setTourDone: (d) => set({ tourDone: d }),
       openTour: () => set({ tourOpen: true }),
@@ -122,6 +142,13 @@ export const useApp = create<AppState>()(
     {
       name: 'niva-app',
       partialize: (s) => ({ locale: s.locale, tourDone: s.tourDone }),
+      // localStorage rehydration is synchronous, so this runs BEFORE the
+      // first React render: DOM attributes + cookie are synced from the
+      // persisted (or ?lang=) locale immediately, keeping the client's first
+      // render aligned with the proxy-resolved SSR document.
+      onRehydrateStorage: () => (state) => {
+        if (state) state.setLocale(bootLocale(state.locale));
+      },
     }
   )
 );
