@@ -13,12 +13,22 @@ import { setToken } from '@/lib/auth-token';
 
 type Mode = 'login' | 'register';
 
+/** Wave 6.4 age gate: Persian/Arabic digits (۰-۹ / ٠-٩) → ASCII digits. */
+function normalizeDigits(v: string): string {
+  return v
+    .replace(/[۰-۹]/g, (d) => String('۰۱۲۳۴۵۶۷۸۹'.indexOf(d)))
+    .replace(/[٠-٩]/g, (d) => String('٠١٢٣٤٥٦٧٨٩'.indexOf(d)));
+}
+
+const MIN_AGE = 13;
+
 export function AuthView() {
   const { t, refresh, setView, locale } = useApp();
   const [mode, setMode] = useState<Mode>('login');
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [birthYear, setBirthYear] = useState('');
   const [accepted, setAccepted] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
@@ -28,10 +38,28 @@ export function AuthView() {
     setError(null);
     setBusy(true);
     try {
+      // Age gate (client-side pre-check; the API enforces it authoritatively).
+      // Accepts Persian/Arabic digits and normalizes to Latin before submit.
+      const yearStr = normalizeDigits(birthYear.trim());
+      const year = Number(yearStr);
+      if (mode === 'register') {
+        if (!/^\d{4}$/.test(yearStr) || year < 1900 || year > new Date().getFullYear()) {
+          setError(t('auth.ageInvalid'));
+          return;
+        }
+        if (new Date().getFullYear() - year < MIN_AGE) {
+          setError(t('auth.ageUnder13'));
+          return;
+        }
+      }
       const res = await fetch(`/api/auth/${mode === 'login' ? 'login' : 'register'}`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(mode === 'login' ? { email, password } : { name, email, password, acceptedTerms: accepted, locale }),
+        body: JSON.stringify(
+          mode === 'login'
+            ? { email, password }
+            : { name, email, password, birthYear: year, acceptedTerms: accepted, locale }
+        ),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -100,6 +128,27 @@ export function AuthView() {
                 {mode === 'register' && <p className="text-xs text-muted-foreground">{t('auth.passwordHint')}</p>}
               </div>
               {mode === 'register' && (
+                <div role="group" aria-label={t('auth.ageGate')} className="space-y-2">
+                  <Label htmlFor="birthYear">{t('auth.birthYear')}</Label>
+                  <Input
+                    id="birthYear"
+                    inputMode="numeric"
+                    dir="ltr"
+                    maxLength={4}
+                    placeholder="1994"
+                    value={birthYear}
+                    onChange={(e) => setBirthYear(e.target.value)}
+                    required
+                    autoComplete="bday-year"
+                    className="min-h-11 num"
+                  />
+                  <p className="text-xs text-muted-foreground leading-relaxed flex items-start gap-1.5">
+                    <ShieldCheck className="h-3.5 w-3.5 mt-0.5 shrink-0 text-primary" aria-hidden="true" />
+                    <span>{t('auth.ageNote')}</span>
+                  </p>
+                </div>
+              )}
+              {mode === 'register' && (
                 <label className="flex items-start gap-2.5 text-xs leading-relaxed cursor-pointer">
                   <Checkbox checked={accepted} onCheckedChange={(v) => setAccepted(v === true)} required className="mt-0.5" />
                   <span>{t('auth.terms')}</span>
@@ -120,7 +169,7 @@ export function AuthView() {
               <button
                 type="button"
                 className="text-primary underline-offset-4 hover:underline"
-                onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); }}
+                onClick={() => { setMode(mode === 'login' ? 'register' : 'login'); setError(null); setBirthYear(''); }}
               >
                 {mode === 'login' ? t('auth.needAccount') : t('auth.haveAccount')}
               </button>

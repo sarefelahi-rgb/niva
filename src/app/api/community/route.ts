@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { json, apiError, readJson, withUser } from '@/lib/api';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
 import { logSafetyEvent } from '@/lib/audit';
+import { ensureFeature } from '@/lib/feature-flags';
 import { assessSafety } from '@/lib/safety';
 
 /**
@@ -26,6 +27,9 @@ const postSchema = z.object({
 
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: community off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('community', user.id);
+    if (gated) return gated;
     const url = new URL(req.url);
     const topic = url.searchParams.get('topic');
     const mine = url.searchParams.get('mine') === '1';
@@ -54,6 +58,8 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    const gated = await ensureFeature('community', user.id);
+    if (gated) return gated;
     if (!rateLimit(clientKey(req, 'community'), 5, 300_000)) {
       return apiError(429, 'RATE_LIMIT', 'Posting too quickly — try again later.');
     }
@@ -101,6 +107,8 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    const gated = await ensureFeature('community', user.id);
+    if (gated) return gated;
     const id = new URL(req.url).searchParams.get('id');
     if (!id) return apiError(400, 'VALIDATION', 'id required');
     const post = await db.communityPost.findUnique({ where: { id } });

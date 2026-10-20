@@ -18,7 +18,7 @@ function p95(sortedLatencies: number[]): number {
 }
 
 export async function GET(req: Request) {
-  return withUser(req, ['ADMIN'], async () => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN'], async () => {
     const since = new Date(Date.now() - 24 * 3_600_000);
     const logs = await db.aIUsageLog.findMany({
       where: { createdAt: { gte: since } },

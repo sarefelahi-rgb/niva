@@ -7,6 +7,13 @@ import { logAudit } from '@/lib/audit';
  * Consent management. Withdrawal semantics (GDPR, risk R-06):
  * - `withdraw: true` stamps `withdrawnAt` with the current time.
  * - Regular preference updates NEVER reset an existing withdrawal.
+ *
+ * Wave 6.4 (age gate): `birthYear` and `ageConfirmedAt` are SERVER-MANAGED —
+ * they are written only by the registration flow (POST /api/auth/register,
+ * which hard-blocks under-13). They are deliberately absent from this schema,
+ * so a client can never forge or alter an age confirmation. `birthYear` is
+ * exposed ONLY in the authenticated user's own GET below; no admin route
+ * reads the Consent model (verified 2026 — see docs/audit/07-privacy-pack.md).
  */
 const schema = z.object({
   healthAnalytics: z.boolean().optional(),

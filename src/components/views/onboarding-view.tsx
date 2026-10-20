@@ -11,6 +11,7 @@ import { Checkbox } from '@/components/ui/checkbox';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
 import { Loader2, Info, Heart, Search, Baby, Flower2, Check, ChevronRight, ChevronLeft } from 'lucide-react';
 import { gestationalAgeAt } from '@/lib/gestational';
+import { formatDate, formatWeeksDays } from '@/lib/format';
 
 type Method = 'LMP' | 'ULTRASOUND_CRL' | 'CLINICIAN' | 'IVF';
 type Stage = 'TRYING' | 'PREGNANT' | 'POSTPARTUM' | 'EXPLORING';
@@ -319,10 +320,11 @@ export function OnboardingView() {
                 {localDue && (
                   <div className="rounded-2xl border bg-primary/5 p-4 space-y-1.5">
                     <p className="text-sm text-muted-foreground">{t('onboarding.preview')}</p>
-                    <p className="text-2xl font-bold num">{localDue.toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                    {/* Wave 6.3: Jalali date via lib/format — RTL month words need dir="auto", not .num */}
+                    <p dir="auto" className="text-2xl font-bold">{formatDate(localDue, locale)}</p>
                     {ga && ga.totalDays >= 0 && (
                       <p className="text-sm">
-                        {t('onboarding.gestationalAge')}: <span className="font-semibold num">{ga.weeks} {t('common.weeks')} + {ga.days} {t('common.days')}</span>
+                        {t('onboarding.gestationalAge')}: <span dir="auto" className="font-semibold">{formatWeeksDays(ga.weeks, ga.days, locale)}</span>
                       </p>
                     )}
                     <p className="text-xs text-muted-foreground">

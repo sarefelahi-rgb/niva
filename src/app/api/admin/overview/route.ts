@@ -4,7 +4,7 @@ import { assessSafety } from '@/lib/safety';
 
 /** Admin overview: counts + recent safety posture. Role-guarded. */
 export async function GET(req: Request) {
-  return withUser(req, ['ADMIN', 'CLINICAL_REVIEWER'], async () => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN'], async () => {
     const [users, pregnancies, contentPending, assets, safetyOpen, postsPending, payments, aiMessages] =
       await Promise.all([
         db.user.count(),

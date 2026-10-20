@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
-import { Settings, Download, Trash2, Languages, Sun, Moon, Monitor, RotateCcw, LogOut, KeyRound, MonitorSmartphone, Loader2, Bell } from 'lucide-react';
+import { Settings, Download, Trash2, Languages, Sun, Moon, Monitor, RotateCcw, LogOut, KeyRound, MonitorSmartphone, Loader2, Bell, ShieldCheck } from 'lucide-react';
 
 interface SessionRow { id: string; createdAt: string; expiresAt: string; current: boolean }
 
@@ -26,6 +26,11 @@ export function SettingsView() {
   const [marketing, setMarketing] = useState(false);
   const [familyAck, setFamilyAck] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  // Wave 6.4: age-verification chip + notice versions from the consent row.
+  // birthYear itself is deliberately NOT surfaced in the UI (data minimization).
+  const [ageConfirmedAt, setAgeConfirmedAt] = useState<string | null>(null);
+  const [noticeVersions, setNoticeVersions] = useState<{ terms: string; privacy: string } | null>(null);
 
   // Notification channel preferences (email is consent-gated; in-app is always on)
   const [notifEmail, setNotifEmail] = useState(false);
@@ -51,6 +56,8 @@ export function SettingsView() {
         setAnalytics(Boolean(d.consent.healthAnalytics));
         setMarketing(Boolean(d.consent.marketing));
         setFamilyAck(Boolean(d.consent.familySharingAck));
+        setAgeConfirmedAt(d.consent.ageConfirmedAt ?? null);
+        setNoticeVersions({ terms: String(d.consent.termsVersion ?? '1.0'), privacy: String(d.consent.privacyVersion ?? '1.0') });
       }
     }).catch(() => undefined);
   }, []);
@@ -233,6 +240,29 @@ export function SettingsView() {
           <div className="flex items-center justify-between gap-4">
             <Label htmlFor="c-family" className="text-sm leading-relaxed">{t('settings.consentFamily')}</Label>
             <Switch id="c-family" checked={familyAck} onCheckedChange={(v) => { setFamilyAck(v); saveConsent({ familySharingAck: v }); }} />
+          </div>
+          <Separator />
+          {/* Wave 6.4 age-verification chip + notice versions (inline bilingual — i18n.ts not owned this wave) */}
+          <div className="flex flex-wrap items-center gap-2">
+            {ageConfirmedAt ? (
+              <Badge variant="outline" className="gap-1.5 border-primary/40 text-primary">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {locale === 'fa' ? 'سن تأیید شده: ۱۳+' : 'Age verified: 13+'}
+                <span className="num text-muted-foreground">· {new Date(ageConfirmedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+              </Badge>
+            ) : (
+              <Badge variant="outline" className="gap-1.5 text-muted-foreground">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
+                {locale === 'fa' ? 'سن تأیید نشده' : 'Age not verified'}
+              </Badge>
+            )}
+            {noticeVersions && (
+              <Badge variant="secondary" className="num">
+                {locale === 'fa'
+                  ? `قوانین ${noticeVersions.terms} · حریم خصوصی ${noticeVersions.privacy}`
+                  : `Terms ${noticeVersions.terms} · Privacy ${noticeVersions.privacy}`}
+              </Badge>
+            )}
           </div>
         </CardContent>
       </Card>

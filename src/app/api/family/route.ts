@@ -4,6 +4,7 @@ import { db } from '@/lib/db';
 import { json, apiError, readJson, withUser } from '@/lib/api';
 import { getEntitlementFeatures } from '@/lib/entitlements';
 import { logAudit } from '@/lib/audit';
+import { ensureFeature } from '@/lib/feature-flags';
 
 const PERMS = ['VIEW_TIMELINE', 'VIEW_APPOINTMENTS', 'VIEW_TRACKING', 'VIEW_JOURNAL'] as const;
 
@@ -17,6 +18,9 @@ const INVITE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
 
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     const { features } = await getEntitlementFeatures(user.id);
     const grants = await db.partnerAccess.findMany({
       where: { granterId: user.id },
@@ -31,6 +35,9 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     const { features } = await getEntitlementFeatures(user.id);
     if (!features.familyAccess) {
       return json({ entitled: false }, 402);
@@ -91,6 +98,9 @@ export async function POST(req: Request) {
 
 export async function PATCH(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     const id = new URL(req.url).searchParams.get('id');
     if (!id) return apiError(400, 'VALIDATION', 'id required');
     const grant = await db.partnerAccess.findUnique({ where: { id } });

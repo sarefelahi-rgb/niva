@@ -11,7 +11,7 @@ import { PLAN_FEATURES, PLAN_CATALOG } from './plans';
 
 // Single shared source for the plan matrix & catalog (client-safe, no db import).
 // Re-exported here so every server API keeps its existing import path.
-export { PLAN_FEATURES, PLAN_CATALOG };
+export { PLAN_FEATURES, PLAN_CATALOG, priceForPlan, catalogForLocale, localeCurrency } from './plans';
 export type { Plan, PlanFeatures, PlanPrice } from './plans';
 import type { Plan, PlanFeatures } from './plans';
 
@@ -31,7 +31,13 @@ export async function getEntitlementFeatures(userId: string): Promise<{ plan: Pl
   return { plan, features: PLAN_FEATURES[plan], expired };
 }
 
-export async function setEntitlement(userId: string, plan: Plan, periodDays?: number, client: DbClient = db): Promise<void> {
+export async function setEntitlement(
+  userId: string,
+  plan: Plan,
+  periodDays?: number,
+  client: DbClient = db,
+  opts?: { skipNotification?: boolean }
+): Promise<void> {
   const features = PLAN_FEATURES[plan];
   await client.entitlement.upsert({
     where: { userId },
@@ -44,11 +50,22 @@ export async function setEntitlement(userId: string, plan: Plan, periodDays?: nu
       data: { currentPeriodEnd: new Date(Date.now() + periodDays * 86_400_000) },
     });
   }
+  if (opts?.skipNotification) return;
+  // Notification copy is localized by the account locale (Wave 6.1 — all
+  // user-facing strings exist in fa + en).
+  const user = await client.user.findUnique({ where: { id: userId }, select: { locale: true } });
+  const en = user?.locale === 'en';
   await client.notification.create({
     data: {
       userId,
-      title: plan === 'FREE' ? 'Plan updated' : 'Subscription active',
-      body: plan === 'FREE' ? 'Your plan is now Free.' : `Your ${plan.replace('_', ' ').toLowerCase()} plan is active. Thank you for supporting NIVA.`,
+      title: plan === 'FREE' ? (en ? 'Plan updated' : 'طرح شما به‌روزرسانی شد') : en ? 'Subscription active' : 'اشتراک شما فعال شد',
+      body: plan === 'FREE'
+        ? en
+          ? 'Your plan is now Free.'
+          : 'طرح فعلی شما رایگان است.'
+        : en
+          ? `Your ${plan.replace('_', ' ').toLowerCase()} plan is active. Thank you for supporting NIVA.`
+          : `اشتراک ${plan === 'PREMIUM_ANNUAL' ? 'سالانه' : plan === 'FAMILY' ? 'خانواده' : 'پریمیوم'} شما فعال شد. سپاس از همراهی‌تان با نیوا.`,
       type: 'PAYMENT',
     },
   });

@@ -10,6 +10,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { formatDate, formatDateTime } from '@/lib/format';
+import { formatMessage } from '@/lib/icu';
 import { Stethoscope, Loader2, Bell, Check } from 'lucide-react';
 
 interface Appointment { id: string; title: string; type: string; provider: string | null; location: string | null; scheduledAt: string; status: string }
@@ -168,7 +170,8 @@ export function AppointmentsView() {
                 <div key={r.id} className="flex items-center justify-between gap-2 text-sm">
                   <span className="truncate">{r.title}</span>
                   <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-muted-foreground num">{new Date(r.dueAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                    {/* Wave 6.3: Jalali dates for fa via lib/format (was inline toLocaleDateString) */}
+                    <span dir="auto" className="text-xs text-muted-foreground">{formatDate(r.dueAt, locale)}</span>
                     <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => completeReminder(r.id)} aria-label={t('appt.done')}>
                       <Check className="h-4 w-4 text-success" />
                     </Button>
@@ -183,7 +186,21 @@ export function AppointmentsView() {
       {loading ? <Skeleton className="h-40 w-full" /> : (
         <div className="space-y-4">
           <section aria-label={t('appt.next')}>
-            <h2 className="font-semibold mb-2">{t('appt.next')}</h2>
+            <h2 className="font-semibold mb-2 flex items-center gap-2">
+              {t('appt.next')}
+              {/* Wave 6.3 ICU demo site: CLDR plural count chip (en one/other,
+                  fa single form + Persian digits). Inline bilingual pattern per
+                  this view's convention; dict migration is a documented follow-up. */}
+              <Badge variant="outline" dir="auto" className="font-normal text-muted-foreground">
+                {formatMessage(
+                  locale,
+                  locale === 'fa'
+                    ? '{count, plural, other {# نوبت}}'
+                    : '{count, plural, one {# appointment} other {# appointments}}',
+                  { count: upcoming.length },
+                )}
+              </Badge>
+            </h2>
             {upcoming.length === 0 ? <p className="text-sm text-muted-foreground">{t('common.empty')}</p> : (
               <div className="space-y-2">
                 {upcoming.map((a) => (
@@ -191,7 +208,7 @@ export function AppointmentsView() {
                     <Badge>{a.type}</Badge>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{a.title}</p>
-                      <p className="text-xs text-muted-foreground num">{new Date(a.scheduledAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}{a.provider ? ` · ${a.provider}` : ''}</p>
+                      <p dir="auto" className="text-xs text-muted-foreground">{formatDateTime(a.scheduledAt, locale)}{a.provider ? ` · ${a.provider}` : ''}</p>
                     </div>
                     <Button variant="outline" size="sm" className="min-h-9" onClick={() => setApptStatus(a.id, 'COMPLETED')}>{t('appt.done')}</Button>
                   </CardContent></Card>
@@ -207,7 +224,7 @@ export function AppointmentsView() {
                   <div key={a.id} className="flex items-center gap-3 text-sm border-b pb-2 last:border-0">
                     <Badge variant="secondary">{a.status}</Badge>
                     <span className="truncate flex-1">{a.title}</span>
-                    <span className="text-xs text-muted-foreground num">{new Date(a.scheduledAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                    <span dir="auto" className="text-xs text-muted-foreground">{formatDate(a.scheduledAt, locale)}</span>
                   </div>
                 ))}
               </div>

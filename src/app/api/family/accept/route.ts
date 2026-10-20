@@ -3,6 +3,7 @@ import { db } from '@/lib/db';
 import { json, apiError, readJson, withUser } from '@/lib/api';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
 import { logAudit } from '@/lib/audit';
+import { ensureFeature } from '@/lib/feature-flags';
 
 const decisionSchema = z.object({
   token: z.string().min(10),
@@ -12,6 +13,9 @@ const decisionSchema = z.object({
 /** Pending invitations addressed to the signed-in user's email. */
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     const myEmail = user.email.toLowerCase();
     const rows = await db.partnerAccess.findMany({
       where: {
@@ -41,6 +45,9 @@ export async function GET(req: Request) {
 /** Claim an invite by token: ACCEPT links the account, DECLINE records the refusal. */
 export async function POST(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     if (!rateLimit(clientKey(req, 'family-accept'), 10, 5 * 60_000)) {
       return apiError(429, 'RATE_LIMIT', 'Too many attempts');
     }

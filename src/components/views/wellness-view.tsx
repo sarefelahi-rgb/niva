@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/store/app';
 import type { Locale } from '@/lib/i18n';
+import { formatDate } from '@/lib/format';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -39,7 +40,7 @@ type ContentMap = Record<ContentCat, ContentItem[]>;
 const EMPTY_CONTENT: ContentMap = { NUTRITION: [], EXERCISE: [], SLEEP: [], MOOD: [] };
 
 const todayKey = () => new Date().toISOString().slice(0, 10);
-const fmtDay = (iso: string, locale: Locale) => new Date(iso).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US');
+const fmtDay = (iso: string, locale: Locale) => formatDate(iso, locale, 'short');
 const clampInt = (v: number, lo: number, hi: number) => Math.min(Math.max(Math.trunc(v), lo), hi);
 const halfHourStep = (h: number) => Math.abs(h * 10 - Math.round(h * 10)) < 1e-9;
 

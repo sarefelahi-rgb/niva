@@ -22,6 +22,11 @@ export async function POST(req: Request) {
     if (!user || !verifyPassword(body.password, user.passwordHash)) {
       return apiError(401, 'BAD_CREDENTIALS', 'Email or password is incorrect');
     }
+    // Wave 6.2: soft-disabled accounts cannot sign in (sessions are also
+    // destroyed lazily at the session-validation point in src/lib/auth.ts).
+    if (user.deactivatedAt != null) {
+      return apiError(403, 'ACCOUNT_DISABLED', 'این حساب غیرفعال شده است | This account has been deactivated');
+    }
     const session = await createSession(user.id);
     await logAudit(user.id, 'USER_LOGIN', 'User', user.id, null, req.headers.get('x-forwarded-for'));
     return json({ id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale, token: session.token });

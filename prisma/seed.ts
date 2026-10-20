@@ -46,8 +46,13 @@ async function main() {
   console.log('Seeding NIVA…');
 
   // ── Accounts ──────────────────────────────────────────────────────────────
+  // Wave 6.2: admin@niva.health stays ADMIN (backward-compat: CI contract
+  // harness + shell nav gate on the literal ADMIN role). A dedicated
+  // superadmin@niva.health holds SUPER_ADMIN so `roles.manage` (role spectrum)
+  // is demonstrable without touching the legacy admin account.
   const users = [
     { email: 'admin@niva.health', name: 'Platform Admin', role: 'ADMIN', pw: 'NivaAdmin!2025' },
+    { email: 'superadmin@niva.health', name: 'NIVA Super Admin', role: 'SUPER_ADMIN', pw: 'NivaSuper!2025' },
     { email: 'reviewer@niva.health', name: 'Dr. S. Reviewer', role: 'CLINICAL_REVIEWER', pw: 'NivaReview!2025' },
     { email: 'demo@niva.health', name: 'Demo User', role: 'USER', pw: 'NivaDemo!2025' },
   ];

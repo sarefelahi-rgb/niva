@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { useApp, type View } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -10,9 +10,20 @@ import {
   LayoutDashboard, CalendarClock, Box, Activity, Sparkles, FolderLock, Stethoscope,
   Salad, Baby, Flower2, BookHeart, Users, Crown, Settings, ShieldCheck, Bell,
   LogOut, Menu, Moon, Sun, Languages, HeartPulse, X, ChevronLeft, ChevronRight,
-  ClipboardCheck, CreditCard, ShieldAlert, Trash2,
+  ClipboardCheck, CreditCard, ShieldAlert, Trash2, BellRing, BellOff, WifiOff,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
+import { useToast } from '@/hooks/use-toast';
+import { ToastAction } from '@/components/ui/toast';
+import {
+  fetchPushConfig,
+  getExistingSubscription,
+  isPushSupported,
+  registerServiceWorker,
+  saveSubscriptionToServer,
+  subscribeToPush,
+  unsubscribeFromPush,
+} from '@/lib/push-client';
 
 interface NavItem {
   view: View;
@@ -63,6 +74,9 @@ const NOTIF_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string 
 interface NotifRow { id: string; title: string; body: string; type: string; channel: string; readAt: string | null; createdAt: string }
 interface ScheduledRow { id: string; title: string; type: string; scheduledFor: string }
 
+/** Push toggle state — every transition comes from a real browser/server API. */
+type PushState = 'checking' | 'unsupported' | 'unconfigured' | 'denied' | 'off' | 'on';
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t, view, setView, user, logout, locale, setLocale } = useApp();
   const { theme, setTheme, resolvedTheme } = useTheme();
@@ -72,6 +86,14 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const [notifications, setNotifications] = useState<NotifRow[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledRow[]>([]);
   const [unread, setUnread] = useState(0);
+  const [online, setOnline] = useState(true);
+  const [pushState, setPushState] = useState<PushState>('checking');
+  const [pushBusy, setPushBusy] = useState(false);
+  const [updateReady, setUpdateReady] = useState(false);
+  const { toast } = useToast();
+  const publicKeyRef = useRef<string | null>(null);
+  const updateToastShown = useRef(false);
+  const reloadOnController = useRef(false);
 
   useEffect(() => {
     const id = requestAnimationFrame(() => setMounted(true));
@@ -97,6 +119,64 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     const id = requestAnimationFrame(() => { void loadNotifs(); });
     return () => cancelAnimationFrame(id);
   }, [user, view, loadNotifs]);
+
+  // Offline banner — driven ONLY by real online/offline events.
+  useEffect(() => {
+    const sync = () => setOnline(navigator.onLine);
+    sync();
+    window.addEventListener('online', sync);
+    window.addEventListener('offline', sync);
+    return () => {
+      window.removeEventListener('online', sync);
+      window.removeEventListener('offline', sync);
+    };
+  }, []);
+
+  // SW update flow — toast only when a REAL waiting worker exists behind a live controller.
+  useEffect(() => {
+    if (!('serviceWorker' in navigator)) return;
+    const onControllerChange = () => {
+      if (reloadOnController.current) window.location.reload();
+    };
+    navigator.serviceWorker.addEventListener('controllerchange', onControllerChange);
+    navigator.serviceWorker.register('/sw.js')
+      .then((reg) => {
+        if (reg.waiting && navigator.serviceWorker.controller) setUpdateReady(true);
+        reg.addEventListener('updatefound', () => {
+          const installing = reg.installing;
+          if (!installing) return;
+          installing.addEventListener('statechange', () => {
+            if (installing.state === 'installed' && navigator.serviceWorker.controller) setUpdateReady(true);
+          });
+        });
+      })
+      .catch(() => undefined);
+    return () => navigator.serviceWorker.removeEventListener('controllerchange', onControllerChange);
+  }, []);
+
+  const applyUpdate = useCallback(() => {
+    reloadOnController.current = true;
+    navigator.serviceWorker.ready
+      .then((reg) => {
+        reg.waiting?.postMessage({ type: 'SKIP_WAITING' });
+        // Safety net: if the new controller never takes over, reload anyway.
+        setTimeout(() => window.location.reload(), 3000);
+      })
+      .catch(() => window.location.reload());
+  }, []);
+
+  useEffect(() => {
+    if (!updateReady || updateToastShown.current) return;
+    updateToastShown.current = true;
+    toast({
+      title: t('pwa.updated'),
+      action: (
+        <ToastAction altText={locale === 'fa' ? 'تازه‌سازی' : 'Refresh'} onClick={applyUpdate}>
+          {locale === 'fa' ? 'تازه‌سازی' : 'Refresh'}
+        </ToastAction>
+      ),
+    });
+  }, [updateReady, toast, t, locale, applyUpdate]);
 
   const visible = (items: NavItem[]) => items.filter((i) => !i.roles || (user && i.roles.includes(user.role)));
   const allNav = [...PRIMARY_NAV, ...SECONDARY_NAV, ...ACCOUNT_NAV, ...GOVERNANCE_NAV];
@@ -127,8 +207,77 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     if (target && !target.readAt) setUnread((u) => Math.max(0, u - 1));
   };
 
+  // ── Web push state — read from real APIs whenever the bell sheet opens ─────
+  const evaluatePushState = useCallback(async () => {
+    if (!isPushSupported()) { setPushState('unsupported'); return; }
+    try {
+      const cfg = await fetchPushConfig();
+      if (!cfg.configured || !cfg.publicKey) { setPushState('unconfigured'); return; }
+      publicKeyRef.current = cfg.publicKey;
+      const existing = await getExistingSubscription();
+      if (existing) { setPushState('on'); return; }
+      if (typeof Notification !== 'undefined' && Notification.permission === 'denied') {
+        setPushState('denied');
+        return;
+      }
+      setPushState('off');
+    } catch {
+      setPushState('unconfigured');
+    }
+  }, []);
+
+  const enablePush = async () => {
+    setPushBusy(true);
+    try {
+      const cfg = publicKeyRef.current ? { configured: true, publicKey: publicKeyRef.current } : await fetchPushConfig();
+      if (!cfg.configured || !cfg.publicKey) { setPushState('unconfigured'); return; }
+      publicKeyRef.current = cfg.publicKey;
+      if (typeof Notification === 'undefined') { setPushState('unsupported'); return; }
+      const permission = await Notification.requestPermission();
+      if (permission === 'denied') { setPushState('denied'); return; }
+      await registerServiceWorker();
+      const sub = await subscribeToPush(cfg.publicKey);
+      if (!sub) { setPushState('off'); return; }
+      const saved = await saveSubscriptionToServer(sub, locale);
+      if (!saved) {
+        await sub.unsubscribe().catch(() => undefined); // honest state: server refused → not subscribed
+        setPushState('off');
+        return;
+      }
+      setPushState('on');
+    } catch {
+      setPushState('off');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
+  const disablePush = async () => {
+    setPushBusy(true);
+    try {
+      const sub = await getExistingSubscription();
+      if (sub) await unsubscribeFromPush(sub);
+      setPushState('off');
+    } finally {
+      setPushBusy(false);
+    }
+  };
+
   return (
     <div className="min-h-screen flex flex-col">
+      {/* Offline banner — real navigator.onLine state via online/offline events. */}
+      <div aria-live="polite">
+        {!online && (
+          <div role="status" className="bg-amber-500/15 border-b border-amber-500/30 px-3 sm:px-6 py-2 flex items-start gap-2.5">
+            <WifiOff className="h-4 w-4 text-amber-700 dark:text-amber-300 shrink-0 mt-0.5" aria-hidden />
+            <div className="min-w-0">
+              <p className="text-sm font-medium text-amber-800 dark:text-amber-200">{t('pwa.offlineTitle')}</p>
+              <p className="text-xs text-amber-700/90 dark:text-amber-300/90">{t('pwa.offlineBody')}</p>
+            </div>
+          </div>
+        )}
+      </div>
+
       {/* Header */}
       <header className="sticky top-0 z-40 niva-card border-b">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 h-14 flex items-center gap-2">
@@ -187,7 +336,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {mounted && (resolvedTheme === 'dark' ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />)}
             </Button>
             {/* Notifications */}
-            <Sheet open={notifOpen} onOpenChange={(o) => { setNotifOpen(o); if (o) void loadNotifs(); }}>
+            <Sheet open={notifOpen} onOpenChange={(o) => { setNotifOpen(o); if (o) { void loadNotifs(); void evaluatePushState(); } }}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative min-h-11 min-w-11" aria-label={t('notifs.title')}>
                   <Bell className="h-4.5 w-4.5" />
@@ -198,7 +347,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               </SheetTrigger>
               <SheetContent side={locale === 'fa' ? 'left' : 'right'} className="w-80 p-0">
                 <div className="flex items-center justify-between p-4 border-b">
-                  <h2 className="font-semibold">{t('notifs.title')}</h2>
+                  {/* SheetTitle (not a bare h2): Radix requires a Dialog-level title for a11y */}
+                  <SheetTitle className="font-semibold">{t('notifs.title')}</SheetTitle>
                   <Button variant="ghost" size="sm" onClick={markAllRead}>{t('notifs.markAll')}</Button>
                 </div>
                 <div className="p-2 max-h-[70vh] overflow-y-auto">
@@ -253,6 +403,47 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           </p>
                         </div>
                       ))
+                    )}
+                  </div>
+                  {/* Web push toggle — reflects REAL permission/subscription state only. */}
+                  <div className="border-t mt-2 pt-3 px-1">
+                    {pushState === 'on' && (
+                      <button
+                        onClick={() => void disablePush()}
+                        disabled={pushBusy}
+                        className="w-full flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm min-h-11 hover:bg-muted transition-colors text-start disabled:opacity-50"
+                      >
+                        <BellRing className="h-4 w-4 text-primary shrink-0" aria-hidden />
+                        <span className="flex-1">{t('pwa.pushEnabled')}</span>
+                        <span className="text-xs text-muted-foreground">{locale === 'fa' ? 'خاموش کردن' : 'Turn off'}</span>
+                      </button>
+                    )}
+                    {pushState === 'off' && (
+                      <button
+                        onClick={() => void enablePush()}
+                        disabled={pushBusy}
+                        className="w-full flex items-center gap-2.5 rounded-lg px-2 py-2.5 text-sm min-h-11 hover:bg-muted transition-colors text-start disabled:opacity-50"
+                      >
+                        <Bell className="h-4 w-4 text-primary shrink-0" aria-hidden />
+                        <span className="flex-1">{t('pwa.pushEnable')}</span>
+                      </button>
+                    )}
+                    {(pushState === 'unsupported' || pushState === 'denied' || pushState === 'unconfigured') && (
+                      <div className="flex items-start gap-2.5 rounded-lg px-2 py-2.5 text-sm text-muted-foreground">
+                        <BellOff className="h-4 w-4 shrink-0 mt-0.5" aria-hidden />
+                        <span className="flex-1">
+                          {pushState === 'unsupported' && t('pwa.pushUnsupported')}
+                          {pushState === 'denied' && t('pwa.pushDenied')}
+                          {pushState === 'unconfigured' && (
+                            <>
+                              {t('pwa.pushHint')}
+                              <span className="block text-xs mt-0.5">
+                                {locale === 'fa' ? 'فعلاً غیرفعال — کلید سرور تنظیم نشده' : 'Unavailable — server push key not configured yet'}
+                              </span>
+                            </>
+                          )}
+                        </span>
+                      </div>
                     )}
                   </div>
                 </div>

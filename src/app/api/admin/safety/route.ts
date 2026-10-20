@@ -4,7 +4,7 @@ import { json, apiError, readJson, withUser } from '@/lib/api';
 import { logAudit } from '@/lib/audit';
 
 export async function GET(req: Request) {
-  return withUser(req, ['ADMIN', 'CLINICAL_REVIEWER'], async () => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN'], async () => {
     const events = await db.safetyEvent.findMany({
       orderBy: { createdAt: 'desc' },
       take: 100,
@@ -19,7 +19,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  return withUser(req, ['ADMIN', 'CLINICAL_REVIEWER'], async ({ user }) => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN'], async ({ user }) => {
     const body = await readJson(req, z.object({ id: z.string() }));
     const event = await db.safetyEvent.findUnique({ where: { id: body.id } });
     if (!event) return apiError(404, 'NOT_FOUND', 'Event not found');

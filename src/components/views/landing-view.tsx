@@ -98,10 +98,14 @@ export function LandingView() {
 
   return (
     <div className="min-h-screen flex flex-col niva-grad">
-      {/* Organization / SoftwareApplication structured data (locale-aware, static chunk) */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{
+      {/* Organization / SoftwareApplication structured data — locale-aware copy.
+          Rendered AFTER mount: SSR text would otherwise mismatch the client's
+          persisted locale (dangerouslySetInnerHTML is not covered by
+          suppressHydrationWarning). Crawlers execute JS, so SEO still sees it. */}
+      {mounted && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{
           __html: JSON.stringify({
             '@context': 'https://schema.org',
             '@graph': [
@@ -124,8 +128,9 @@ export function LandingView() {
               },
             ],
           }),
-        }}
-      />
+          }}
+        />
+      )}
 
       {/* Top bar */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-background/70 border-b border-border/50">

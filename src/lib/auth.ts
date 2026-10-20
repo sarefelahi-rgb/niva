@@ -57,19 +57,37 @@ export async function createSession(userId: string): Promise<{ token: string; ex
 }
 
 export async function getSessionUser(): Promise<User | null> {
+  return (await getSessionStatus()).user;
+}
+
+/**
+ * Wave 6.2 session validation point — one honest check for soft-disabled
+ * accounts. If the session resolves to a deactivated user, ALL of that user's
+ * stale sessions are destroyed lazily (defense in depth: even if a new session
+ * were minted by another path, the next validation would remove it) and the
+ * caller is told the account is disabled so guarded routes can answer
+ * 403 ACCOUNT_DISABLED instead of a misleading 401.
+ */
+export async function getSessionStatus(): Promise<{ user: User | null; deactivated: boolean }> {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;
-  if (!token) return null;
+  if (!token) return { user: null, deactivated: false };
   const session = await db.session.findUnique({
     where: { token },
     include: { user: true },
   });
-  if (!session) return null;
+  if (!session) return { user: null, deactivated: false };
   if (session.expiresAt.getTime() < Date.now()) {
     await db.session.delete({ where: { id: session.id } }).catch(() => undefined);
-    return null;
+    return { user: null, deactivated: false };
   }
-  return session.user;
+  if (session.user.deactivatedAt != null) {
+    await db.session
+      .deleteMany({ where: { userId: session.user.id } })
+      .catch(() => undefined);
+    return { user: null, deactivated: true };
+  }
+  return { user: session.user, deactivated: false };
 }
 
 export async function destroySession(): Promise<void> {

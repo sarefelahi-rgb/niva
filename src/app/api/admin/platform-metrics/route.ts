@@ -10,7 +10,7 @@ import { metricsSnapshot } from '@/lib/observability';
  * message content are included — counts and route names only.
  */
 export async function GET(req: Request) {
-  return withUser(req, ['ADMIN'], async () => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN'], async () => {
     return json(metricsSnapshot());
   });
 }

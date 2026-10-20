@@ -17,8 +17,9 @@ model User {
   email        String   @unique
   passwordHash String
   name         String
-  role         String   @default("USER") // USER | CLINICAL_REVIEWER | ADMIN
+  role         String   @default("USER") // USER | CLINICAL_REVIEWER | MODERATOR | SUPPORT | FINANCE | EDITOR | ADMIN | SUPER_ADMIN (Wave 6.2 role spectrum; ADMIN is kept for backward compat, SUPER_ADMIN manages roles)
   locale       String   @default("fa") // fa | en
+  deactivatedAt DateTime? // Wave 6.2 user management: soft-disable (login/sessions blocked), data retained
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
@@ -51,6 +52,13 @@ model User {
   contractionEntries ContractionEntry[]
   feedingEntries   FeedingEntry[]
   babyCareEntries  BabyCareEntry[]
+  invoices         Invoice[]
+  refundsProcessed Refund[]          @relation("RefundProcessor")
+  tickets          SupportTicket[]   @relation("TicketOwner")
+  ticketsAssigned  SupportTicket[]   @relation("TicketAssignee")
+  ticketMessages   TicketMessage[]   @relation("TicketMessageAuthor")
+  incidentsOpened  Incident[]        @relation("IncidentOpener")
+  pushSubscriptions PushSubscription[]
 }
 
 model Session {
@@ -75,6 +83,8 @@ model Consent {
   marketing         Boolean   @default(false)
   familySharingAck  Boolean   @default(false)
   emailReminders    Boolean   @default(false) // consent for service emails (appointment/reminder nudges)
+  birthYear         Int? // Wave 6.4 age gate: self-declared, min required age enforced at signup
+  ageConfirmedAt    DateTime?
   withdrawnAt       DateTime?
   updatedAt         DateTime  @updatedAt
 }
@@ -419,9 +429,12 @@ model Subscription {
   provider        String    @default("SANDBOX") // SANDBOX | ZARINPAL | STRIPE
   providerRef     String?
   currentPeriodEnd DateTime?
+  cancelAtPeriodEnd Boolean @default(false) // Wave 6.1: user keeps access until currentPeriodEnd, then EXPIRED
+  trialEndsAt     DateTime? // Wave 6.1: trial window (TRIALING status); null = no trial
   createdAt       DateTime  @default(now())
   cancelledAt     DateTime?
   payments        Payment[]
+  invoices        Invoice[]
 
   @@index([userId])
 }
@@ -436,10 +449,122 @@ model Payment {
   provider       String    @default("SANDBOX")
   providerRef    String?
   idempotencyKey String    @unique
+  statusDetail   String? // Wave 6.1: PSP authority/verification code, reconciliation note
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
+  refunds        Refund[]
+  invoice        Invoice?
 
   @@index([subscriptionId])
+}
+
+// ─── Wave 6.1: Invoices & Refunds ────────────────────────────────────────────
+
+/// Issued automatically when a payment SUCCEEDS (sandbox or PSP webhook).
+/// Numbers are sequential per year: NIVA-2026-000001.
+model Invoice {
+  id             String    @id @default(cuid())
+  number         String    @unique
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  subscriptionId String
+  subscription  Subscription @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  paymentId      String    @unique
+  payment        Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountMinor    Int
+  currency       String    @default("IRR") // IRR | USD
+  taxMinor       Int       @default(0) // VAT where applicable; 0 in sandbox
+  status         String    @default("ISSUED") // ISSUED | VOID
+  lineItems      String    @default("[]") // JSON: [{descriptionEn, descriptionFa, amountMinor, periodDays}]
+  issuedAt       DateTime  @default(now())
+
+  @@index([userId])
+  @@index([subscriptionId])
+}
+
+/// Refunds are FINANCE-role operations only (Wave 6.2). Sandbox performs a
+/// ledger-only refund; a real PSP call is the production swap-in point.
+model Refund {
+  id           String    @id @default(cuid())
+  paymentId    String
+  payment      Payment   @relation(fields: [paymentId], references: [id], onDelete: Cascade)
+  amountMinor  Int
+  currency     String    @default("IRR")
+  reason       String
+  status       String    @default("SUCCEEDED") // PENDING | SUCCEEDED | FAILED (sandbox settles instantly)
+  providerRef  String?
+  processedById String? // FINANCE/SUPER_ADMIN actor
+  processedBy  User?     @relation("RefundProcessor", fields: [processedById], references: [id], onDelete: SetNull)
+  createdAt    DateTime  @default(now())
+
+  @@index([paymentId])
+}
+
+// ─── Wave 6.2: Support tickets & incidents ───────────────────────────────────
+
+model SupportTicket {
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation("TicketOwner", fields: [userId], references: [id], onDelete: Cascade)
+  subject      String
+  category     String    @default("OTHER") // BILLING | CLINICAL | TECHNICAL | PRIVACY | OTHER
+  status       String    @default("OPEN") // OPEN | IN_PROGRESS | RESOLVED | CLOSED
+  priority     String    @default("NORMAL") // LOW | NORMAL | HIGH
+  assignedToId String?
+  assignee     User?     @relation("TicketAssignee", fields: [assignedToId], references: [id], onDelete: SetNull)
+  messages     TicketMessage[]
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  @@index([userId])
+  @@index([status, priority])
+}
+
+model TicketMessage {
+  id        String    @id @default(cuid())
+  ticketId  String
+  ticket    SupportTicket @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  authorId  String
+  author    User      @relation("TicketMessageAuthor", fields: [authorId], references: [id], onDelete: Cascade)
+  body      String
+  isStaff   Boolean   @default(false)
+  createdAt DateTime  @default(now())
+
+  @@index([ticketId])
+}
+
+/// Platform incident log, surfaced in the admin overview; public status page
+/// is a documented production target (not built in sandbox).
+model Incident {
+  id          String    @id @default(cuid())
+  title       String
+  description String
+  severity    String    @default("MEDIUM") // LOW | MEDIUM | HIGH | CRITICAL
+  status      String    @default("INVESTIGATING") // INVESTIGATING | IDENTIFIED | MONITORING | RESOLVED
+  openedById  String
+  openedBy    User      @relation("IncidentOpener", fields: [openedById], references: [id], onDelete: Cascade)
+  resolvedAt  DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  @@index([status])
+}
+
+// ─── Wave 6.5: Web push ──────────────────────────────────────────────────────
+
+/// One browser push subscription per endpoint. Keys are stored server-side and
+/// never leave it. Delivery uses VAPID (NIVA_PUSH_VAPID_PUBLIC/PRIVATE_KEY).
+model PushSubscription {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  locale    String   @default("fa") // fa | en — copy locale at subscribe time
+  createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Entitlement {

@@ -8,6 +8,9 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { gestationalAgeAt, trimesterOf } from '@/lib/gestational';
+import type { Locale } from '@/lib/i18n';
+import { formatDate, formatDateTime, formatWeeksDays, bdiWrap } from '@/lib/format';
+import { formatMessage } from '@/lib/icu';
 import { WEEKLY_CONTENT } from '@/data/weekly-content';
 import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock } from 'lucide-react';
 
@@ -24,12 +27,13 @@ const VISIT_CADENCE: Array<{ trimester: 1 | 2 | 3; en: string; fa: string }> = [
   { trimester: 3, en: 'Visits every 2–3w from 28w · weekly near term', fa: 'ویزیت هر ۲ تا ۳ هفته از هفته ۲۸ · نزدیک ترم هفتگی' },
 ];
 
-function GestationalClock({ progress, week }: { progress: number; week: number }) {
+function GestationalClock({ progress, week, locale }: { progress: number; week: number; locale: Locale }) {
   const r = 52;
   const c = 2 * Math.PI * r;
   const filled = (Math.min(100, Math.max(0, progress)) / 100) * c;
   return (
-    <div className="relative h-32 w-32 shrink-0" role="img" aria-label={`${week}`}>
+    // Localized accessible name (wave 6.3) — was a bare Latin digit.
+    <div className="relative h-32 w-32 shrink-0" role="img" aria-label={formatWeeksDays(week, 0, locale)}>
       <svg viewBox="0 0 128 128" className="h-full w-full -rotate-90">
         <circle cx="64" cy="64" r={r} fill="none" strokeWidth="10" className="stroke-muted" />
         <circle
@@ -122,7 +126,22 @@ export function DashboardView() {
   const trimester = trimesterOf(week);
   const uncertainty = UNCERTAINTY_DAYS[pregnancy.datingConfidence ?? 'MEDIUM'] ?? 14;
   const dueDate = new Date(pregnancy.dueDate);
-  const fmtDate = (d: Date) => d.toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US');
+  // Wave 6.3: locale primitives — fa renders the Jalali calendar («۱ فروردین
+  // ۱۴۰۵»). Results contain RTL month words → render in dir="auto" spans, NOT
+  // `.num` (an LTR embed would visually reorder the Persian date).
+  const fmtDate = (d: Date) => formatDate(d, locale);
+  // Wave 6.3 ICU demo site: plural via CLDR categories (en one/other) instead
+  // of hand-assembled "N days to go". Inline bilingual pattern matches the
+  // view's existing inline-fa convention (VISIT_CADENCE above); migrating the
+  // pattern into i18n.ts is a documented follow-up (dict frozen this wave).
+  const daysToGo = Math.max(0, 280 - ga.totalDays);
+  const dueInLabel = formatMessage(
+    locale,
+    locale === 'fa'
+      ? '{d, number} روز باقی مانده'
+      : '{d, plural, one {# day to go} other {# days to go}}',
+    { d: daysToGo },
+  );
   // The dataset value already carries the comparison phrase — strip it so the
   // labelled sentence does not duplicate ("Baby is about the size of About the size of…").
   const babySize = weekContent
@@ -137,20 +156,22 @@ export function DashboardView() {
         <Card className="lg:col-span-2 niva-card niva-grad overflow-hidden">
           <CardContent className="p-6 space-y-5">
             <div className="flex flex-wrap items-center gap-3">
-              <h1 className="text-2xl font-bold">{t('dash.greeting')} {user?.name?.split(' ')[0]} 👋</h1>
+              {/* bdi isolate: user names may be Latin inside this fa RTL heading */}
+              <h1 className="text-2xl font-bold">{t('dash.greeting')} {user?.name ? bdiWrap(user.name.split(' ')[0]) : ''} 👋</h1>
               <Badge variant="secondary">{t('dash.trimester')} {trimester}</Badge>
               {pregnancy.datingLocked && (
                 <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />{locale === 'fa' ? 'تأیید پزشک' : 'Clinician-confirmed'}</Badge>
               )}
             </div>
             <div className="flex items-center gap-5">
-              <GestationalClock progress={progress} week={week} />
+              <GestationalClock progress={progress} week={week} locale={locale} />
               <div className="min-w-0">
-                <p className="font-semibold num">{ga.weeks} {t('common.weeks')} + {ga.days} {t('common.days')}</p>
-                <p className="text-sm text-muted-foreground num">{Math.max(0, 280 - ga.totalDays)} {t('dash.dueIn')}</p>
+                {/* Wave 6.3 week label: formatWeeksDays (fa «هفته ۱۲ و ۳ روز» / en plural) */}
+                <p dir="auto" className="font-semibold">{formatWeeksDays(ga.weeks, ga.days, locale)}</p>
+                <p dir="auto" className="text-sm text-muted-foreground">{dueInLabel}</p>
                 <div className="mt-2 text-sm space-y-0.5">
-                  <p><span className="text-muted-foreground">{t('onboarding.preview')}: </span><span className="font-semibold num">{fmtDate(dueDate)}</span></p>
-                  <p className="text-xs text-muted-foreground num">
+                  <p><span className="text-muted-foreground">{t('onboarding.preview')}: </span><span dir="auto" className="font-semibold">{fmtDate(dueDate)}</span></p>
+                  <p dir="auto" className="text-xs text-muted-foreground">
                     {t('dash.dueRangeFrom')} {fmtDate(new Date(dueDate.getTime() - uncertainty * 86400000))} {t('dash.dueRangeTo')} {fmtDate(new Date(dueDate.getTime() + uncertainty * 86400000))}
                   </p>
                 </div>
@@ -222,7 +243,8 @@ export function DashboardView() {
             {loading ? <Skeleton className="h-12 w-full" /> : next ? (
               <div className="space-y-1">
                 <p className="font-semibold">{next.title}</p>
-                <p className="text-sm text-muted-foreground num">{new Date(next.scheduledAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                {/* Wave 6.3: Jalali date+time for fa (was plain fa-IR numeric) */}
+                <p dir="auto" className="text-sm text-muted-foreground">{formatDateTime(next.scheduledAt, locale)}</p>
                 {next.provider && <p className="text-sm text-muted-foreground">{next.provider}</p>}
               </div>
             ) : failed ? (
@@ -246,7 +268,7 @@ export function DashboardView() {
             ) : reminders.map((r) => (
               <div key={r.id} className="flex items-center justify-between text-sm border-b pb-2 last:border-0 last:pb-0">
                 <span className="truncate">{r.title}</span>
-                <span className="text-xs text-muted-foreground num shrink-0 ms-2">{new Date(r.dueAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                <span dir="auto" className="text-xs text-muted-foreground shrink-0 ms-2">{formatDate(r.dueAt, locale)}</span>
               </div>
             ))}
           </CardContent>

@@ -22,7 +22,7 @@ const decideSchema = z.object({
 const DECISION_ACTIONS = ['APPROVE', 'REJECT', 'REMOVE'] as const;
 
 export async function GET(req: Request) {
-  return withUser(req, ['ADMIN'], async () => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN', 'MODERATOR'], async () => {
     const startOfDay = new Date();
     startOfDay.setHours(0, 0, 0, 0);
     const [queue, recent, pending, todayDecisions] = await Promise.all([
@@ -79,7 +79,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  return withUser(req, ['ADMIN'], async ({ user }) => {
+  return withUser(req, ['ADMIN', 'SUPER_ADMIN', 'MODERATOR'], async ({ user }) => {
     const body = await readJson(req, decideSchema);
     const post = await db.communityPost.findUnique({ where: { id: body.postId } });
     if (!post) return apiError(404, 'err.notFound', 'Post not found');

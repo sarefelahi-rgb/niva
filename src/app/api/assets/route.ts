@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { json, withUser } from '@/lib/api';
+import { ensureFeature } from '@/lib/feature-flags';
 
 /**
  * 3D asset registry (public studio feed, Wave 3.3).
@@ -10,6 +11,9 @@ import { json, withUser } from '@/lib/api';
  */
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: studio off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('studio', user.id);
+    if (gated) return gated;
     const { features } = await getFeatures(user.id);
     const assets = await db.anatomicalAsset.findMany({
       where: {

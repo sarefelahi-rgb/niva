@@ -1,7 +1,8 @@
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { json, apiError, readJson, withUser, assertSameOrigin } from '@/lib/api';
-import { PLAN_CATALOG, setEntitlement, type Plan } from '@/lib/entitlements';
+import { json, apiError, readJson, withUser } from '@/lib/api';
+import { setEntitlement } from '@/lib/entitlements';
+import { issueInvoice, planForAmount } from '@/lib/billing';
 import { rateLimit, clientKey } from '@/lib/rate-limit';
 import { logAudit } from '@/lib/audit';
 
@@ -14,10 +15,10 @@ import { logAudit } from '@/lib/audit';
  *   this environment). In production the real PSP webhook (HMAC-verified,
  *   server-to-server) is the only entitlement writer.
  * - Owner-scoped (withUser + payment→subscription.userId check), PENDING-only,
- *   idempotent replay, and all writes happen in ONE transaction.
+ *   idempotent replay, and all writes happen in ONE transaction — including
+ *   the invoice issuance (Wave 6.1).
  */
 export async function POST(req: Request) {
-  if (!assertSameOrigin(req)) return apiError(403, 'CSRF', 'Cross-origin request rejected');
   const mode = process.env.PAYMENTS_MODE ?? 'sandbox';
   if (mode !== 'sandbox') {
     return apiError(404, 'NOT_FOUND', 'Sandbox confirmation is disabled for this deployment');
@@ -42,36 +43,40 @@ export async function POST(req: Request) {
     }
     // The purchased plan is derived from the immutable payment amount (the
     // subscription row is intentionally NOT pre-mutated at checkout).
-    const price = PLAN_CATALOG.find(
-      (p) => p.amountMinor === payment.amount && p.currency === payment.currency
-    );
+    const price = planForAmount(payment.amount, payment.currency);
     if (!price) {
       return apiError(422, 'UNKNOWN_PLAN', 'Payment does not map to a catalog plan');
     }
-    await db.$transaction(async (tx) => {
-      await tx.payment.update({ where: { id: payment.id }, data: { status: body.result } });
+    const invoice = await db.$transaction(async (tx) => {
+      await tx.payment.update({
+        where: { id: payment.id },
+        data: { status: body.result, statusDetail: 'sandbox client-confirm' },
+      });
+      let issued: { id: string; number: string } | null = null;
       if (body.result === 'SUCCEEDED') {
         await tx.subscription.update({
           where: { id: payment.subscription.id },
           data: {
-            plan: price.plan as Plan,
+            plan: price.plan,
             status: 'ACTIVE',
             provider: 'SANDBOX',
             providerRef: payment.idempotencyKey,
             currentPeriodEnd: new Date(Date.now() + price.periodDays * 86_400_000),
           },
         });
-        await setEntitlement(user.id, price.plan as Plan, price.periodDays, tx);
+        await setEntitlement(user.id, price.plan, price.periodDays, tx);
+        issued = await issueInvoice(tx, { payment, subscription: payment.subscription, price });
       }
+      return issued;
     });
     await logAudit(
       user.id,
       body.result === 'SUCCEEDED' ? 'PAYMENT_SUCCEEDED' : 'PAYMENT_FAILED',
       'Payment',
       payment.id,
-      { provider: 'SANDBOX', mode: 'client-confirm' },
+      { provider: 'SANDBOX', mode: 'client-confirm', invoice: invoice?.number },
       req.headers.get('x-forwarded-for')
     );
-    return json({ ok: true, status: body.result });
+    return json({ ok: true, status: body.result, invoiceNumber: invoice?.number });
   });
 }

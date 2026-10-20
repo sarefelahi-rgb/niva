@@ -8,6 +8,7 @@
  * Pricing mirrors the server-side catalog in src/lib/plans.ts (single source).
  */
 
+import { useEffect, useState } from 'react';
 import { useApp, formatToman } from '@/store/app';
 import { PLAN_CATALOG } from '@/lib/plans';
 import { Button } from '@/components/ui/button';
@@ -306,6 +307,8 @@ function Trust() {
 function Faq() {
   const { t } = useApp();
   const faq = useLandingFaq();
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
   const faqJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'FAQPage',
@@ -317,11 +320,15 @@ function Faq() {
   };
   return (
     <section id="faq" aria-labelledby="faq-h" className="py-16 sm:py-20">
-      {/* FAQPage structured data — mirrors the visible accordion exactly. */}
-      <script
-        type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
-      />
+      {/* FAQPage structured data — mirrors the visible accordion exactly.
+          Rendered AFTER mount: the copy is locale-aware and dangerouslySetInnerHTML
+          is not covered by suppressHydrationWarning. Crawlers execute JS. */}
+      {mounted && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
       <SectionHeading title={t('landing.faqTitle')} />
       <div className="max-w-2xl mx-auto">
         <Accordion type="single" collapsible className="w-full">

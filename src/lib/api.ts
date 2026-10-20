@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { db } from '@/lib/db';
-import { getSessionUser } from '@/lib/auth';
+import { getSessionStatus } from '@/lib/auth';
+import { hasRole } from '@/lib/roles';
 import { logAudit } from '@/lib/audit';
 import { logEvent, recordRequest, requestIdOf } from '@/lib/observability';
 import type { User } from '@prisma/client';
@@ -57,9 +58,17 @@ export async function withUser(
   if (!assertSameOrigin(req)) {
     return finish(403, 'CSRF', 'Cross-origin request rejected');
   }
-  const user = await getSessionUser();
+  const { user, deactivated } = await getSessionStatus();
+  if (deactivated) {
+    // Wave 6.2: soft-disabled accounts fail closed on every guarded route
+    // (sessions were already destroyed lazily by getSessionStatus).
+    return finish(403, 'ACCOUNT_DISABLED', 'این حساب غیرفعال شده است | This account has been deactivated');
+  }
   if (!user) return finish(401, 'UNAUTHENTICATED', 'Sign in required');
-  if (roles.length > 0 && !roles.includes(user.role)) {
+  // Wave 6.2 role spectrum: SUPER_ADMIN passes any staff check, ADMIN passes
+  // every check except SUPER_ADMIN-only guards; exact membership otherwise.
+  // USER-level routes (empty array) are unchanged.
+  if (roles.length > 0 && !hasRole(user, roles)) {
     return finish(403, 'FORBIDDEN', 'Insufficient role');
   }
   try {

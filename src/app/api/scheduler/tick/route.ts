@@ -4,6 +4,9 @@ import { Prisma } from '@prisma/client';
 import { db } from '@/lib/db';
 import { apiError, assertSameOrigin, json } from '@/lib/api';
 import { getSessionUser } from '@/lib/auth';
+import { hasRole } from '@/lib/roles';
+import { isPushConfigured, sendPushToUser } from '@/lib/push-server';
+import { reconcileExpiredSubscriptions } from '@/lib/billing';
 
 /**
  * Scheduler tick — the single job runner for scheduled notifications.
@@ -21,6 +24,12 @@ import { getSessionUser } from '@/lib/auth';
  *  d) EMAIL TWINS — only when SMTP_URL is configured AND the user consented (Consent.emailReminders),
  *     duplicate this tick's freshly created jobs as channel=EMAIL rows. Honest gating: with no
  *     transport configured, zero EMAIL rows are ever written.
+ *  e) WEB PUSH — rows materialized in (a) are delivered via web-push when the VAPID
+ *     env trio is set. Fire-and-forget (await Promise.allSettled): push failures never
+ *     break the tick response. Fail-soft when unconfigured: push.configured=false.
+ *  f) BILLING RECONCILIATION (Wave 6.1 hook) — idempotent sweep of expired trials /
+ *     ended periods (EXPIRED/CANCELLED + entitlement FREE). Fail-soft: reported as
+ *     billing.error=true in the payload, retried next tick.
  *
  * Re-entrancy: a module-level flag returns 409 if a tick is already in progress (the interval
  * worker and the admin button share the same runner).
@@ -87,7 +96,8 @@ export async function POST(req: Request): Promise<NextResponse> {
     // Fallback: an ADMIN session may invoke the tick from the admin dashboard (no secret in browser).
     if (!assertSameOrigin(req)) return apiError(403, 'CSRF', 'Cross-origin request rejected');
     const user = await getSessionUser();
-    if (!user || user.role !== 'ADMIN') return apiError(403, 'err.forbidden', 'Scheduler secret or admin session required');
+    // Wave 6.2: role spectrum — hasRole(['ADMIN']) admits ADMIN and SUPER_ADMIN.
+    if (!user || !hasRole(user, ['ADMIN'])) return apiError(403, 'err.forbidden', 'Scheduler secret or admin session required');
   }
   try {
     return await doTick();
@@ -104,6 +114,13 @@ async function doTick(): Promise<NextResponse> {
     const now = new Date();
 
     // ── a) Materialize due IN_APP notifications ──────────────────────────────
+    // Rows are read first so this tick's materialized set can be pushed (e);
+    // the localized title/body stored at creation time is used as-is.
+    const dueRows = await db.notification.findMany({
+      where: { channel: 'IN_APP', sentAt: null, scheduledFor: { lte: now } },
+      select: { id: true, userId: true, title: true, body: true },
+      take: 500,
+    });
     const materialized = await db.notification.updateMany({
       where: { channel: 'IN_APP', sentAt: null, scheduledFor: { lte: now } },
       data: { sentAt: now },
@@ -191,6 +208,43 @@ async function doTick(): Promise<NextResponse> {
 
     const pendingScheduled = await db.notification.count({ where: { sentAt: null, scheduledFor: { not: null } } });
 
+    // ── e) Web push for this tick's materialized rows (never breaks the tick) ──
+    const pushPayloadByUser = new Map<string, { title: string; body: string }>();
+    for (const row of dueRows) {
+      if (!pushPayloadByUser.has(row.userId)) {
+        pushPayloadByUser.set(row.userId, { title: row.title, body: row.body });
+      }
+    }
+    const pushSettled = await Promise.allSettled(
+      [...pushPayloadByUser.entries()].map(([userId, payload]) =>
+        sendPushToUser(userId, { ...payload, url: '/' })
+      )
+    );
+    const push = pushSettled.reduce(
+      (acc, r) => {
+        const v = r.status === 'fulfilled'
+          ? r.value
+          : { sent: 0, removed: 0, failed: 0, configured: true }; // rejected send = attempt happened
+        acc.sent += v.sent;
+        acc.removed += v.removed;
+        acc.failed += v.failed;
+        acc.configured = acc.configured || v.configured;
+        return acc;
+      },
+      { sent: 0, removed: 0, failed: 0, configured: pushPayloadByUser.size > 0 ? false : isPushConfigured() }
+    );
+
+    // ── f) Billing reconciliation (Wave 6.1 hook) — idempotent sweep: TRIALING
+    //    past trialEndsAt → EXPIRED; ACTIVE past currentPeriodEnd → EXPIRED /
+    //    CANCELLED (cancelAtPeriodEnd); entitlements dropped to FREE. Fail-soft.
+    let billing: { changed: number; ranAt: string } | { error: true };
+    try {
+      const r = await reconcileExpiredSubscriptions();
+      billing = { changed: r.changed, ranAt: r.ranAt };
+    } catch {
+      billing = { error: true }; // honest signal in the tick payload; retried next tick
+    }
+
     return json({
       ok: true,
       materialized: materialized.count,
@@ -198,6 +252,8 @@ async function doTick(): Promise<NextResponse> {
       apptRemindersCreated,
       pendingScheduled,
       emailTransportConfigured,
+      push,
+      billing,
     });
   } finally {
     running = false;

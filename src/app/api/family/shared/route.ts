@@ -1,5 +1,6 @@
 import { db } from '@/lib/db';
 import { json, apiError, withUser } from '@/lib/api';
+import { ensureFeature } from '@/lib/feature-flags';
 import { gestationalAgeAt, trimesterOf } from '@/lib/gestational';
 
 /**
@@ -9,6 +10,9 @@ import { gestationalAgeAt, trimesterOf } from '@/lib/gestational';
  */
 export async function GET(req: Request) {
   return withUser(req, [], async ({ user }) => {
+    // Wave 6.2 feature flag gate: family off → 403 FEATURE_DISABLED.
+    const gated = await ensureFeature('family', user.id);
+    if (gated) return gated;
     const granterId = new URL(req.url).searchParams.get('granterId');
 
     if (!granterId) {
