@@ -1,19 +1,24 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { useFrame } from '@react-three/fiber';
 import { Html } from '@react-three/drei';
+import { X } from 'lucide-react';
 import * as THREE from 'three';
 import { MarchingCubes } from 'three/examples/jsm/objects/MarchingCubes.js';
+import { Card, CardContent, CardTitle } from '@/components/ui/card';
+import { stageContentForWeek } from '@/data/studio-content';
 import {
   paramsForWeek,
-  hotspotPositions,
+  annotationAnchor,
   bodyMetrics,
   spinePoint,
   sculptScale,
   SCULPT_Y_OFFSET,
+  type AnnotationTarget,
   type StageParams,
 } from './params';
+import { STUDIO_QUALITY_PRESETS } from './quality';
 
 /**
  * Organic parametric fetus + placenta + umbilical cord + uterus.
@@ -40,6 +45,40 @@ const hash = (n: number) => {
   return s - Math.floor(s);
 };
 
+/* ------------------------------------------------------------------ */
+/*  Module-level scratch objects (Wave 3.4 — zero per-frame allocation) */
+/*  All are consumed synchronously inside useFrame/build calls and      */
+/*  never escape a single frame, so sharing them is safe.               */
+/* ------------------------------------------------------------------ */
+const _addColor = new THREE.Color();       // per-ball tint for mc.addBall
+const _lidDry = new THREE.Color('#dda089');
+const _lidOpen = new THREE.Color('#5a3330');
+const _lid = new THREE.Color();
+const _cDry = new THREE.Color('#d8836e');
+const _cWet = new THREE.Color('#eec4af');
+const _cWhite = new THREE.Color('#ffffff');
+const _cRosyHue = new THREE.Color('#e07f6a');
+const _cDeepHue = new THREE.Color('#d96a58');
+const _palBase = new THREE.Color();
+const _palDorsal = new THREE.Color();
+const _palBelly = new THREE.Color();
+const _palRosy = new THREE.Color();
+const _palDeep = new THREE.Color();
+const _palCheek = new THREE.Color();
+const _palBack = new THREE.Color();
+const _va = new THREE.Vector3();
+const _vb = new THREE.Vector3();
+const _vc = new THREE.Vector3();
+const _vd = new THREE.Vector3();
+const _vf = new THREE.Vector3();
+const _upA = new THREE.Vector3(1, 0, 0);
+const _upB = new THREE.Vector3(0, 1, 0);
+const _nrm = new THREE.Vector3();
+const _bin = new THREE.Vector3();
+const _tan = new THREE.Vector3();
+const _pt = new THREE.Vector3();
+const _zAxis = new THREE.Vector3(0, 0, 1);
+
 export interface FetusModelProps {
   week: number;
   showFetus: boolean;
@@ -49,6 +88,8 @@ export interface FetusModelProps {
   autoRotate: boolean;
   quality: 'low' | 'medium' | 'high';
   labelsLang: 'fa' | 'en';
+  /** Localized "Close" label for annotation popovers. */
+  closeLabel?: string;
 }
 
 interface Ball {
@@ -70,11 +111,12 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
   let n = 0;
 
   // Living palette: vascular translucent red-pink early → soft vernix skin late.
-  const base = new THREE.Color('#d8836e').lerp(new THREE.Color('#eec4af'), tW);
-  const dorsal = base.clone().multiplyScalar(0.88);
-  const belly = base.clone().lerp(new THREE.Color('#ffffff'), 0.14);
-  const rosy = base.clone().lerp(new THREE.Color('#e07f6a'), 0.4);
-  const rosyDeep = base.clone().lerp(new THREE.Color('#d96a58'), 0.55);
+  // Scratch colors from module scope — consumed synchronously by mc.addBall.
+  const base = _palBase.copy(_cDry).lerp(_cWet, tW);
+  const dorsal = _palDorsal.copy(base).multiplyScalar(0.88);
+  const belly = _palBelly.copy(base).lerp(_cWhite, 0.14);
+  const rosy = _palRosy.copy(base).lerp(_cRosyHue, 0.4);
+  const rosyDeep = _palDeep.copy(base).lerp(_cDeepHue, 0.55);
 
   const push = (x: number, y: number, z: number, r: number, c: THREE.Color) => {
     const b = out[n];
@@ -90,7 +132,7 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
     const d = drift * Math.sin(phase * 0.8 + i * 1.1) * 0.012;
     spineT.push(sp);
     const r = [0.95, 1.04, 1.05, 0.93, 0.55][i] * R;
-    const col = i <= 1 ? dorsal : i === 2 ? belly : i === 3 ? base.clone().multiplyScalar(0.95) : base;
+    const col = i <= 1 ? dorsal : i === 2 ? belly : i === 3 ? _palBack.copy(base).multiplyScalar(0.95) : base;
     push(sp[0], sp[1] + d, sp[2] + drift * Math.cos(phase * 0.6 + i) * 0.012, r * FUSION, col);
   }
   // Buttocks
@@ -102,7 +144,7 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
   const tf = clamp01(1 - (week - 7) / 2.5);
   if (tf > 0.02) {
     const p1 = spinePoint(p, 0.04);
-    const dir = new THREE.Vector3(0, bu[1] - p1[1], bu[2] - p1[2]).normalize();
+    const dir = _va.set(0, bu[1] - p1[1], bu[2] - p1[2]).normalize();
     const t1 = [bu[0] - dir.x * 0.34 * R * tf, bu[1] - dir.y * 0.34 * R * tf, bu[2] - dir.z * 0.34 * R * tf];
     push(t1[0], t1[1], t1[2], (0.2 + 0.12 * tf) * R * FUSION, rosyDeep);
     const t2 = [bu[0] - dir.x * 0.58 * R * tf, bu[1] - dir.y * 0.58 * R * tf, bu[2] - dir.z * 0.58 * R * tf];
@@ -121,8 +163,8 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
   push(...H(0, 0.6, 0.52), 0.56 * hr * FUSION, base);                    // forehead
   push(...H(0.32, 0.22, 0.9), 0.2 * hr * FUSION, base);                 // brow R
   push(...H(-0.32, 0.22, 0.9), 0.2 * hr * FUSION, base);               // brow L
-  push(...H(0.56, -0.3, 0.64), 0.34 * hr * FUSION, base.clone().multiplyScalar(1.04)); // cheek
-  push(...H(-0.56, -0.3, 0.64), 0.34 * hr * FUSION, base.clone().multiplyScalar(1.04));
+  push(...H(0.56, -0.3, 0.64), 0.34 * hr * FUSION, _palCheek.copy(base).multiplyScalar(1.04)); // cheek
+  push(...H(-0.56, -0.3, 0.64), 0.34 * hr * FUSION, _palCheek);
   push(...H(0, -0.52, 0.62), 0.5 * hr * (0.75 + 0.25 * tW) * FUSION, base);   // jaw
   push(...H(0, -0.82, 0.72), 0.3 * hr * (0.7 + 0.3 * tW) * FUSION, base);     // chin
   push(...H(0, -0.18, 0.88), 0.2 * hr * FUSION, rosy);                        // nose
@@ -146,13 +188,13 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
       const sway = drift * Math.sin(phase * 0.7 + side) * 0.02;
       // Arm
       const root: [number, number, number] = [side * 0.52 * R, sh[1] - 0.02 * R, sh[2] + 0.1 * R];
-      const uA = new THREE.Vector3(side * 0.28, -0.8, 0.55).normalize();
+      const uA = _vb.set(side * 0.28, -0.8, 0.55).normalize();
       const elbow: [number, number, number] = [
         root[0] + uA.x * (0.5 * armLen + 0.05),
         root[1] + uA.y * (0.5 * armLen + 0.05) + sway,
         root[2] + uA.z * (0.5 * armLen + 0.05),
       ];
-      const fA = new THREE.Vector3(-side * 0.5, -0.5, 0.68).normalize();
+      const fA = _vc.set(-side * 0.5, -0.5, 0.68).normalize();
       const wrist: [number, number, number] = [
         elbow[0] + fA.x * (0.44 * armLen + 0.04) + sway,
         elbow[1] + fA.y * (0.44 * armLen + 0.04),
@@ -171,20 +213,20 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
         if (detail && limb > 0.5) {
           for (let f = 0; f < 3; f++) {
             const ang = (f - 1) * 0.55;
-            const fd = fA.clone().applyAxisAngle(new THREE.Vector3(0, 0, 1), side * (0.4 + ang));
+            const fd = _vf.copy(fA).applyAxisAngle(_zAxis, side * (0.4 + ang));
             push(hand[0] + fd.x * 0.15 * R, hand[1] + fd.y * 0.15 * R, hand[2] + fd.z * 0.15 * R, 0.1 * R * FUSION, rosyDeep);
           }
         }
       }
       // Leg (knee drawn up under the body, foot near rump)
       const rootL: [number, number, number] = [side * 0.4 * R, hp[1] - 0.02 * R, hp[2] + 0.06 * R];
-      const uL = new THREE.Vector3(side * 0.14, -0.3, 0.94).normalize();
+      const uL = _vb.set(side * 0.14, -0.3, 0.94).normalize();
       const knee: [number, number, number] = [
         rootL[0] + uL.x * (0.48 * legLen + 0.05),
         rootL[1] + uL.y * (0.48 * legLen + 0.05) + sway * 0.7,
         rootL[2] + uL.z * (0.48 * legLen + 0.05),
       ];
-      const lA = new THREE.Vector3(side * 0.1, -0.92, 0.38).normalize();
+      const lA = _vc.set(side * 0.1, -0.92, 0.38).normalize();
       const ankle: [number, number, number] = [
         knee[0] + lA.x * (0.42 * legLen + 0.04),
         knee[1] + lA.y * (0.42 * legLen + 0.04) + sway * 0.4,
@@ -220,16 +262,15 @@ function buildBalls(p: StageParams, week: number, phase: number, detail: boolean
 const EYE_DIR = 0.42; // yaw of eyes from +Z
 
 export function FetusModel(props: FetusModelProps) {
-  const { week, showFetus, showPlacenta, showUterus, showLabels, autoRotate, quality, labelsLang } = props;
+  const { week, showFetus, showPlacenta, showUterus, showLabels, autoRotate, quality, labelsLang, closeLabel = 'Close' } = props;
   const group = useRef<THREE.Group>(null);
   const target = useMemo(() => paramsForWeek(week), [week]);
   const current = useRef<StageParams>({ ...target });
   const reduceMotion = !autoRotate; // labels/heartbeat follow the same switch
+  const preset = STUDIO_QUALITY_PRESETS[quality];
 
   /* ---- metaball body (imperative three.js object owned by this component) ---- */
   const mc = useMemo(() => {
-    const res = quality === 'low' ? 26 : quality === 'medium' ? 36 : 48;
-    const maxPoly = quality === 'low' ? 32000 : quality === 'medium' ? 64000 : 120000;
     const mat = new THREE.MeshPhysicalMaterial({
       vertexColors: true,
       color: 0xffffff,
@@ -243,12 +284,12 @@ export function FetusModel(props: FetusModelProps) {
       specularIntensity: 0.55,
       envMapIntensity: 0.8,
     });
-    const inst = new MarchingCubes(res, mat, false, true, maxPoly);
+    const inst = new MarchingCubes(preset.mcRes, mat, false, true, preset.maxPoly);
     inst.isolation = ISO;
-    inst.castShadow = quality !== 'low';
-    inst.receiveShadow = quality !== 'low';
+    inst.castShadow = preset.shadows;
+    inst.receiveShadow = preset.shadows;
     return inst;
-  }, [quality]);
+  }, [preset]);
 
   useEffect(() => {
     return () => {
@@ -363,18 +404,17 @@ export function FetusModel(props: FetusModelProps) {
       if (!dirty) driftAcc.current = 0;
       const n = buildBalls(c, week, T, detail, balls.current);
       mc.reset();
-      const tmp = new THREE.Color();
       for (let i = 0; i < n; i++) {
         const b = balls.current[i];
         const gx = Math.min(0.97, Math.max(0.03, b.x / EXT / 2 + 0.5));
         const gy = Math.min(0.97, Math.max(0.03, b.y / EXT / 2 + 0.5));
         const gz = Math.min(0.97, Math.max(0.03, b.z / EXT / 2 + 0.5));
         const strength = STRENGTH_K * b.r * b.r;
-        tmp.copy(b.c).multiplyScalar(1.18);
-        mc.addBall(gx, gy, gz, strength, SUB, tmp);
+        _addColor.copy(b.c).multiplyScalar(1.18);
+        mc.addBall(gx, gy, gz, strength, SUB, _addColor);
       }
       mc.update();
-      lastParams.current = { ...c };
+      Object.assign(lastParams.current, c);
     }
     mc.visible = showFetus;
     // Grid spans sculpt/EXT in local space, so the object scale must restore
@@ -403,7 +443,8 @@ export function FetusModel(props: FetusModelProps) {
     const s = m.headR * kk * (0.13 + 0.05 * openness);
     const open = Math.max(0.16, openness);
     // Closed lids read as a subtle skin seam; open eyes show the dark iris.
-    const lid = new THREE.Color('#dda089').lerp(new THREE.Color('#5a3330'), openness);
+    // Scratch color — no per-frame allocation (Wave 3.4).
+    const lid = _lid.copy(_lidDry).lerp(_lidOpen, openness);
     for (const [ref, iris, hl, side] of [[eyeL, irisL, hlL, -1], [eyeR, irisR, hlR, 1]] as const) {
       if (!ref.current) continue;
       const yaw = side * EYE_DIR;
@@ -434,7 +475,7 @@ export function FetusModel(props: FetusModelProps) {
       const key = `${c.scale.toFixed(2)}|${c.curl.toFixed(2)}|${c.cord.toFixed(2)}|${c.uterus.toFixed(2)}`;
       if (key !== cordKey.current || !cordRef.current.geometry.userData.built) {
         cordKey.current = key;
-        const g = buildCordGeometry(c, m, kk);
+        const g = buildCordGeometry(c, m, kk, preset.tubeSegments);
         const old = cordRef.current.geometry;
         cordRef.current.geometry = g;
         old.dispose();
@@ -450,7 +491,7 @@ export function FetusModel(props: FetusModelProps) {
         const key = c.placenta.toFixed(2);
         if (key !== placentaKey.current || !(placentaBodyRef.current?.geometry.userData.built)) {
           placentaKey.current = key;
-          const built = buildPlacentaGeometry(c.placenta);
+          const built = buildPlacentaGeometry(c.placenta, preset.radialSegments, preset.vesselSegments);
           if (placentaBodyRef.current) {
             const old = placentaBodyRef.current.geometry;
             placentaBodyRef.current.geometry = built.body;
@@ -481,7 +522,7 @@ export function FetusModel(props: FetusModelProps) {
       {/* Uterine membrane — fresnel shell */}
       {showUterus && (
         <mesh ref={membraneRef} material={membraneMat} renderOrder={10} scale={[current.current.uterus * 0.95, current.current.uterus * 1.08, current.current.uterus * 0.95]}>
-          <sphereGeometry args={[1.05, 48, 32]} />
+          <sphereGeometry args={[1.05, preset.radialSegments, Math.round(preset.radialSegments * 0.66)]} />
         </mesh>
       )}
 
@@ -508,7 +549,7 @@ export function FetusModel(props: FetusModelProps) {
         <>
           <group ref={eyeL}>
             <mesh>
-              <sphereGeometry args={[1, 16, 12]} />
+              <sphereGeometry args={[1, preset.eyeSegments[0], preset.eyeSegments[1]]} />
               <meshStandardMaterial ref={irisL} color="#dda089" roughness={0.3} metalness={0.05} />
             </mesh>
             <mesh ref={hlL} position={[0.3, 0.35, 0.8]} scale={0.28} visible={false}>
@@ -518,7 +559,7 @@ export function FetusModel(props: FetusModelProps) {
           </group>
           <group ref={eyeR}>
             <mesh>
-              <sphereGeometry args={[1, 16, 12]} />
+              <sphereGeometry args={[1, preset.eyeSegments[0], preset.eyeSegments[1]]} />
               <meshStandardMaterial ref={irisR} color="#dda089" roughness={0.3} metalness={0.05} />
             </mesh>
             <mesh ref={hlR} position={[0.3, 0.35, 0.8]} scale={0.28} visible={false}>
@@ -536,8 +577,8 @@ export function FetusModel(props: FetusModelProps) {
         </sprite>
       )}
 
-      {/* Educational hotspots */}
-      {showLabels && <Hotspots week={week} lang={labelsLang} />}
+      {/* Educational annotations (studio-content driven, click popovers) */}
+      {showLabels && <AnnotationMarkers week={week} lang={labelsLang} closeLabel={closeLabel} />}
     </group>
   );
 }
@@ -546,11 +587,12 @@ export function FetusModel(props: FetusModelProps) {
 /*  Umbilical cord — helical tube with taper                           */
 /* ------------------------------------------------------------------ */
 
-function buildCordGeometry(p: StageParams, m: ReturnType<typeof bodyMetrics>, k: number): THREE.TubeGeometry {
-  const A = new THREE.Vector3(m.cordInsert[0] * k, m.cordInsert[1] * k + SCULPT_Y_OFFSET, m.cordInsert[2] * k);
-  const D = new THREE.Vector3(0, p.uterus * 0.53, -p.uterus * 0.5);
-  const B = A.clone().add(new THREE.Vector3(0.06 * p.cord, 0.08, 0.3 * p.cord));
-  const C = B.clone().lerp(D, 0.6).add(new THREE.Vector3(0.04, 0.14, -0.02));
+function buildCordGeometry(p: StageParams, m: ReturnType<typeof bodyMetrics>, k: number, tubeSegs: number): THREE.TubeGeometry {
+  // Scratch vectors from module scope; the curve consumes them synchronously.
+  const A = _va.set(m.cordInsert[0] * k, m.cordInsert[1] * k + SCULPT_Y_OFFSET, m.cordInsert[2] * k);
+  const D = _vd.set(0, p.uterus * 0.53, -p.uterus * 0.5);
+  const B = _vb.copy(A).add(_vf.set(0.06 * p.cord, 0.08, 0.3 * p.cord));
+  const C = _vc.copy(B).lerp(D, 0.6).add(_vf.set(0.04, 0.14, -0.02));
   const base = new THREE.CatmullRomCurve3([A, B, C, D], false, 'catmullrom', 0.5);
 
   const N = 56;
@@ -559,20 +601,24 @@ function buildCordGeometry(p: StageParams, m: ReturnType<typeof bodyMetrics>, k:
   const pts: THREE.Vector3[] = [];
   for (let i = 0; i <= N; i++) {
     const t = i / N;
-    const pt = base.getPoint(t);
-    const tan = base.getTangent(t);
-    const up = Math.abs(tan.y) > 0.9 ? new THREE.Vector3(1, 0, 0) : new THREE.Vector3(0, 1, 0);
-    const nrm = new THREE.Vector3().crossVectors(tan, up).normalize();
-    const bin = new THREE.Vector3().crossVectors(tan, nrm).normalize();
+    const pt = base.getPoint(t, _pt);
+    base.getTangent(t, _tan);
+    const up = Math.abs(_tan.y) > 0.9 ? _upA : _upB;
+    _nrm.crossVectors(_tan, up).normalize();
+    _bin.crossVectors(_tan, _nrm).normalize();
     const ang = t * turns * Math.PI * 2;
+    // pts entries are OUTPUT geometry data — they must be distinct instances.
     pts.push(
-      pt.clone().addScaledVector(nrm, Math.cos(ang) * helixR).addScaledVector(bin, Math.sin(ang) * helixR)
+      new THREE.Vector3(pt.x, pt.y, pt.z)
+        .addScaledVector(_nrm, Math.cos(ang) * helixR)
+        .addScaledVector(_bin, Math.sin(ang) * helixR)
     );
   }
-  const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 96, 0.014 + 0.016 * p.scale, 8, false);
+  const tube = new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), tubeSegs, 0.014 + 0.016 * p.scale, 8, false);
   // Taper toward both ends for a natural organic cord.
+  // Vertex grid follows the LOD tier: (tubeSegs + 1) rings × 9 radial points.
   const pos = tube.attributes.position as THREE.BufferAttribute;
-  const rings = 97, radial = 9;
+  const rings = tubeSegs + 1, radial = 9;
   for (let i = 0; i < rings; i++) {
     const t = i / (rings - 1);
     const taper = 0.78 + 0.34 * Math.sin(Math.PI * Math.min(1, t * 1.15));
@@ -598,7 +644,17 @@ function buildCordGeometry(p: StageParams, m: ReturnType<typeof bodyMetrics>, k:
 
 const vesselMaterial = new THREE.MeshStandardMaterial({ color: '#6e2f38', roughness: 0.55 });
 
-function buildPlacentaGeometry(pr: number): { body: THREE.LatheGeometry; vessels: THREE.BufferGeometry[] } {
+/* Placenta palette + scratch (module scope — no per-rebuild allocation). */
+const _plcCore = new THREE.Color('#6e3038');
+const _plcMid = new THREE.Color('#96454e');
+const _plcRim = new THREE.Color('#a8505a');
+const _plcTop = new THREE.Color('#b25a60');
+const _plcTmp = new THREE.Color();
+const _vStart = new THREE.Vector3(0.01, 0.16, 0);
+const _vMid = new THREE.Vector3();
+const _vEnd = new THREE.Vector3();
+
+function buildPlacentaGeometry(pr: number, latheSegs: number, vesselSegs: number): { body: THREE.LatheGeometry; vessels: THREE.BufferGeometry[] } {
   const R = 0.55 * pr + 0.1;
   const profile: THREE.Vector2[] = [
     new THREE.Vector2(0.001, 0),
@@ -610,14 +666,11 @@ function buildPlacentaGeometry(pr: number): { body: THREE.LatheGeometry; vessels
     new THREE.Vector2(0.45 * R, 0.163),
     new THREE.Vector2(0.001, 0.17),
   ];
-  const geo = new THREE.LatheGeometry(profile, 56);
+  const geo = new THREE.LatheGeometry(profile, latheSegs);
   // Organic edge irregularity + radial vascular gradient via vertex colors.
   const pos = geo.attributes.position as THREE.BufferAttribute;
   const colors = new Float32Array(pos.count * 3);
-  const cCore = new THREE.Color('#6e3038');
-  const cMid = new THREE.Color('#96454e');
-  const cRim = new THREE.Color('#a8505a');
-  const tmp = new THREE.Color();
+  const tmp = _plcTmp;
   for (let i = 0; i < pos.count; i++) {
     const x = pos.getX(i), y = pos.getY(i), z = pos.getZ(i);
     const rad = Math.sqrt(x * x + z * z);
@@ -626,8 +679,8 @@ function buildPlacentaGeometry(pr: number): { body: THREE.LatheGeometry; vessels
     pos.setX(i, x * wob);
     pos.setZ(i, z * wob);
     const u = clamp01(rad / R + (hash(i * 1.7) - 0.5) * 0.15);
-    tmp.copy(cCore).lerp(cMid, smooth(0, 0.6, u)).lerp(cRim, smooth(0.55, 1, u));
-    if (y > 0.12) tmp.lerp(new THREE.Color('#b25a60'), 0.25);
+    tmp.copy(_plcCore).lerp(_plcMid, smooth(0, 0.6, u)).lerp(_plcRim, smooth(0.55, 1, u));
+    if (y > 0.12) tmp.lerp(_plcTop, 0.25);
     colors[i * 3] = tmp.r; colors[i * 3 + 1] = tmp.g; colors[i * 3 + 2] = tmp.b;
   }
   geo.setAttribute('color', new THREE.BufferAttribute(colors, 3));
@@ -637,41 +690,90 @@ function buildPlacentaGeometry(pr: number): { body: THREE.LatheGeometry; vessels
   const nv = 7;
   for (let i = 0; i < nv; i++) {
     const a = (i / nv) * Math.PI * 2 + 0.4;
-    const end = new THREE.Vector3(Math.cos(a) * 0.82 * R, 0.105, Math.sin(a) * 0.82 * R);
-    const start = new THREE.Vector3(0.01, 0.16, 0);
-    const mid = start.clone().lerp(end, 0.5).add(new THREE.Vector3(0, 0.035, 0));
+    const start = _vStart;
+    const end = _vEnd.set(Math.cos(a) * 0.82 * R, 0.105, Math.sin(a) * 0.82 * R);
+    const mid = _vMid.copy(start).lerp(end, 0.5).add(_pt.set(0, 0.035, 0));
     const curve = new THREE.QuadraticBezierCurve3(start, mid, end);
-    vessels.push(new THREE.TubeGeometry(curve, 20, 0.006 + 0.008 * pr, 5, false));
+    vessels.push(new THREE.TubeGeometry(curve, vesselSegs, 0.006 + 0.008 * pr, 5, false));
   }
   return { body: geo, vessels };
 }
 
 /* ------------------------------------------------------------------ */
-/*  Hotspot labels (bilingual, anchored to anatomy)                    */
+/*  Contextual annotations (Wave 3.5 — content from studio-content.ts,  */
+/*  pulsing markers + click popovers with citations, keyboard-safe)     */
 /* ------------------------------------------------------------------ */
 
-function Hotspots({ week, lang }: { week: number; lang: 'fa' | 'en' }) {
+function AnnotationMarkers({ week, lang, closeLabel }: { week: number; lang: 'fa' | 'en'; closeLabel: string }) {
+  // Active popovers are stamped with their stage week; a popover from another
+  // week is simply not rendered. This avoids remounting the drei <Html> roots
+  // on stage change (React 19 "synchronously unmount a root" race) and avoids
+  // setState-in-effect for the reset.
+  const [active, setActive] = useState<{ week: number; target: AnnotationTarget } | null>(null);
+  const content = useMemo(() => stageContentForWeek(week), [week]);
   const p = useMemo(() => paramsForWeek(week), [week]);
-  const spots = hotspotPositions(p);
-  const L: Record<string, [string, string]> = {
-    brain: lang === 'fa' ? ['مغز', 'بزرگ‌ترین بخش بدن در هفته‌های اول؛ رشد سریع'] : ['Brain', 'The largest body region early on; rapid growth'],
-    heart: lang === 'fa' ? ['قلب', 'از هفته ششم ضربان قابل مشاهده است (نمایش آموزشی)'] : ['Heart', 'Visible pulsing motion from week 6 (educational)'],
-    cord: lang === 'fa' ? ['بند ناف', 'مسیر مواد غذایی و اکسیژن از جفت'] : ['Umbilical cord', 'Carries nutrients and oxygen from the placenta'],
-    placenta: lang === 'fa' ? ['جفت', 'اندام تبادل مواد بین مادر و جنین'] : ['Placenta', 'Exchange organ between mother and fetus'],
-  };
+  const fa = lang === 'fa';
+  const openTarget: AnnotationTarget | null = active && active.week === week ? active.target : null;
+
   return (
     <>
-      {Object.entries(spots).map(([key, pos]) => (
-        <Html key={key} position={pos} center distanceFactor={6} zIndexRange={[10, 0]}>
-          <div
-            className="niva-card rounded-lg border px-2.5 py-1.5 text-xs whitespace-nowrap shadow-lg pointer-events-none"
-            role="note"
-          >
-            <span className="font-semibold text-primary">{L[key][0]}</span>
-            <span className="block text-[10px] text-muted-foreground max-w-40 leading-snug">{L[key][1]}</span>
-          </div>
-        </Html>
-      ))}
+      {content.annotations.map((a) => {
+        const pos = annotationAnchor(p, a.target);
+        const label = fa ? a.labelFa : a.labelEn;
+        const text = fa ? a.textFa : a.textEn;
+        const citation = fa ? a.citationFa : a.citationEn;
+        return (
+          <Html key={a.target} position={pos} center distanceFactor={6} zIndexRange={[10, 0]}>
+            {openTarget === a.target ? (
+              <Card
+                role="dialog"
+                aria-label={label}
+                dir={fa ? 'rtl' : 'ltr'}
+                className="w-72 max-w-xs border-primary/30 shadow-xl"
+              >
+                <CardContent className="space-y-1.5 p-3">
+                  <div className="flex items-center gap-2">
+                    <span className="relative flex h-3 w-3 shrink-0" aria-hidden>
+                      <span className="relative inline-flex h-3 w-3 rounded-full border-2 border-white bg-primary shadow" />
+                    </span>
+                    <CardTitle className="text-xs leading-snug">{label}</CardTitle>
+                    <button
+                      onClick={() => setActive(null)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Escape') setActive(null);
+                      }}
+                      aria-label={closeLabel}
+                      className="-me-1 ms-auto flex h-7 w-7 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                    >
+                      <X className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                  <p className="text-[11px] leading-relaxed text-foreground/85">{text}</p>
+                  <p className="text-[9px] italic leading-snug text-muted-foreground">{citation}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <button
+                onClick={() => setActive({ week, target: a.target })}
+                aria-haspopup="dialog"
+                aria-label={label}
+                className="flex cursor-pointer items-center gap-1.5"
+              >
+                <span className="relative flex h-3.5 w-3.5" aria-hidden>
+                  <span
+                    className="absolute inline-flex h-full w-full animate-ping rounded-full bg-primary/50"
+                    style={{ animationDuration: '2.4s' }}
+                  />
+                  <span className="relative inline-flex h-3.5 w-3.5 rounded-full border-2 border-white bg-primary shadow" />
+                </span>
+                <span className="niva-card rounded-full border px-2 py-0.5 text-[10px] font-semibold whitespace-nowrap text-foreground/90 shadow">
+                  {label}
+                </span>
+              </button>
+            )}
+          </Html>
+        );
+      })}
     </>
   );
 }

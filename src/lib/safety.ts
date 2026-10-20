@@ -177,11 +177,12 @@ export function assessSafety(text: string): SafetyAssessment {
 
 /** Prompt-injection heuristics (defense-in-depth; never the only layer). */
 const injectionPatterns: RegExp[] = [
-  /ignore (all |any |previous |prior )?(instructions|rules|prompts?)/,
-  /disregard (all |any |previous )?(instructions|rules|guidelines)/,
+  /ignore (all |any |your |the |previous |prior )?(instructions|rules|prompts?)/,
+  /disregard (all |any )?(previous |prior |your |the )?(instructions|rules|guidelines)/,
   /you are now (a|an) /,
   /(system prompt|developer mode|jailbreak)/,
   /reveal (your )?(instructions|system prompt)/,
+  /pretend (the |your )?(disclaimer|safety|rules?)/,
   /(نادیده بگیر).{0,20}(دستور|قوانین)/,
   /(پیام سیستمی|حالت توسعه.?دهنده)/,
 ];

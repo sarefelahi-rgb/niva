@@ -313,6 +313,31 @@ model SafetyEvent {
   @@index([userId])
 }
 
+// ─── AI Observability (Wave 3.2 — metadata only, PHI-free by design) ────────
+// Never stores user message content, model output, or raw user IDs.
+// userIdHash = HMAC-SHA256(userId, NIVA_AI_OBS_SALT) — pseudonymous, salted.
+
+model AIUsageLog {
+  id              String   @id @default(cuid())
+  userIdHash      String?
+  route           String   // 'chat'
+  provider        String   // 'z-ai' | 'template-fallback'
+  model           String?
+  locale          String   @default("fa")
+  promptChars     Int      @default(0)
+  completionChars Int      @default(0)
+  latencyMs       Int      @default(0)
+  cacheHit        Boolean  @default(false)
+  usedRetrieval   Boolean  @default(false)
+  retrievalScores String   @default("[]") // JSON number[] — top-k similarity scores only
+  safetyLevel     String   @default("NORMAL") // NORMAL | CAUTION | EMERGENCY
+  errorCode       String?  // stable error code, never a message body
+  createdAt       DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([route, createdAt])
+}
+
 // ─── Journal & Wellbeing ─────────────────────────────────────────────────────
 
 model JournalEntry {

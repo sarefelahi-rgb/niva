@@ -258,6 +258,32 @@ async function main() {
     });
   }
 
+  // Authored-asset swap-in path (Wave 3.3): professionally authored glTF models
+  // land here as DRAFT registry entries after production, and only reach the
+  // public studio through the clinical review workflow (DRAFT → IN_REVIEW →
+  // APPROVED). The sandbox build ships NO glTF geometry — the parametric
+  // renderer is the demonstration; this row only defines the pipeline state.
+  await db.anatomicalAsset.upsert({
+    where: { assetId: 'NIVA-GLTF-EXAMPLE-W20' },
+    update: {},
+    create: {
+      assetId: 'NIVA-GLTF-EXAMPLE-W20',
+      gestationalStage: 20,
+      titleEn: 'Authored glTF stage model — week 20 (swap-in example)',
+      titleFa: 'مدل glTF تألیف‌شده — هفته ۲۰ (نمونه جای‌گذاری)',
+      descriptionEn: 'Registry entry demonstrating the authored-asset swap-in path. No glTF geometry ships in this build; the parametric renderer remains the educational demonstration.',
+      descriptionFa: 'ردیف نمونه برای مسیر جای‌گذاری دارایی‌های تألیف‌شده. در این ساخت هیچ هندسه glTF ارسال نمی‌شود؛ رندر پارامتریک همان نمایش آموزشی است.',
+      structures: JSON.stringify(['authored_gltf']),
+      scientificSources: JSON.stringify(['Moore & Persaud, The Developing Human (11th ed.)']),
+      reviewerName: null,
+      reviewStatus: 'DRAFT',
+      modelVersion: '0.1.0',
+      animationMetadata: JSON.stringify({ type: 'authored-gltf', gltfUrl: '/studio-assets/example.glb' }),
+      performanceProfile: JSON.stringify({ lodTiers: 3, maxVertsMobile: 45000, targetFps: 30 }),
+      publicationStatus: 'DRAFT',
+    },
+  });
+
   // ── Scientific sources ────────────────────────────────────────────────────
   const sources = [
     { citation: 'WHO Recommendations on Antenatal Care for a Positive Pregnancy Experience', org: 'World Health Organization', year: 2016, url: 'https://www.who.int/publications/i/item/9789241549912' },

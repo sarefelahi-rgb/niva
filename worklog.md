@@ -542,3 +542,60 @@ Stage Summary:
 - Honest residuals: EMAIL channel dormant until SMTP_URL configured (UI states this); web-push deferred (Wave 5/6); email transport + MFA + translation review track remain Wave 5/6 per backlog.
 - Sandbox note for future agents: if you see syntax like "const ine, setMine]" in files that tsc reports as clean, you are reading a stale overlay layer — re-check in a fresh process before "fixing", and always commit+verify within one process.
 - Next per backlog: Wave 3 (RAG v2 + studio excellence) or Wave 5 (platform hardening); recommend Wave 3.1 RAG v2 + 3.2 provider abstraction next.
+
+---
+Task ID: wave3-a
+Agent: full-stack-developer (ran until tool deadline; completed + verified by orchestrator)
+Task: Wave 3.1+3.2 — RAG v2 hybrid retrieval, provider gateway, cost controls, safe cache, PHI-free observability, eval harness
+
+Work Log:
+- Read worklog + backlog. Rewrote src/lib/rag.ts as RAG v2: chunked versioned KB (src/data/kb-v2.ts, KB_VERSION 2.0.0, 26 entries → 78 chunks), BM25-style TF-IDF lexical index (built once at module load, per-locale weighting 1.0/0.6) + character 3-gram cosine similarity for Persian morphology, combined 0.6·lex + 0.4·ngram, per-locale retrieval. NOTE: sandbox z-ai SDK has NO embeddings endpoint (verified node_modules/z-ai-web-dev-sdk/dist/index.d.ts) — hybrid is deterministic lexical+ngram, honestly documented; production vector-store swap-in path documented in header.
+- LLM re-rank: top-8 → cheap single call → top-4; env-gated NIVA_AI_RERANK, 4s timeout, skipped when top1 score ≥ 2× top2 (cost control).
+- src/lib/ai-gateway.ts: AIProvider interface, ZAIProvider (server-only, thinking disabled, 20s timeout), TemplateFallbackProvider, circuit breaker (5 failures → open 60s → half-open), prompt/completion char budgets (6000/2000, enforcePromptBudget drops oldest turns then truncates), per-user daily LLM-call cap (in-memory, NIVA_AI_DAILY_LLM_CALLS default 30) with honestly-labeled extractive answer on exhaustion.
+- src/lib/ai-cache.ts: in-memory LRU (500 entries, TTL 24h), key = SHA-256(normalizedQuestion|lang|weekBucket|KB_VERSION); only NORMAL+retrieved+disclaimer answers cached; injection-flagged never cached.
+- src/lib/ai-observability.ts + prisma AIUsageLog (schema pushed before delegation): PHI-free — userId stored as HMAC-SHA256(userId, NIVA_AI_OBS_SALT)[:24], char counts only, top-4 retrieval scores, stable error codes, fire-and-forget, silent-by-design failures.
+- Chat route wired: numeric week + weekBucket passed to answerQuestion. Admin /api/admin/ai-metrics (ADMIN-only, 24h aggregates incl. p95, provider/safety/error breakdowns, honest zeros). Admin overview card added (admin-view.tsx, inline bilingual strings — i18n.ts owned by wave3-b).
+- scripts/ai-eval/run-eval.ts: 26 cases across safety(6)/refusal(3)/hallucination(3)/multilingual(4)/adversarial(4)/retrieval(6); report appended to docs/audit/ai-eval-report.json with attempts[] history.
+
+Evidence (orchestrator-run, real):
+- tsc 0 errors; eslint 0 errors.
+- Harness 26/26 PASS (after role fixes; attempts history: 22/26 → 26/26 ×4 runs recorded honestly).
+- curl: unauth chat 401; demo chat NORMAL + 2 citations (fa); identical question fresh conversation → 0.034s cache hit; AIUsageLog rows verified (provider z-ai/cache, userIdHash 24 chars, zero content leakage — grep for question text in row JSON = 0 hits).
+- /api/admin/ai-metrics: demo token 403, admin 200 (totalRequests 77, cacheHitRate 1.3%, avg 1354ms, p95 3898ms, providerBreakdown {z-ai, cache, deterministic-emergency}).
+
+Stage Summary:
+- RAG v2 + gateway + cache + observability IMPLEMENTED+VERIFIED. Honest residuals: lexical+ngram hybrid instead of neural embeddings (SDK limitation, documented); in-memory cache/breaker/counters are per-process (sandbox); eval harness hardening (providerLive gate) added after the 1214 incident below — fallback answers now FAIL LLM-dependent suites instead of silently passing.
+
+---
+Task ID: wave3-b
+Agent: full-stack-developer (ran until tool deadline; UI wiring + fixes completed by orchestrator)
+Task: Wave 3.3+3.4+3.5 — studio asset pipeline, performance/memory, WebGL fallback, narrated education, contextual annotations, size comparisons
+
+Work Log:
+- Agent delivered: src/data/studio-content.ts (per-stage narration EN/FA, annotations with per-target citations, fruit/seed size comparisons grounded in CRL/CHL references — Moore & Persaud / NHS / WHO), StudioAssetManifest with parametric + one DRAFT glTF example (authored-asset swap-in path), params.ts annotationAnchor() world-space anchors, scene.tsx + quality.ts LOD presets (dpr/particles/shadowRes/segments per tier), fetus-model.tsx AnnotationMarkers (drei Html markers + click popovers with citations), useFrame allocation fixes (hoisted _addColor), dispose audit, /api/assets fetch-side review gate (APPROVED|DEMONSTRATION only), /api/assets/review per-model state machine (DRAFT→IN_REVIEW→APPROVED, REJECT note required, REOPEN, semver patch bump, ClinicalReview row + lastReview note in animationMetadata, ADMIN|CLINICAL_REVIEWER).
+- Orchestrator completed: fetal-studio.tsx wiring (preset-driven Canvas dpr/shadows/particles, closeLabel, adaptive degrade FPS<24 one-tier-down + qualityAuto badge, WebGL detect + fallback panel with timeline redirect, webglcontextlost/restored overlay + canvasKey remount, dev-only renderer.info readout, NarrationCard with speechSynthesis read-aloud keyed by week, size chip), i18n studio.*/review.* keys (fa+en), review-view.tsx assets tab rewired to the new state machine (SUBMIT_REVIEW/APPROVE/REJECT-with-note/REOPEN, reviewer identity from session user, version badge, lastReview line).
+
+Evidence (orchestrator-run, real):
+- tsc 0; lint 0 (fixed 3 react-hooks errors: setState-in-effect ×2 → key-remount/state-stamping patterns; ref mutation → getElementById).
+- Browser E2E: studio renders week 12 with 4 Persian annotation markers; popover shows text + citation (مور و پرسود); size chip "لیمو نارس، حدود ۵ سانتی‌متر"; narration card + read-aloud button; quality tiers; EN locale → all-English studio (dir=ltr); mobile 390px no h-scroll and "Graphics quality auto-adjusted" badge fired (adaptive degrade verified live); dev perf readout: 20 rapid week changes → geometries 30→23 (bounded), textures 6→6 (stable) — R-11-style budget holds; 0 console errors after navigation-loop test.
+- Asset review E2E: missing reviewerName 400; invalid transition 409; SUBMIT_REVIEW → IN_REVIEW; REJECT without note 400; REJECT with note → DRAFT + lastReview persisted; studio feed returns ONLY DEMONSTRATION (DRAFT glTF excluded); review-view assets tab shows version + state-machine buttons; browser SUBMIT_REVIEW → IN_REVIEW + approve UI visible; reviewer note visible in UI after API reject.
+- Regression found + fixed during E2E: chat route passed DB roles 'USER'/'ASSISTANT' through a bare `as` cast into provider messages (API 400 code 1214 "角色信息不正确") — every multi-turn request silently fell back to the template (bug predates Wave 3; single-turn masked it). Fixed with explicit lowercase mapping + defensive filter in rag.ts + role preservation in enforcePromptBudget + 'assistant' instruction role (z-ai rejects 'system'). Multi-turn now returns real grounded answers (verified: history conversation → NORMAL + 2 citations).
+
+Stage Summary:
+- Studio pipeline/perf/narration IMPLEMENTED+VERIFIED. Honest residuals: authored glTF example remains DRAFT by design (placeholder until clinical review); AR button appears only when WebXR isSessionSupported resolves; speechSynthesis availability varies by device (graceful no-op); chunked stage-content is manually curated (26 stages).
+
+---
+Task ID: wave3-final
+Agent: main (Z.ai Code)
+Task: Wave 3 consolidated E2E verification + worklog + repo integrity + push
+
+Work Log:
+- Verified both agents' delivered code, completed missing UI wiring, fixed 4 real bugs (see wave3-a/b entries: system-role 1214, enforcePromptBudget role overwrite, USER/ASSISTANT uppercase leak, drei Html key-remount race + 3 lint errors).
+- Full loop: tsc 0 / lint 0; eval harness 26/26 (final run 16:46:47Z); curl auth/RBAC/cache/observability; browser fa+en × desktop+mobile; review state machine 6 assertions.
+- Cleaned test conversations (4 deleted), temp diag scripts removed.
+- Committed + pushed to github.com/sarefelahi-rgb/niva main.
+
+Stage Summary:
+- Wave 3 COMPLETE: 3.1 RAG v2 hybrid + versioned chunks + re-rank + per-locale; 3.2 provider gateway + circuit breaker + budgets + safe cache + PHI-free observability + admin metrics; 3.3 asset pipeline split (content/params/geometry) + per-model review workflow; 3.4 LOD presets + adaptive degrade + WebGL fallback + context-loss recovery + memory budget proven; 3.5 narrated education + read-aloud + contextual annotations with citations + size comparisons.
+- Honest residuals: embeddings are deterministic lexical+ngram (no SDK endpoint — production swap-in documented); cache/breaker/counters per-process; EMAIL channel still dormant (Wave 4 residual); real PSP, MFA, ICU plurals remain Wave 5/6.
+- Next per backlog: Wave 5 (platform hardening: 5.1 bounded contexts, 5.2 Postgres rehearsal, 5.3 structured logging, 5.4 test pyramid, 5.5 CI/CD + OWASP) or Wave 6; recommend Wave 5.4+5.5 (test pyramid + CI gates) next.

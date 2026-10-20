@@ -33,15 +33,26 @@ export async function POST(req: Request) {
 
     const pregnancy = await db.pregnancy.findFirst({ where: { userId: user.id, status: 'ACTIVE' } });
     let pregnancyContext: string | undefined;
+    let week: number | null = null;
     if (pregnancy?.lmpDate) {
       const w = Math.max(0, Math.floor((Date.now() - pregnancy.lmpDate.getTime()) / (7 * 86_400_000)));
+      week = w;
       pregnancyContext = `Gestational week ≈ ${w} (educational estimate)`;
     }
+    // Week bucket (rounded to 4) scopes the safe-content cache key: answers for
+    // clinically different stages are not shared across buckets.
+    const weekBucket = week === null ? '' : String(Math.floor(week / 4) * 4);
 
     const history: ChatTurn[] = conv.messages
       .filter((m) => m.role === 'USER' || m.role === 'ASSISTANT')
       .slice(-6)
-      .map((m) => ({ role: m.role as 'user' | 'assistant', content: m.content }));
+      .map((m) => ({
+        // DB stores 'USER' | 'ASSISTANT'; the provider API requires lowercase.
+        // (The former bare `as` cast leaked uppercase roles into the gateway —
+        // API error 1214 on every multi-turn request. Found via Wave 3 E2E.)
+        role: m.role === 'USER' ? ('user' as const) : ('assistant' as const),
+        content: m.content,
+      }));
 
     const answer = await answerQuestion({
       question: body.message,
@@ -49,6 +60,8 @@ export async function POST(req: Request) {
       history,
       pregnancyContext,
       userId: user.id,
+      week,
+      weekBucket,
     });
 
     // Atomic quota + persistence: count-check and message inserts happen in

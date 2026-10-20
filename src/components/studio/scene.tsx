@@ -5,28 +5,32 @@ import { useFrame } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
 import * as THREE from 'three';
 import { makeGlowTexture } from './fetus-model';
+import { STUDIO_QUALITY_PRESETS, type StudioQuality } from './quality';
 
 /**
  * Studio scene dressing: a photographic three-point lighting rig with a
  * locally-generated environment map (no CDN), plus slow-drifting amniotic
  * particles for depth. All decorative — respects reduced motion.
+ * LOD tiers come from quality.ts (Wave 3.4).
  */
 
-export function StudioLighting({ quality }: { quality: 'low' | 'medium' | 'high' }) {
+export function StudioLighting({ quality }: { quality: StudioQuality }) {
   const key = useRef<THREE.DirectionalLight>(null);
-  const shadowRes = quality === 'high' ? 2048 : 1024;
+  const preset = STUDIO_QUALITY_PRESETS[quality];
   return (
     <>
       <hemisphereLight args={['#fff3e9', '#dcbfae']} intensity={0.55} />
-      {/* Warm key light with soft shadows */}
+      {/* Warm key light with soft shadows — remounted per tier so the shadow
+          map (and its GPU allocation) is rebuilt and disposed by three/R3F. */}
       <directionalLight
+        key={quality}
         ref={key}
         position={[2.6, 3.4, 2.4]}
         intensity={1.5}
         color="#fff1e4"
-        castShadow={quality !== 'low'}
-        shadow-mapSize-width={shadowRes}
-        shadow-mapSize-height={shadowRes}
+        castShadow={preset.shadows}
+        shadow-mapSize-width={preset.shadowRes || 512}
+        shadow-mapSize-height={preset.shadowRes || 512}
         shadow-bias={-0.0004}
         shadow-normalBias={0.02}
         shadow-camera-near={0.5}
@@ -53,7 +57,7 @@ export function StudioLighting({ quality }: { quality: 'low' | 'medium' | 'high'
   );
 }
 
-export function AmnioticParticles({ count, reduceMotion }: { count: number; reduceMotion: boolean }) {
+export function AmnioticParticles({ count, size, reduceMotion }: { count: number; size: number; reduceMotion: boolean }) {
   const points = useRef<THREE.Points>(null);
   const tex = useMemo(() => makeGlowTexture(), []);
   // GPU hygiene: release the canvas texture on unmount (risk R-11).
@@ -92,12 +96,14 @@ export function AmnioticParticles({ count, reduceMotion }: { count: number; redu
   });
 
   return (
-    <points ref={points} renderOrder={1}>
+    // key={count}: a tier change remounts the geometry so R3F disposes the old
+    // buffer attribute/geometry instead of orphaning it (dispose audit, 3.4).
+    <points key={count} ref={points} renderOrder={1}>
       <bufferGeometry>
         <bufferAttribute attach="attributes-position" args={[positions, 3]} />
       </bufferGeometry>
       <pointsMaterial
-        size={0.055}
+        size={size}
         map={tex}
         color="#ffd9c2"
         transparent

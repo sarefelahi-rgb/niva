@@ -35,6 +35,11 @@ interface ModPost {
 interface ModActionRow { id: string; action: string; reason: string | null; createdAt: string; moderator: { email: string } | null; post: { authorAlias: string } | null }
 interface ModData { queue: ModPost[]; recent: ModActionRow[]; counts: { pending: number; todayDecisions: number } }
 interface TickResult { materialized: number; remindersCreated: number; apptRemindersCreated: number; pendingScheduled: number; emailTransportConfigured: boolean; at: string }
+interface AIMetrics {
+  windowHours: number; totalRequests: number; cacheHitRate: number; avgLatencyMs: number; p95LatencyMs: number;
+  errorRate: number; usedRetrievalRate: number;
+  providerBreakdown: Record<string, number>; safetyBreakdown: Record<string, number>; errorBreakdown: Record<string, number>;
+}
 
 export function AdminView() {
   const { t, locale } = useApp();
@@ -50,15 +55,17 @@ export function AdminView() {
   const [loading, setLoading] = useState(true);
   const [tick, setTick] = useState<TickResult | null>(null);
   const [tickBusy, setTickBusy] = useState(false);
+  const [aiMetrics, setAiMetrics] = useState<AIMetrics | null>(null);
 
   const load = useCallback(async () => {
-    const [o, u, a, f, fl, m] = await Promise.all([
+    const [o, u, a, f, fl, m, ai] = await Promise.all([
       fetch('/api/admin/overview').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/users').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/audit').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/finance').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/flags').then((r) => r.json()).catch(() => null),
       fetch('/api/admin/moderation').then((r) => r.json()).catch(() => null),
+      fetch('/api/admin/ai-metrics').then((r) => r.json()).catch(() => null),
     ]);
     if (o) setOverview(o);
     if (u) setUsers(u.users ?? []);
@@ -66,6 +73,7 @@ export function AdminView() {
     if (f) setFinance(f);
     if (fl?.flags) setFlags(fl.flags);
     if (m?.queue) setMod(m);
+    if (ai && typeof ai.totalRequests === 'number') setAiMetrics(ai);
     setLoading(false);
   }, []);
 
@@ -172,6 +180,45 @@ export function AdminView() {
               </div>
               {tick && !tick.emailTransportConfigured && (
                 <p className="text-xs text-muted-foreground">{t('notifs.emailPending')}</p>
+              )}
+            </CardContent>
+          </Card>
+          <Card className="niva-card">
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Sparkles className="h-4 w-4 text-primary" />{locale === 'fa' ? 'مشاهده‌پذیری هوش مصنوعی' : 'AI observability'}</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              {!aiMetrics ? (
+                <p className="text-xs text-muted-foreground">{locale === 'fa' ? 'داده‌ای ثبت نشده است.' : 'No data recorded yet.'}</p>
+              ) : aiMetrics.totalRequests === 0 ? (
+                <p className="text-xs text-muted-foreground">{locale === 'fa' ? `در ${aiMetrics.windowHours} ساعت گذشته درخواستی ثبت نشده — همه‌ی شاخص‌ها صفر هستند.` : `No requests recorded in the last ${aiMetrics.windowHours}h — all metrics are zero.`}</p>
+              ) : (
+                <>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
+                    <MetricCell label={locale === 'fa' ? 'درخواست‌ها (۲۴ ساعت)' : 'Requests (24h)'} value={String(aiMetrics.totalRequests)} />
+                    <MetricCell label={locale === 'fa' ? 'نرخ حافظه نهان' : 'Cache hit rate'} value={`${Math.round(aiMetrics.cacheHitRate * 100)}%`} />
+                    <MetricCell label={locale === 'fa' ? 'میانگین تأخیر' : 'Avg latency'} value={`${aiMetrics.avgLatencyMs} ms`} />
+                    <MetricCell label={locale === 'fa' ? 'صدک ۹۵ تأخیر' : 'p95 latency'} value={`${aiMetrics.p95LatencyMs} ms`} />
+                    <MetricCell label={locale === 'fa' ? 'نرخ خطا' : 'Error rate'} value={`${Math.round(aiMetrics.errorRate * 100)}%`} />
+                    <MetricCell label={locale === 'fa' ? 'نرخ پاسخ مبتنی بر منبع' : 'Retrieval-grounded rate'} value={`${Math.round(aiMetrics.usedRetrievalRate * 100)}%`} />
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(aiMetrics.providerBreakdown).map(([p, n]) => (
+                      <Badge key={p} variant="outline" className="text-[10px]">{p}: <span className="num ms-1">{n}</span></Badge>
+                    ))}
+                  </div>
+                  <div className="flex flex-wrap gap-1.5">
+                    {Object.entries(aiMetrics.safetyBreakdown).map(([s, n]) => (
+                      <Badge key={s} variant={s === 'EMERGENCY' ? 'destructive' : 'secondary'} className="text-[10px]">{s}: <span className="num ms-1">{n}</span></Badge>
+                    ))}
+                  </div>
+                  {Object.keys(aiMetrics.errorBreakdown).length > 0 && (
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(aiMetrics.errorBreakdown).map(([c, n]) => (
+                        <Badge key={c} variant="outline" className="text-[10px] text-amber-700 dark:text-amber-400">{c}: <span className="num ms-1">{n}</span></Badge>
+                      ))}
+                    </div>
+                  )}
+                  <p className="text-xs text-muted-foreground">{locale === 'fa' ? 'بدون داده شخصی یا محتوای پیام — شناسه کاربر هش شده و فقط شمارش نویسه‌ها ذخیره می‌شود.' : 'No personal data or message content — user ids are hashed and only character counts are stored.'}</p>
+                </>
               )}
             </CardContent>
           </Card>
@@ -395,5 +442,14 @@ function Stat({ icon: Icon, label, value }: { icon: React.ComponentType<{ classN
         <p className="text-xs text-muted-foreground truncate mt-1">{label}</p>
       </div>
     </CardContent></Card>
+  );
+}
+
+function MetricCell({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border p-2.5">
+      <p className="text-sm font-semibold num">{value}</p>
+      <p className="text-[10px] text-muted-foreground mt-0.5">{label}</p>
+    </div>
   );
 }

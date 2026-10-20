@@ -157,3 +157,43 @@ export function hotspotPositions(p: StageParams): Record<string, [number, number
     placenta: [0, p.uterus * 0.55, -p.uterus * 0.62],
   };
 }
+
+/** Annotation marker targets (driven by src/data/studio-content.ts). */
+export type AnnotationTarget = 'head' | 'heart' | 'limb' | 'cord' | 'placenta' | 'uterus' | 'body';
+
+/**
+ * Approximate world-space anchors for contextual annotation markers.
+ * Reuses the hotspot anchors where they exist and derives limb/uterus/body
+ * anchors from the same body metrics (schematic positions, like the model).
+ */
+export function annotationAnchor(p: StageParams, target: AnnotationTarget): [number, number, number] {
+  const spots = hotspotPositions(p);
+  switch (target) {
+    case 'head':
+      return spots.brain;
+    case 'heart':
+      return spots.heart;
+    case 'cord':
+      return spots.cord;
+    case 'placenta':
+      return spots.placenta;
+    case 'limb': {
+      // Upper-arm root (side +1) — same sculpt-space source the sculptor uses.
+      const m = bodyMetrics(p);
+      const k = sculptScale(p);
+      const sh = spinePoint(p, 0.8);
+      return [0.56 * m.torsoR * k, (sh[1] - 0.02 * m.torsoR) * k + SCULPT_Y_OFFSET, (sh[2] + 0.12 * m.torsoR) * k];
+    }
+    case 'uterus': {
+      // A point on the uterine membrane shell (sphere r≈1.05 scaled by uterus).
+      const u = p.uterus;
+      return [0.35 * u, 0.92 * u, 0.5 * u];
+    }
+    case 'body': {
+      // Front of the belly, slightly below the cord insertion.
+      const m = bodyMetrics(p);
+      const k = sculptScale(p);
+      return [0.16 * k, (m.abdomen[1] + 0.06) * k + SCULPT_Y_OFFSET, (m.abdomen[2] + m.torsoR) * k];
+    }
+  }
+}
