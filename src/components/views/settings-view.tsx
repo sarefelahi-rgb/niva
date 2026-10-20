@@ -14,7 +14,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, Di
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { useToast } from '@/hooks/use-toast';
 import { useTheme } from 'next-themes';
-import { Settings, Download, Trash2, Languages, Sun, Moon, Monitor, RotateCcw, LogOut, KeyRound, MonitorSmartphone, Loader2 } from 'lucide-react';
+import { Settings, Download, Trash2, Languages, Sun, Moon, Monitor, RotateCcw, LogOut, KeyRound, MonitorSmartphone, Loader2, Bell } from 'lucide-react';
 
 interface SessionRow { id: string; createdAt: string; expiresAt: string; current: boolean }
 
@@ -26,6 +26,11 @@ export function SettingsView() {
   const [marketing, setMarketing] = useState(false);
   const [familyAck, setFamilyAck] = useState(true);
   const [busy, setBusy] = useState(false);
+
+  // Notification channel preferences (email is consent-gated; in-app is always on)
+  const [notifEmail, setNotifEmail] = useState(false);
+  const [emailTransport, setEmailTransport] = useState(false);
+  const [notifLoaded, setNotifLoaded] = useState(false);
 
   // Password change state
   const [pwOpen, setPwOpen] = useState(false);
@@ -50,6 +55,16 @@ export function SettingsView() {
     }).catch(() => undefined);
   }, []);
 
+  useEffect(() => {
+    fetch('/api/notifications/preferences').then(async (r) => {
+      if (r.ok) {
+        const d = await r.json();
+        setNotifEmail(Boolean(d.emailReminders));
+        setEmailTransport(Boolean(d.emailTransportConfigured));
+      }
+    }).catch(() => undefined).finally(() => setNotifLoaded(true));
+  }, []);
+
   const saveConsent = useCallback(async (patch: Record<string, boolean>) => {
     await fetch('/api/privacy/consent', {
       method: 'POST',
@@ -57,6 +72,25 @@ export function SettingsView() {
       body: JSON.stringify(patch),
     });
   }, []);
+
+  const saveNotifPrefs = async (v: boolean) => {
+    setNotifEmail(v);
+    try {
+      const r = await fetch('/api/notifications/preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ emailReminders: v }),
+      });
+      if (!r.ok) throw new Error('request failed');
+      const d = await r.json();
+      setNotifEmail(Boolean(d.emailReminders));
+      setEmailTransport(Boolean(d.emailTransportConfigured));
+      toast({ description: t('common.done') });
+    } catch {
+      setNotifEmail(!v);
+      toast({ description: t('common.error'), variant: 'destructive' });
+    }
+  };
 
   const exportData = async () => {
     setBusy(true);
@@ -200,6 +234,22 @@ export function SettingsView() {
             <Label htmlFor="c-family" className="text-sm leading-relaxed">{t('settings.consentFamily')}</Label>
             <Switch id="c-family" checked={familyAck} onCheckedChange={(v) => { setFamilyAck(v); saveConsent({ familySharingAck: v }); }} />
           </div>
+        </CardContent>
+      </Card>
+
+      <Card className="niva-card">
+        <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Bell className="h-4 w-4" />{t('settings.notifPrefs')}</CardTitle></CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-muted-foreground leading-relaxed">{t('settings.notifInApp')}</p>
+          <Separator />
+          <div className="flex items-center justify-between gap-4">
+            <Label htmlFor="c-notif-email" className="text-sm leading-relaxed">{t('settings.notifEmail')}</Label>
+            <Switch id="c-notif-email" checked={notifEmail} disabled={!notifLoaded} onCheckedChange={(v) => void saveNotifPrefs(v)} />
+          </div>
+          <p className="text-xs text-muted-foreground leading-relaxed">{t('settings.notifEmailHint')}</p>
+          {notifEmail && !emailTransport && (
+            <p className="text-xs text-amber-700 dark:text-amber-400">{t('notifs.emailPending')}</p>
+          )}
         </CardContent>
       </Card>
 

@@ -503,3 +503,25 @@ Evidence (real outputs):
 - agent-browser: demo login → sidebar shows "سلامت روزانه" in old Nutrition slot; Wellness view renders all 4 tabs with prefilled data; +250 → 2250 → save → toast "ذخیره شد" + history row 2250; exercise tab "75 دقیقه · 2 جلسه در این هفته"; sleep tab ●●●●○ dots; mood save → amber support card → button navigates to "چه زمانی کمک بگیریم"; locale EN switch → "Daily wellness/Nutrition/Movement/Sleep/Mood" all English; browser console 0 errors. Screenshots saved tool-results/wellness-en-nutrition.png, wellness-en-mood.png.
 
 Stage Summary: Wave 4 wellness module shipped: 4 tracker APIs with reviewed-content contracts + full CRUD UI replacing the read-only nutrition view. Demo account intentionally retains wellness demo rows (nutrition today 2250ml, 3 exercise entries, sleep 7.5h, 3 consecutive mood=1 days + 1 support notification) so the features are demoable; the future-dated 4th-day test row was removed. MISSING_I18N_KEYS: wellness.noData = — | — (history empty state renders muted '—'; notifs.empty fallback NOT used). Tag labels for the 8 mood enums have no i18n keys — implemented as inline bilingual map in wellness-view (precedent: nutrition-view inline lists); keys wellness.tagTired etc. could be added by i18n owner later.
+
+---
+Task ID: wave4-3b
+Agent: full-stack-developer (completed + verified by orchestrator after tool timeout)
+Task: Notification scheduler — tick API + background mini-service + notification center + consent-gated email channel
+
+Work Log:
+- POST /api/scheduler/tick: auth = x-scheduler-secret (timing-safe) OR ADMIN session fallback (secret never in browser); re-entrancy 409; jobs: (a) materialize due IN_APP scheduledFor<=now → sentAt; (b) reminder jobs (due ≤24h, dedupeKey reminder:{id}:{dueAt}, nudge −30min, localized fa/en); (c) appointment T-24h (dedupeKey appt:{id}:t24); (d) EMAIL twins ONLY when SMTP_URL configured AND Consent.emailReminders (honest: zero EMAIL rows otherwise). SQLite has no createMany skipDuplicates → pre-filter + P2002 fallback loop.
+- mini-services/scheduler: independent bun project (bun --hot), 60s interval, POSTs tick with secret from own .env; running and logging ticks.
+- notifications route: GET feed = delivered rows only (scheduledFor null OR sentAt set) + scheduled jobs section + emailTransportConfigured; POST mark-read guarded against scheduled rows; DELETE ?id owner-checked.
+- notifications/preferences GET+PUT: Consent.emailReminders upsert, audited.
+- Bell sheet: type icons, EMAIL channel badge, per-row mark-read + delete, "Scheduled reminders" section; settings: Notifications card w/ always-on info + email switch + honest hint when consented-but-unconfigured; admin overview: Scheduler card (pending count, run-now, last tick result).
+
+Evidence (orchestrator-run, real):
+- wrong secret → 403; admin session tick → 200; reminder +2h → next tick created job (mini-service had raced first — pendingScheduled 2→3); re-tick → 0 new (dedupe works).
+- fast-forwarded 3 jobs to past via script → tick materialized=3 → rows appeared in demo feed, scheduled left 0. T-24h appointment → apptRemindersCreated 1. Email consent on w/o SMTP_URL → emailTransportConfigured false, zero EMAIL rows.
+- Browser (admin): scheduler card shows pending count + "آخرین تیک: ۹:۳۷:۱۰ · رسانده‌شده: ۰..." after manual run; demo: bell rows w/ mark-read/delete + scheduled section + Persian due dates; settings switch toggles both ways with hint.
+- Test artifacts cleaned (test reminder/appointment/notifications deleted; consent reset).
+- FIX during verification: agent's app-shell edit corrupted two useState lines (`[m` eaten — same anomaly as earlier schema lines in this sandbox FS); repaired + committed via single-process python+git; full-tree scan found no other instances; tsc 0 / lint 0.
+
+Stage Summary:
+- Wave 4 items 4.1–4.5 all implemented. Residual honesty notes: EMAIL channel is consent-gated and dormant until SMTP_URL is set (documented in UI); push/web-push deliberately deferred (Wave 5/6); ModerationAction FK relations verified in generated client.

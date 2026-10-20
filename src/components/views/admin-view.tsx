@@ -9,7 +9,7 @@ import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
-import { ShieldCheck, CheckCircle2, Users, Activity, Coins, ToggleLeft, Sparkles, Gavel } from 'lucide-react';
+import { ShieldCheck, CheckCircle2, Users, Activity, Coins, ToggleLeft, Sparkles, Gavel, Clock, Loader2 } from 'lucide-react';
 import { Input } from '@/components/ui/input';
 import { useToast } from '@/hooks/use-toast';
 
@@ -34,6 +34,7 @@ interface ModPost {
 }
 interface ModActionRow { id: string; action: string; reason: string | null; createdAt: string; moderator: { email: string } | null; post: { authorAlias: string } | null }
 interface ModData { queue: ModPost[]; recent: ModActionRow[]; counts: { pending: number; todayDecisions: number } }
+interface TickResult { materialized: number; remindersCreated: number; apptRemindersCreated: number; pendingScheduled: number; emailTransportConfigured: boolean; at: string }
 
 export function AdminView() {
   const { t, locale } = useApp();
@@ -47,6 +48,8 @@ export function AdminView() {
   const [reasons, setReasons] = useState<Record<string, string>>({});
   const [busyId, setBusyId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [tick, setTick] = useState<TickResult | null>(null);
+  const [tickBusy, setTickBusy] = useState(false);
 
   const load = useCallback(async () => {
     const [o, u, a, f, fl, m] = await Promise.all([
@@ -79,6 +82,22 @@ export function AdminView() {
   const resolveSafety = async (id: string) => {
     await fetch('/api/admin/safety', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
     await load();
+  };
+
+  const runSchedulerTick = async () => {
+    setTickBusy(true);
+    try {
+      const r = await fetch('/api/scheduler/tick', { method: 'POST' });
+      const d = await r.json().catch(() => null);
+      if (r.ok && d?.ok) {
+        setTick({ ...d, at: new Date().toISOString() });
+        toast({ description: t('admin.schedulerRan').replace('{n}', String(d.materialized ?? 0)) });
+      } else {
+        toast({ description: d?.error?.message ?? t('common.error'), variant: 'destructive' });
+      }
+    } finally {
+      setTickBusy(false);
+    }
   };
 
   const decide = async (postId: string, action: 'APPROVE' | 'REJECT' | 'REMOVE') => {
@@ -129,6 +148,33 @@ export function AdminView() {
             <Stat icon={CheckCircle2} label={locale === 'fa' ? 'در انتظار بازبینی' : 'Pending review'} value={overview?.contentPending ?? 0} />
             <Stat icon={Sparkles} label={t('admin.aiQuality')} value={overview?.aiMessages ?? 0} />
           </div>
+          <Card className="niva-card">
+            <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Clock className="h-4 w-4 text-primary" />{t('admin.scheduler')}</CardTitle></CardHeader>
+            <CardContent className="space-y-3 text-sm">
+              <div className="flex flex-wrap items-center gap-2 text-xs">
+                <Badge variant="secondary" className="num">{tick ? tick.pendingScheduled : '—'}</Badge>
+                <span className="text-muted-foreground">{t('admin.schedulerPending')}</span>
+              </div>
+              {tick && (
+                <p className="text-xs text-muted-foreground">
+                  {locale === 'fa' ? 'آخرین تیک' : 'Last tick'}: <span className="num">{new Date(tick.at).toLocaleTimeString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                  {' · '}{locale === 'fa' ? 'رسانده‌شده' : 'materialized'}: <span className="num">{tick.materialized}</span>
+                  {' · '}{locale === 'fa' ? 'یادآور' : 'reminders'}: <span className="num">{tick.remindersCreated}</span>
+                  {' · '}{locale === 'fa' ? 'نوبت' : 'appointments'}: <span className="num">{tick.apptRemindersCreated}</span>
+                </p>
+              )}
+              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
+                <Button size="sm" className="min-h-11" onClick={() => void runSchedulerTick()} disabled={tickBusy}>
+                  {tickBusy && <Loader2 className="h-4 w-4 animate-spin me-1.5" />}
+                  {t('admin.schedulerRun')}
+                </Button>
+                <p className="text-xs text-muted-foreground">{t('admin.schedulerNote')}</p>
+              </div>
+              {tick && !tick.emailTransportConfigured && (
+                <p className="text-xs text-muted-foreground">{t('notifs.emailPending')}</p>
+              )}
+            </CardContent>
+          </Card>
           <Card className="niva-card">
             <CardHeader className="pb-2"><CardTitle className="text-base">{t('admin.aiQuality')}</CardTitle></CardHeader>
             <CardContent className="space-y-3 text-sm">
