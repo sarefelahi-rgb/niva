@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import { useApp, type View } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
@@ -10,6 +10,7 @@ import {
   LayoutDashboard, CalendarClock, Box, Activity, Sparkles, FolderLock, Stethoscope,
   Salad, Baby, Flower2, BookHeart, Users, Crown, Settings, ShieldCheck, Bell,
   LogOut, Menu, Moon, Sun, Languages, HeartPulse, X, ChevronLeft, ChevronRight,
+  ClipboardCheck, CreditCard, ShieldAlert, Trash2,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 
@@ -50,13 +51,26 @@ const GOVERNANCE_NAV: NavItem[] = [
   { view: 'admin', icon: ShieldCheck, labelKey: 'nav.admin', roles: ['ADMIN'] },
 ];
 
+/** Notification type → icon (bell sheet rows + scheduled section). */
+const NOTIF_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
+  SYSTEM: Bell,
+  APPOINTMENT: CalendarClock,
+  REVIEW: ClipboardCheck,
+  PAYMENT: CreditCard,
+  SAFETY: ShieldAlert,
+};
+
+interface NotifRow { id: string; title: string; body: string; type: string; channel: string; readAt: string | null; createdAt: string }
+interface ScheduledRow { id: string; title: string; type: string; scheduledFor: string }
+
 export function AppShell({ children }: { children: React.ReactNode }) {
   const { t, view, setView, user, logout, locale, setLocale } = useApp();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
   const [moreOpen, setMoreOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
-  const [notifications, setNotifications] = useState<Array<{ id: string; title: string; body: string; readAt: string | null; createdAt: string }>>([]);
+  const [notifications, setNotifications] = useState<NotifRow[]>([]);
+  const [scheduled, setScheduled] = useState<ScheduledRow[]>([]);
   const [unread, setUnread] = useState(0);
 
   useEffect(() => {
@@ -64,19 +78,25 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     return () => cancelAnimationFrame(id);
   }, []);
 
-  useEffect(() => {
-    if (!user) return;
-    let alive = true;
-    fetch('/api/notifications').then(async (r) => {
+  const loadNotifs = useCallback(async () => {
+    try {
+      const r = await fetch('/api/notifications');
       if (!r.ok) return;
       const data = await r.json();
-      if (alive) {
-        setNotifications(data.notifications ?? []);
-        setUnread(data.unread ?? 0);
-      }
-    }).catch(() => undefined);
-    return () => { alive = false; };
-  }, [user, view]);
+      setNotifications(data.notifications ?? []);
+      setUnread(data.unread ?? 0);
+      setScheduled(data.scheduled ?? []);
+    } catch {
+      // transient — keep last known state
+    }
+  }, []);
+
+  useEffect(() => {
+    if (!user) return;
+    // rAF keeps the fetch (and its setState) out of the synchronous effect pass.
+    const id = requestAnimationFrame(() => { void loadNotifs(); });
+    return () => cancelAnimationFrame(id);
+  }, [user, view, loadNotifs]);
 
   const visible = (items: NavItem[]) => items.filter((i) => !i.roles || (user && i.roles.includes(user.role)));
   const allNav = [...PRIMARY_NAV, ...SECONDARY_NAV, ...ACCOUNT_NAV, ...GOVERNANCE_NAV];
@@ -91,6 +111,20 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ all: true }) });
     setUnread(0);
     setNotifications((ns) => ns.map((n) => ({ ...n, readAt: new Date().toISOString() })));
+  };
+
+  const markOneRead = async (id: string) => {
+    await fetch('/api/notifications', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ id }) });
+    setNotifications((ns) => ns.map((n) => (n.id === id && !n.readAt ? { ...n, readAt: new Date().toISOString() } : n)));
+    setUnread((u) => Math.max(0, u - (notifications.find((n) => n.id === id && !n.readAt) ? 1 : 0)));
+  };
+
+  const deleteOne = async (id: string) => {
+    const target = notifications.find((n) => n.id === id);
+    await fetch(`/api/notifications?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+    setNotifications((ns) => ns.filter((n) => n.id !== id));
+    setScheduled((ss) => ss.filter((s) => s.id !== id));
+    if (target && !target.readAt) setUnread((u) => Math.max(0, u - 1));
   };
 
   return (
@@ -153,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               {mounted && (resolvedTheme === 'dark' ? <Sun className="h-4.5 w-4.5" /> : <Moon className="h-4.5 w-4.5" />)}
             </Button>
             {/* Notifications */}
-            <Sheet open={notifOpen} onOpenChange={setNotifOpen}>
+            <Sheet open={notifOpen} onOpenChange={(o) => { setNotifOpen(o); if (o) void loadNotifs(); }}>
               <SheetTrigger asChild>
                 <Button variant="ghost" size="icon" className="relative min-h-11 min-w-11" aria-label={t('notifs.title')}>
                   <Bell className="h-4.5 w-4.5" />
@@ -169,12 +203,58 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </div>
                 <div className="p-2 max-h-[70vh] overflow-y-auto">
                   {notifications.length === 0 && <p className="text-sm text-muted-foreground p-4">{t('notifs.empty')}</p>}
-                  {notifications.map((n) => (
-                    <div key={n.id} className={cn('rounded-lg p-3 mb-1', !n.readAt && 'bg-primary/5')}>
-                      <p className="text-sm font-medium">{n.title}</p>
-                      <p className="text-xs text-muted-foreground mt-0.5">{n.body}</p>
-                    </div>
-                  ))}
+                  {notifications.map((n) => {
+                    const TypeIcon = NOTIF_TYPE_ICONS[n.type] ?? Bell;
+                    return (
+                      <div key={n.id} className={cn('rounded-lg p-3 mb-1 flex gap-2.5', !n.readAt && 'bg-primary/5')}>
+                        <span className="grid place-items-center h-8 w-8 rounded-lg bg-muted shrink-0" aria-hidden>
+                          <TypeIcon className="h-4 w-4 text-primary" />
+                        </span>
+                        <div className="min-w-0 flex-1">
+                          <div className="flex items-start gap-2">
+                            <p className="text-sm font-medium min-w-0">{n.title}</p>
+                            {n.channel === 'EMAIL' && (
+                              <Badge variant="outline" className="text-[10px] shrink-0">{t('notifs.channel.EMAIL')}</Badge>
+                            )}
+                          </div>
+                          <p className="text-xs text-muted-foreground mt-0.5" dir="auto">{n.body}</p>
+                          <div className="flex items-center gap-1 mt-1.5">
+                            {!n.readAt && (
+                              <Button variant="ghost" size="sm" className="min-h-11 h-11 px-2 text-xs" onClick={() => void markOneRead(n.id)}>
+                                {t('notifs.markOne')}
+                              </Button>
+                            )}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              className="min-h-11 min-w-11 w-11 h-11 px-0 text-muted-foreground hover:text-destructive"
+                              onClick={() => void deleteOne(n.id)}
+                              aria-label={t('notifs.delete')}
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          </div>
+                        </div>
+                      </div>
+                    );
+                  })}
+                  <div className="border-t mt-2 pt-3 px-1">
+                    <h3 className="text-xs font-semibold text-muted-foreground px-2 mb-1">{t('notifs.scheduled')}</h3>
+                    {scheduled.length === 0 ? (
+                      <p className="text-sm text-muted-foreground p-2">{t('notifs.scheduledEmpty')}</p>
+                    ) : (
+                      scheduled.map((s) => (
+                        <div key={s.id} className="rounded-lg p-2.5 mb-1">
+                          <p className="text-sm font-medium" dir="auto">{s.title}</p>
+                          <p className="text-xs text-muted-foreground mt-0.5">
+                            {t('notifs.dueAt')}: <span className="num">{new Date(s.scheduledFor).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                            <span className="mx-1.5" aria-hidden>·</span>
+                            <span>{t(`notifs.type.${s.type}`)}</span>
+                          </p>
+                        </div>
+                      ))
+                    )}
+                  </div>
                 </div>
               </SheetContent>
             </Sheet>
