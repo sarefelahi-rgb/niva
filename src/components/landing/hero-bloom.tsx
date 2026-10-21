@@ -11,6 +11,11 @@
  * - The child: a serene, stylized FETUS — curled profile with closed eyes,
  *   folded limbs and a warm subsurface-like skin, sculpted from soft-blended
  *   primitives; heartbeat halo + mandorla rings + pulsing inner light.
+ * - GROWTH JOURNEY — five stages driven by the landing's journey chips
+ *   (auto-cycled, click to jump): fertilization (glowing egg, corona radiata,
+ *   swimming sperm), cell division (morula), embryo (first heartbeat),
+ *   growing fetus, and full-term ready for birth. The cord appears with the
+ *   embryo and re-anchors at the navel as the child grows.
  * - Anatomically-inspired cord: a twisted two-vessel helix (Frenet frames)
  *   anchored at the fetus's navel.
  * - Amniotic shimmer bubbles drift inside the shell.
@@ -38,7 +43,7 @@
 
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
 import { Environment, Lightformer } from '@react-three/drei';
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import * as THREE from 'three';
 
 /* Brand palette (Calm Bloom) */
@@ -347,13 +352,13 @@ function Bokeh({ tex }: { tex: THREE.CanvasTexture }) {
 }
 
 /** Twisted two-vessel cord — main tube + helical wrap (Frenet frames). */
-function Cord() {
+function Cord({ end }: { end: V3 }) {
   const { mainGeo, wrapGeo } = useMemo(() => {
     const main = new THREE.CubicBezierCurve3(
       new THREE.Vector3(1.0, -0.55, 0.72),
       new THREE.Vector3(0.72, -0.6, 0.55),
-      new THREE.Vector3(0.4, -0.2, 0.42),
-      new THREE.Vector3(0.15, 0.06, 0.25)
+      new THREE.Vector3((0.72 + end[0]) / 2 + 0.04, -0.28, 0.42),
+      new THREE.Vector3(end[0], end[1], end[2])
     );
     const SEG = 140;
     const frames = main.computeFrenetFrames(SEG, false);
@@ -376,7 +381,7 @@ function Cord() {
       mainGeo: new THREE.TubeGeometry(main, 48, 0.02, 8, false),
       wrapGeo: new THREE.TubeGeometry(wrap, SEG, 0.0065, 6, false),
     };
-  }, []);
+  }, [end]);
   useEffect(
     () => () => {
       mainGeo.dispose();
@@ -398,7 +403,7 @@ function Cord() {
         <sphereGeometry args={[0.02, 10, 10]} />
         <meshStandardMaterial color={C.cord} roughness={0.42} />
       </mesh>
-      <mesh position={[0.15, 0.06, 0.25]}>
+      <mesh position={end}>
         <sphereGeometry args={[0.02, 10, 10]} />
         <meshStandardMaterial color={C.cord} roughness={0.42} />
       </mesh>
@@ -435,7 +440,7 @@ function Limb({ a, b, r, material }: { a: V3; b: V3; r: number; material: THREE.
  * and pulses with the heartbeat. Educational ambiance — not an anatomical
  * or diagnostic model.
  */
-function Fetus({ reducedMotion }: { reducedMotion: boolean }) {
+function Fetus({ reducedMotion, scale = 1.42, pulse = 0.5 }: { reducedMotion: boolean; scale?: number; pulse?: number }) {
   const group = useRef<THREE.Group>(null);
 
   const skin = useMemo(
@@ -466,7 +471,7 @@ function Fetus({ reducedMotion }: { reducedMotion: boolean }) {
     const t = clock.getElapsedTime();
     if (reducedMotion || !group.current) return;
     const hb = heartbeat(t);
-    group.current.scale.setScalar(1.42 * (1 + (hb - 1) * 0.5));
+    group.current.scale.setScalar(scale * (1 + (hb - 1) * pulse));
     group.current.rotation.z = Math.sin(t * 0.32) * 0.02;
     // 3/4 pose — profile turned gently toward the visitor
     group.current.rotation.y = 0.38 + Math.sin(t * 0.21) * 0.05;
@@ -487,7 +492,7 @@ function Fetus({ reducedMotion }: { reducedMotion: boolean }) {
   useEffect(() => () => spineGeo.dispose(), [spineGeo]);
 
   return (
-    <group ref={group} position={[0, -0.02, 0.12]} rotation={[0, 0.38, 0]} scale={1.42}>
+    <group ref={group} position={[0, -0.02, 0.12]} rotation={[0, 0.38, 0]} scale={scale}>
       {/* curved back — one smooth C-arc from neck to sacrum */}
       <mesh geometry={spineGeo} material={skin} />
       {/* head — slightly elongated, chin tucked */}
@@ -567,6 +572,192 @@ function Bubbles() {
   );
 }
 
+/* ----------------------------------------------------------- growth journey */
+
+/** Cord anchor per journey stage (null = no cord yet). */
+const CORD_ENDS: (V3 | null)[] = [null, null, [0.05, 0, 0.16], [0.11, 0.04, 0.21], [0.16, 0.06, 0.26]];
+
+/** Entrance wrapper — each stage blooms in with a soft ease-out scale. */
+function StageGate({ stage, reducedMotion, children }: { stage: number; reducedMotion: boolean; children: ReactNode }) {
+  const group = useRef<THREE.Group>(null);
+  const t0 = useRef<number | null>(null);
+  useEffect(() => {
+    t0.current = null;
+  }, [stage]);
+  useFrame(({ clock }) => {
+    if (reducedMotion || !group.current) return;
+    if (t0.current === null) t0.current = clock.getElapsedTime();
+    const k = Math.min((clock.getElapsedTime() - t0.current) / 0.7, 1);
+    const e = 1 - Math.pow(1 - k, 3);
+    group.current.scale.setScalar(0.82 + 0.18 * e);
+  });
+  return (
+    <group ref={group} scale={reducedMotion ? 1 : 0.82}>
+      {children}
+    </group>
+  );
+}
+
+/** Journey stage 0 — the radiant egg with its corona radiata. */
+function Egg({ tex }: { tex: THREE.CanvasTexture }) {
+  const corona = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    if (corona.current) corona.current.rotation.z = clock.getElapsedTime() * 0.12;
+  });
+  const cells = useMemo(
+    () =>
+      Array.from({ length: 14 }, (_, i) => {
+        const a = (i / 14) * Math.PI * 2;
+        const r = 0.44 + (i % 2) * 0.035;
+        return { p: [Math.cos(a) * r, Math.sin(a) * r, (i % 3) * 0.045 - 0.045] as V3 };
+      }),
+    []
+  );
+  return (
+    <group position={[0, -0.05, 0.1]}>
+      <sprite scale={[1.4, 1.4, 1]}>
+        <spriteMaterial map={tex} color="#ffd9a1" transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </sprite>
+      <mesh>
+        <sphereGeometry args={[0.34, 40, 40]} />
+        <meshPhysicalMaterial
+          color="#ffddb8"
+          roughness={0.24}
+          clearcoat={1}
+          clearcoatRoughness={0.2}
+          emissive="#ff9d85"
+          emissiveIntensity={0.3}
+          iridescence={0.3}
+          iridescenceIOR={1.3}
+          envMapIntensity={0.9}
+        />
+      </mesh>
+      {/* nucleus hint */}
+      <mesh position={[0.03, 0.04, 0.2]}>
+        <sphereGeometry args={[0.1, 20, 20]} />
+        <meshPhysicalMaterial color="#ffb98f" roughness={0.3} emissive="#ff8a70" emissiveIntensity={0.35} />
+      </mesh>
+      {/* corona radiata — escorting cells */}
+      <group ref={corona}>
+        {cells.map((c, i) => (
+          <mesh key={i} position={c.p}>
+            <sphereGeometry args={[0.034, 10, 10]} />
+            <meshStandardMaterial color="#ffe3c9" roughness={0.4} transparent opacity={0.72} />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
+/** A single sperm — teardrop head + undulating helical tail. */
+function Sperm({
+  radius,
+  speed,
+  phase,
+  reducedMotion,
+}: {
+  radius: number;
+  speed: number;
+  phase: number;
+  reducedMotion: boolean;
+}) {
+  const g = useRef<THREE.Group>(null);
+  const tail = useRef<THREE.Mesh>(null);
+  const tailGeo = useMemo(() => {
+    const pts: THREE.Vector3[] = [];
+    for (let i = 0; i <= 20; i++) {
+      const u = i / 20;
+      pts.push(new THREE.Vector3(-u * 0.22, Math.sin(u * Math.PI * 3) * 0.02 * (1 - u * 0.5), 0));
+    }
+    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.007, 6, false);
+  }, []);
+  useEffect(() => () => tailGeo.dispose(), [tailGeo]);
+  useFrame(({ clock }) => {
+    if (reducedMotion || !g.current) return;
+    const t = clock.getElapsedTime();
+    const a = t * speed + phase;
+    // Lissajous drift around the egg, head always facing the travel direction
+    g.current.position.set(Math.cos(a) * radius, Math.sin(a) * radius * 0.62, Math.sin(a * 1.7) * 0.16);
+    g.current.rotation.z = Math.atan2(0.62 * Math.cos(a), -Math.sin(a));
+    if (tail.current) tail.current.rotation.z = Math.sin(t * 8 + phase) * 0.2;
+  });
+  return (
+    <group ref={g}>
+      <mesh scale={[1.5, 0.85, 0.85]}>
+        <sphereGeometry args={[0.045, 16, 16]} />
+        <meshPhysicalMaterial color="#fff1e4" roughness={0.3} clearcoat={0.8} emissive="#ffd9c9" emissiveIntensity={0.3} />
+      </mesh>
+      <mesh ref={tail} geometry={tailGeo} position={[-0.06, 0, 0]}>
+        <meshStandardMaterial color="#ffe8d8" roughness={0.5} transparent opacity={0.8} />
+      </mesh>
+    </group>
+  );
+}
+
+/** Journey stage 0 — fertilization. */
+function Fertilization({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
+  return (
+    <group>
+      <Egg tex={tex} />
+      <group rotation={[0.55, 0, 0.2]}>
+        <Sperm radius={1.05} speed={0.5} phase={0} reducedMotion={reducedMotion} />
+        <Sperm radius={0.85} speed={-0.42} phase={2.2} reducedMotion={reducedMotion} />
+        <Sperm radius={1.22} speed={0.34} phase={4.1} reducedMotion={reducedMotion} />
+      </group>
+    </group>
+  );
+}
+
+/** Journey stage 1 — cell division: a gently pulsing morula. */
+function Division({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
+  const cluster = useRef<THREE.Group>(null);
+  const cells = useMemo(() => {
+    const arr: { p: V3; r: number }[] = [{ p: [0, 0, 0], r: 0.078 }];
+    const N = 15;
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (i / (N - 1)) * 2;
+      const rad = Math.sqrt(Math.max(0, 1 - y * y));
+      const th = i * 2.39996; // golden-angle spiral → even packing
+      arr.push({ p: [Math.cos(th) * rad * 0.16, y * 0.16, Math.sin(th) * rad * 0.16], r: 0.06 + (i % 3) * 0.008 });
+    }
+    return arr;
+  }, []);
+  useFrame(({ clock }) => {
+    if (reducedMotion || !cluster.current) return;
+    const t = clock.getElapsedTime();
+    const hb = heartbeat(t);
+    cluster.current.rotation.y = t * 0.25;
+    cluster.current.rotation.x = Math.sin(t * 0.3) * 0.2;
+    cluster.current.scale.setScalar(1 + (hb - 1) * 0.9);
+  });
+  return (
+    <group position={[0, -0.05, 0.1]}>
+      <sprite scale={[1.2, 1.2, 1]}>
+        <spriteMaterial map={tex} color="#ffd9a1" transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </sprite>
+      <group ref={cluster}>
+        {cells.map((c, i) => (
+          <mesh key={i} position={c.p}>
+            <sphereGeometry args={[c.r, 18, 18]} />
+            <meshPhysicalMaterial
+              color="#ffddc0"
+              roughness={0.26}
+              clearcoat={0.8}
+              clearcoatRoughness={0.25}
+              emissive="#ff9d85"
+              emissiveIntensity={0.22}
+              sheen={0.6}
+              sheenColor="#ff9d85"
+              envMapIntensity={0.8}
+            />
+          </mesh>
+        ))}
+      </group>
+    </group>
+  );
+}
+
 /** Nursery mobile — arc hanger, glassy satellites, delicate strings. */
 function Mobile() {
   const ring = useRef<THREE.Mesh>(null);
@@ -616,7 +807,7 @@ function Mobile() {
 
 /* ------------------------------------------------------------------ embrace */
 
-function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
+function Embrace({ reducedMotion, stage }: { reducedMotion: boolean; stage: number }) {
   const group = useRef<THREE.Group>(null);
   const halo = useRef<THREE.Sprite>(null);
   const childLight = useRef<THREE.PointLight>(null);
@@ -653,7 +844,10 @@ function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
       halo.current.scale.set(s, s, 1);
       (halo.current.material as THREE.SpriteMaterial).opacity = 0.22 + (hb - 1) * 2;
     }
-    if (haloRings.current) haloRings.current.scale.setScalar(1 + (hb - 1) * 1.2);
+    if (haloRings.current) {
+      const mandorla = stage <= 1 ? 0.5 : stage === 2 ? 0.62 : stage === 3 ? 0.85 : 1;
+      haloRings.current.scale.setScalar(mandorla * (1 + (hb - 1) * 1.2));
+    }
     if (childLight.current) childLight.current.intensity = 0.7 + (hb - 1) * 2.2;
     // Mobile drift
     if (mobile.current) {
@@ -703,7 +897,7 @@ function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
         <spriteMaterial map={glowTex} color={C.pearlGlow} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
       {/* Mandorla rings framing the child — intimate echo of the celestial ones */}
-      <group ref={haloRings} position={[0, -0.02, -0.15]}>
+      <group ref={haloRings} position={[0, -0.02, -0.15]} scale={stage <= 1 ? 0.5 : stage === 2 ? 0.62 : stage === 3 ? 0.85 : 1}>
         <mesh rotation={[1.35, 0.25, 0]}>
           <torusGeometry args={[0.62, 0.0045, 8, 72]} />
           <meshBasicMaterial color={C.coral} transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
@@ -713,13 +907,20 @@ function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
           <meshBasicMaterial color={C.sage} transparent opacity={0.24} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       </group>
-      <Fetus reducedMotion={reducedMotion} />
+      {/* Growth journey — the child through five stages */}
+      <StageGate stage={stage} reducedMotion={reducedMotion}>
+        {stage === 0 && <Fertilization reducedMotion={reducedMotion} tex={glowTex} />}
+        {stage === 1 && <Division reducedMotion={reducedMotion} tex={glowTex} />}
+        {stage === 2 && <Fetus reducedMotion={reducedMotion} scale={0.45} pulse={1.1} />}
+        {stage === 3 && <Fetus reducedMotion={reducedMotion} scale={1.05} />}
+        {stage === 4 && <Fetus reducedMotion={reducedMotion} scale={1.5} />}
+      </StageGate>
       <pointLight ref={childLight} position={[0.15, 0, 0.55]} intensity={0.7} distance={3.2} color={C.pearlGlow} />
       {/* Amniotic shimmer inside the shell */}
       <Bubbles />
 
-      {/* Twisted two-vessel cord */}
-      <Cord />
+      {/* Twisted two-vessel cord — appears with the embryo, re-anchored per stage */}
+      {CORD_ENDS[stage] && <Cord key={stage} end={CORD_ENDS[stage] as V3} />}
 
       {/* Nursery mobile */}
       <group ref={mobile} position={[0, 0.95, 0]}>
@@ -773,7 +974,7 @@ function Rig({ reducedMotion }: { reducedMotion: boolean }) {
  * frameloop to 'never' while the scene is offscreen so a scrolled-past landing
  * never burns GPU/battery. Reduced-motion gets exactly one rendered frame.
  */
-export default function HeroBloom() {
+export default function HeroBloom({ stage = 2 }: { stage?: number }) {
   // ssr:false → window always exists on first render; read the media query
   // lazily instead of setState-in-effect (react-hooks v6 compliance).
   const [reducedMotion] = useState(
@@ -813,7 +1014,7 @@ export default function HeroBloom() {
           <Lightformer form="circle" intensity={1.6} color="#fff2e2" position={[0, -3, 1]} scale={2.5} />
         </Environment>
         <Rig reducedMotion={reducedMotion} />
-        <Embrace reducedMotion={reducedMotion} />
+        <Embrace reducedMotion={reducedMotion} stage={stage} />
       </Canvas>
     </div>
   );

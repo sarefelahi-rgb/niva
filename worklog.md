@@ -935,3 +935,24 @@ Stage Summary:
 - Landing 3D child is now a beautiful stylized fetus: curled profile, closed eyes, warm glowing skin, heartbeat pulse, cord-to-navel, framed by mandorla rings inside the translucent embrace.
 - Honest framing preserved: header docs + on-stage label state it is a stylized educational ambiance visual, not an anatomical/diagnostic model.
 - Artifacts: shot-fetus-4/5.png (light), shot-fetus-dark.png, shot-fetus-mobile.png.
+
+---
+Task ID: wave9-journey
+Agent: main (Z.ai Code)
+Task: «جنین در حال رشدی باشد. از اسپرم و تخمک تا هفته آخر آماده زایمان / متن ها روی هم نیفتد» — growth-journey stages in the 3D scene + fix overlapping texts.
+
+Work Log:
+- Added 5 auto-cycling journey stages to the landing 3D scene (hero-bloom.tsx): 0 Fertilization (radiant egg + corona radiata + 3 sperm with undulating tube tails, Lissajous orbits, velocity-aligned heads), 1 Cell division (golden-angle-packed morula cluster, heartbeat pulse), 2 Embryo (fetus at scale 0.45, amplified heartbeat pulse 1.1), 3 Fetus (1.05), 4 Full-term (1.5).
+- StageGate entrance wrapper: soft ease-out scale bloom on every stage switch (reduced-motion → static).
+- Cord now stage-aware: CORD_ENDS table re-anchors the navel per stage; hidden for stages 0-1 (key={stage} remount rebuilds TubeGeometry, dispose-on-unmount preserved; fixed react-hooks preserve-manual-memoization by adding [end] deps).
+- Mandorla rings scale per stage (0.5 → 1) so they always frame the child.
+- Fetus refactored to accept scale/pulse props.
+- landing-view.tsx: removed in-panel stat chips (they overlapped the floating reassurance card at sm widths — the reported text overlap); added journey chips row BELOW the panel (flex-wrap, min-h-11, aria-pressed, active state) + caption; stage state auto-advances every 7s (interval resets on manual click; disabled under prefers-reduced-motion).
+- i18n: added landing.journeyCaption + 5 stage name/week keys (fa + en, symmetric).
+- analytics: added 'journey_stage' to TRACKABLE_EVENTS; chip clicks track it (consent-gated as before).
+- Verified with agent-browser: all 5 stages screenshot-verified (light + dark), chip click navigation works, auto-cycle works, chips wrap with zero overlap at 1280/700/390px, zero console errors, lint clean. One transient empty-chip frame was identified as a theme-transition screenshot artifact (DOM + fresh screenshot both correct).
+
+Stage Summary:
+- The landing 3D now tells the full story: from fertilization to birth, interactive via journey chips, auto-playing otherwise.
+- Text overlap eliminated: nothing is absolutely positioned over the chips anymore; floating card has clean 40px clearance.
+- Artifacts: journey-s0..s4.png, journey-sm.png, journey-mobile.png, journey-dark-s0.png, chips-recheck.png.

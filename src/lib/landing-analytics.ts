@@ -13,7 +13,7 @@ export type AbVariant = 'A' | 'B';
 const CONSENT_KEY = 'niva_analytics_consent';
 const VARIANT_KEY = 'niva_ab_variant';
 
-export const TRACKABLE_EVENTS = ['landing_view', 'cta_start', 'cta_demo', 'ab_consent_granted'] as const;
+export const TRACKABLE_EVENTS = ['landing_view', 'cta_start', 'cta_demo', 'ab_consent_granted', 'journey_stage'] as const;
 export type LandingEventName = (typeof TRACKABLE_EVENTS)[number];
 
 export function getAnalyticsConsent(): AnalyticsConsent | null {

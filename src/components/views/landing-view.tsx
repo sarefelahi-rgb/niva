@@ -52,10 +52,12 @@ const NAV_ANCHORS = [
   { id: 'faq', key: 'landing.navFaq' },
 ] as const;
 
-const STAGE_STATS = [
-  { v: '12', k: 'landing.statsStages' },
-  { v: '24', k: 'landing.statsSources' },
-  { v: '40+', k: 'landing.statsWeeks' },
+const JOURNEY = [
+  { name: 'landing.jFertilize', week: 'landing.jFertilizeW' },
+  { name: 'landing.jDivide', week: 'landing.jDivideW' },
+  { name: 'landing.jEmbryo', week: 'landing.jEmbryoW' },
+  { name: 'landing.jFetusSt', week: 'landing.jFetusStW' },
+  { name: 'landing.jTerm', week: 'landing.jTermW' },
 ] as const;
 
 export function LandingView() {
@@ -64,6 +66,19 @@ export function LandingView() {
   const mounted = useMounted();
   const [consentChoice, setConsentChoice] = useState<'granted' | 'denied' | null | undefined>(undefined);
   const [bloomReady, setBloomReady] = useState(false);
+
+  // Growth journey — auto-cycles through development stages; respects
+  // reduced motion (chips stay manual). The interval resets on every stage
+  // change, so a manual click buys a fresh 7s of the chosen scene.
+  const [stage, setStage] = useState(0);
+  const [prefersReducedMotion] = useState(
+    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  );
+  useEffect(() => {
+    if (prefersReducedMotion) return;
+    const id = setInterval(() => setStage((s) => (s + 1) % JOURNEY.length), 7000);
+    return () => clearInterval(id);
+  }, [stage, prefersReducedMotion]);
 
   // Consent state is derived post-hydration (no setState-in-effect): the bar
   // renders only after mount, so reading localStorage inline is SSR-safe.
@@ -214,21 +229,12 @@ export function LandingView() {
                 aria-hidden="true"
                 style={{ background: 'radial-gradient(46% 40% at 50% 42%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 74%)' }}
               />
-              {bloomReady && <HeroBloom />}
+              {bloomReady && <HeroBloom stage={stage} />}
               {/* Honesty label — the scene is educational ambiance, not a fetal model */}
               <span className="absolute top-3 end-3 text-[11px] text-muted-foreground bg-background/60 backdrop-blur rounded-full px-2.5 py-1 border border-border/50 flex items-center gap-1">
                 <Sparkles className="h-3 w-3" aria-hidden="true" />
                 {t('studio.demoAsset')}
               </span>
-              {/* Truthful stat chips — glass, wrap-safe on mobile */}
-              <div className="absolute bottom-3 start-3 end-3 flex flex-wrap gap-2 justify-center">
-                {STAGE_STATS.map((s) => (
-                  <div key={s.k} className="rounded-full border border-border/60 bg-background/60 backdrop-blur px-3.5 py-1.5 text-center">
-                    <span className="text-sm font-bold num text-primary">{s.v}</span>{' '}
-                    <span className="text-[11px] text-muted-foreground">{t(s.k)}</span>
-                  </div>
-                ))}
-              </div>
             </div>
             {/* Floating reassurance card */}
             <Card className="hidden sm:block absolute -bottom-7 start-8 end-auto w-72 niva-card shadow-lg">
@@ -242,6 +248,32 @@ export function LandingView() {
                 </div>
               </CardContent>
             </Card>
+          </div>
+          {/* Journey chips — below the panel so nothing ever overlaps; click to jump */}
+          <div className="mt-10 space-y-3">
+            <p className="text-center text-xs text-muted-foreground">{t('landing.journeyCaption')}</p>
+            <div className="flex flex-wrap justify-center gap-2">
+              {JOURNEY.map((j, i) => (
+                <button
+                  key={j.name}
+                  type="button"
+                  aria-pressed={stage === i}
+                  onClick={() => {
+                    setStage(i);
+                    trackLandingEvent('journey_stage');
+                  }}
+                  className={
+                    'rounded-full border px-4 min-h-11 inline-flex items-center gap-2 text-sm transition-colors ' +
+                    (stage === i
+                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
+                      : 'bg-background/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-primary/10')
+                  }
+                >
+                  <span className="font-semibold">{t(j.name)}</span>
+                  <span className="text-xs opacity-70 num">{t(j.week)}</span>
+                </button>
+              ))}
+            </div>
           </div>
         </section>
 
