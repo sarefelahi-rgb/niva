@@ -915,3 +915,23 @@ Stage Summary:
 - Landing hero 3D is now studio-grade: environment reflections, custom fresnel + particle shaders, layered composition (bokeh→rings→shell→pearl→cord→mobile→orbs→dust), cinematic camera.
 - All perf guardrails intact; nothing diagnostic claimed (ambiance visual only).
 - Artifacts: shot-3d-v4.png (desktop light), shot-3d-dark.png (dark), shot-3d-mobile.png (390px).
+
+---
+Task ID: wave9-fetus
+Agent: main (Z.ai Code)
+Task: «نمای سه بعدی لندینگ، جنین زیبایی باشد» — replace the abstract pearl with a beautiful, serene stylized fetus inside the embrace shell.
+
+Work Log:
+- Sculpted a parametric fetus (no assets): C-curved spine via TubeGeometry along a CatmullRom arc (the defining fetal silhouette), head (slightly elongated, chin tucked), chest/belly/hips blend spheres, folded arm (2 capsules + hand), knee drawn up with foot tucked (thigh/shin/knee/foot), tiny nose + ear + closed-eye lash line.
+- Skin: MeshPhysicalMaterial #ffcdb2 with sheen (peachy subsurface feel), low emissive warmth; shared imperative material, disposed on unmount. Limb helper orients capsules A→B via quaternion.
+- 3/4 pose: group base rotation y=0.38 turns the profile gently toward the visitor; gentle sway + heartbeat scale pulse (1.42 base).
+- Cord re-anchored at the navel (end [0.15, 0.06, 0.25] + cap), still the twisted two-vessel helix.
+- Halo sprite + two mandorla rings now frame the child behind it; pulsing childLight kept.
+- Added amniotic shimmer: 6 tiny glassy bubbles drifting inside the shell.
+- Fixed first-pass blobbiness found in browser review: unified the trunk with the spine C-arc tube instead of separate spheres; enlarged fetus 1.3→1.42.
+- Verified with agent-browser: light/dark/390px-mobile screenshots — fetus reads clearly in all three; cord connects to navel; zero page/console errors (only benign THREE.Clock deprecation from r3f internals); lint clean.
+
+Stage Summary:
+- Landing 3D child is now a beautiful stylized fetus: curled profile, closed eyes, warm glowing skin, heartbeat pulse, cord-to-navel, framed by mandorla rings inside the translucent embrace.
+- Honest framing preserved: header docs + on-stage label state it is a stylized educational ambiance visual, not an anatomical/diagnostic model.
+- Artifacts: shot-fetus-4/5.png (light), shot-fetus-dark.png, shot-fetus-mobile.png.

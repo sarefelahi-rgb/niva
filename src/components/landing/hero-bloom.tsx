@@ -8,9 +8,12 @@
  * - Studio lighting via drei <Environment> Lightformers (static, frames={1})
  *   → real reflections on physical materials, zero HDR downloads.
  * - Custom fresnel rim shader on the translucent embrace shell.
- * - The child pearl: iridescent physical material + additive halo sprite +
- *   two micro-orbit rings, all pulsing with the quiet double-thump heartbeat.
- * - Anatomically-inspired cord: a twisted two-vessel helix (Frenet frames).
+ * - The child: a serene, stylized FETUS — curled profile with closed eyes,
+ *   folded limbs and a warm subsurface-like skin, sculpted from soft-blended
+ *   primitives; heartbeat halo + mandorla rings + pulsing inner light.
+ * - Anatomically-inspired cord: a twisted two-vessel helix (Frenet frames)
+ *   anchored at the fetus's navel.
+ * - Amniotic shimmer bubbles drift inside the shell.
  * - Three celestial orbit rings with gliding beads (differential speeds).
  * - Glassy floating orbs bobbing at individual phases.
  * - Soft bokeh depth sprites + a luminous pool beneath the embrace.
@@ -19,9 +22,10 @@
  * - Cinematic camera: breathing dolly + pointer parallax, responsive dolly-out
  *   on narrow viewports so nothing clips on mobile.
  *
- * Integrity: purely an educational ambiance visual — NOT a fetal/anatomical
- * model (the parametric studio lives in src/components/studio/ and is never
- * loaded on the landing). Nothing here claims diagnostic validity.
+ * Integrity: a serene, deliberately STYLIZED fetus — an educational ambiance
+ * visual, not an anatomically accurate or diagnostic rendering (the parametric
+ * studio lives in src/components/studio/ and is never loaded on the landing).
+ * Nothing here claims clinical validity.
  *
  * Performance contract (keeps LCP/INP budgets intact):
  * - mounted via next/dynamic { ssr:false } AFTER idle — never competes with LCP
@@ -51,6 +55,10 @@ const C = {
   lavender: '#c9bce2',
   ivory: '#fff7ef',
 } as const;
+
+/* Child palette — warm, subsurface-like skin */
+const SKIN = '#ffcdb2';
+const SKIN_LINE = '#b06a58';
 
 /** Double-thump heartbeat envelope: two soft bumps per period. */
 function heartbeat(t: number): number {
@@ -342,10 +350,10 @@ function Bokeh({ tex }: { tex: THREE.CanvasTexture }) {
 function Cord() {
   const { mainGeo, wrapGeo } = useMemo(() => {
     const main = new THREE.CubicBezierCurve3(
-      new THREE.Vector3(0.98, -0.55, 0.8),
-      new THREE.Vector3(0.85, -0.75, 0.45),
-      new THREE.Vector3(0.35, -0.6, 0.35),
-      new THREE.Vector3(0.04, -0.14, 0.12)
+      new THREE.Vector3(1.0, -0.55, 0.72),
+      new THREE.Vector3(0.72, -0.6, 0.55),
+      new THREE.Vector3(0.4, -0.2, 0.42),
+      new THREE.Vector3(0.15, 0.06, 0.25)
     );
     const SEG = 140;
     const frames = main.computeFrenetFrames(SEG, false);
@@ -385,15 +393,176 @@ function Cord() {
       <mesh geometry={wrapGeo}>
         <meshStandardMaterial color={C.cordLight} roughness={0.38} />
       </mesh>
-      {/* joint caps */}
-      <mesh position={[0.98, -0.55, 0.8]}>
+      {/* joint caps — wall anchor + navel */}
+      <mesh position={[1.0, -0.55, 0.72]}>
         <sphereGeometry args={[0.02, 10, 10]} />
         <meshStandardMaterial color={C.cord} roughness={0.42} />
       </mesh>
-      <mesh position={[0.04, -0.14, 0.12]}>
+      <mesh position={[0.15, 0.06, 0.25]}>
         <sphereGeometry args={[0.02, 10, 10]} />
         <meshStandardMaterial color={C.cord} roughness={0.42} />
       </mesh>
+    </group>
+  );
+}
+
+/* --------------------------------------------------------------- the child */
+
+type V3 = [number, number, number];
+
+/** A soft limb segment between two points (capsule oriented A→B). */
+function Limb({ a, b, r, material }: { a: V3; b: V3; r: number; material: THREE.Material }) {
+  const { mid, quat, len } = useMemo(() => {
+    const va = new THREE.Vector3(...a);
+    const vb = new THREE.Vector3(...b);
+    const dir = vb.clone().sub(va);
+    const l = dir.length();
+    const q = new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(0, 1, 0), dir.normalize());
+    return { mid: va.clone().add(vb).multiplyScalar(0.5), quat: q, len: l };
+  }, [a, b]);
+  return (
+    <mesh position={mid} quaternion={quat} material={material}>
+      <capsuleGeometry args={[r, Math.max(len - r * 1.6, 0.01), 6, 14]} />
+    </mesh>
+  );
+}
+
+/**
+ * The child — a serene, stylized fetus curled in the embrace.
+ * Side profile facing +X: head tucked low, knees drawn up, feet near the
+ * hips, arms folded across the chest; closed eyes, tiny nose & ear. Softly
+ * blended spheres/capsules with a warm subsurface-like skin. Sways gently
+ * and pulses with the heartbeat. Educational ambiance — not an anatomical
+ * or diagnostic model.
+ */
+function Fetus({ reducedMotion }: { reducedMotion: boolean }) {
+  const group = useRef<THREE.Group>(null);
+
+  const skin = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: SKIN,
+        roughness: 0.34,
+        metalness: 0,
+        clearcoat: 0.3,
+        clearcoatRoughness: 0.5,
+        sheen: 1,
+        sheenColor: new THREE.Color(C.pearlGlow),
+        sheenRoughness: 0.55,
+        emissive: new THREE.Color('#ff8a70'),
+        emissiveIntensity: 0.1,
+        envMapIntensity: 0.7,
+      }),
+    []
+  );
+  useEffect(() => () => skin.dispose(), [skin]);
+  const line = useMemo(
+    () => new THREE.MeshBasicMaterial({ color: SKIN_LINE, transparent: true, opacity: 0.55 }),
+    []
+  );
+  useEffect(() => () => line.dispose(), [line]);
+
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (reducedMotion || !group.current) return;
+    const hb = heartbeat(t);
+    group.current.scale.setScalar(1.42 * (1 + (hb - 1) * 0.5));
+    group.current.rotation.z = Math.sin(t * 0.32) * 0.02;
+    // 3/4 pose — profile turned gently toward the visitor
+    group.current.rotation.y = 0.38 + Math.sin(t * 0.21) * 0.05;
+    group.current.position.y = -0.02 + Math.sin(t * 0.45 + 0.8) * 0.02;
+  });
+
+  /* Spine — the defining C-curve of the fetal silhouette (imperative,
+     disposed on unmount). */
+  const spineGeo = useMemo(() => {
+    const spine = new THREE.CatmullRomCurve3([
+      new THREE.Vector3(0.1, -0.16, 0),
+      new THREE.Vector3(-0.06, -0.1, -0.01),
+      new THREE.Vector3(-0.13, 0.04, -0.01),
+      new THREE.Vector3(-0.09, 0.19, 0),
+    ]);
+    return new THREE.TubeGeometry(spine, 24, 0.088, 14, false);
+  }, []);
+  useEffect(() => () => spineGeo.dispose(), [spineGeo]);
+
+  return (
+    <group ref={group} position={[0, -0.02, 0.12]} rotation={[0, 0.38, 0]} scale={1.42}>
+      {/* curved back — one smooth C-arc from neck to sacrum */}
+      <mesh geometry={spineGeo} material={skin} />
+      {/* head — slightly elongated, chin tucked */}
+      <mesh position={[0.13, -0.27, 0]} scale={[0.92, 1.06, 0.96]} material={skin}>
+        <sphereGeometry args={[0.15, 36, 36]} />
+      </mesh>
+      <mesh position={[0.1, -0.15, 0]} material={skin}>
+        <sphereGeometry args={[0.075, 20, 20]} />
+      </mesh>
+      {/* chest / belly / hips — blended onto the spine arc */}
+      <mesh position={[0.07, -0.09, 0]} material={skin}>
+        <sphereGeometry args={[0.1, 26, 26]} />
+      </mesh>
+      <mesh position={[0.03, 0.02, 0]} material={skin}>
+        <sphereGeometry args={[0.125, 26, 26]} />
+      </mesh>
+      <mesh position={[-0.07, 0.19, 0]} material={skin}>
+        <sphereGeometry args={[0.095, 24, 24]} />
+      </mesh>
+      {/* folded arm across the chest */}
+      <Limb a={[0.06, 0, 0.07]} b={[0.19, -0.05, 0.075]} r={0.042} material={skin} />
+      <Limb a={[0.19, -0.05, 0.075]} b={[0.215, -0.17, 0.06]} r={0.036} material={skin} />
+      <mesh position={[0.22, -0.195, 0.055]} material={skin}>
+        <sphereGeometry args={[0.034, 14, 14]} />
+      </mesh>
+      {/* leg — knee drawn up, foot tucked near the hips */}
+      <Limb a={[-0.08, 0.16, 0.06]} b={[0.15, 0.09, 0.07]} r={0.052} material={skin} />
+      <mesh position={[0.15, 0.09, 0.07]} material={skin}>
+        <sphereGeometry args={[0.052, 16, 16]} />
+      </mesh>
+      <Limb a={[0.15, 0.09, 0.07]} b={[0, 0.27, 0.03]} r={0.042} material={skin} />
+      <mesh position={[0, 0.285, 0.03]} material={skin}>
+        <sphereGeometry args={[0.034, 14, 14]} />
+      </mesh>
+      {/* profile beauty marks */}
+      <mesh position={[0.265, -0.29, 0.045]} material={skin}>
+        <sphereGeometry args={[0.016, 12, 12]} />
+      </mesh>
+      <mesh position={[0.06, -0.28, 0.13]} material={skin}>
+        <sphereGeometry args={[0.02, 12, 12]} />
+      </mesh>
+      {/* closed eye — a calm lash line */}
+      <Limb a={[0.19, -0.23, 0.115]} b={[0.24, -0.205, 0.095]} r={0.006} material={line} />
+    </group>
+  );
+}
+
+/** Amniotic shimmer — tiny bubbles drifting inside the shell. */
+function Bubbles() {
+  const group = useRef<THREE.Group>(null);
+  useFrame(({ clock }) => {
+    const t = clock.getElapsedTime();
+    if (!group.current) return;
+    group.current.position.y = Math.sin(t * 0.22) * 0.05;
+    group.current.rotation.y = t * 0.04;
+  });
+  const items = useMemo<{ p: V3; r: number }[]>(
+    () => [
+      { p: [0.55, 0.35, 0.5], r: 0.024 },
+      { p: [-0.62, 0.12, 0.42], r: 0.018 },
+      { p: [0.32, -0.55, 0.45], r: 0.02 },
+      { p: [-0.38, -0.4, 0.55], r: 0.016 },
+      { p: [0.68, -0.08, 0.2], r: 0.014 },
+      { p: [-0.22, 0.55, 0.32], r: 0.022 },
+    ],
+    []
+  );
+  return (
+    <group ref={group}>
+      {items.map((b, i) => (
+        <mesh key={i} position={b.p}>
+          <sphereGeometry args={[b.r, 12, 12]} />
+          <meshPhysicalMaterial color="#ffffff" transparent opacity={0.26} roughness={0.08} clearcoat={1} depthWrite={false} />
+        </mesh>
+      ))}
     </group>
   );
 }
@@ -449,9 +618,8 @@ function Mobile() {
 
 function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
   const group = useRef<THREE.Group>(null);
-  const pearl = useRef<THREE.Mesh>(null);
   const halo = useRef<THREE.Sprite>(null);
-  const pearlLight = useRef<THREE.PointLight>(null);
+  const childLight = useRef<THREE.PointLight>(null);
   const haloRings = useRef<THREE.Group>(null);
   const shell = useRef<THREE.Mesh>(null);
   const mobile = useRef<THREE.Group>(null);
@@ -477,16 +645,16 @@ function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
       const b = 1 + Math.sin(t * 0.45) * 0.014;
       shell.current.scale.set(b, 1 / b, b);
     }
-    // Pearl heartbeat → pearl, halo sprite, micro-rings, light
+    // Child heartbeat → halo sprite, mandorla rings, inner light (the fetus
+    // pulses its own scale/sway inside <Fetus>)
     const hb = heartbeat(t);
-    if (pearl.current) pearl.current.scale.setScalar(hb);
     if (halo.current) {
-      const s = 1.6 + (hb - 1) * 3.2;
+      const s = 1.7 + (hb - 1) * 3;
       halo.current.scale.set(s, s, 1);
-      (halo.current.material as THREE.SpriteMaterial).opacity = 0.34 + (hb - 1) * 2.4;
+      (halo.current.material as THREE.SpriteMaterial).opacity = 0.22 + (hb - 1) * 2;
     }
-    if (haloRings.current) haloRings.current.scale.setScalar(1 + (hb - 1) * 1.4);
-    if (pearlLight.current) pearlLight.current.intensity = 0.6 + (hb - 1) * 2.2;
+    if (haloRings.current) haloRings.current.scale.setScalar(1 + (hb - 1) * 1.2);
+    if (childLight.current) childLight.current.intensity = 0.7 + (hb - 1) * 2.2;
     // Mobile drift
     if (mobile.current) {
       mobile.current.rotation.y = t * 0.13;
@@ -529,37 +697,26 @@ function Embrace({ reducedMotion }: { reducedMotion: boolean }) {
       {/* Fresnel rim — the professional edge glow */}
       <FresnelRim radius={1.35} color={C.shellGlow} power={2.7} intensity={0.95} scale={1.015} />
 
-      {/* The child — iridescent pearl with heartbeat */}
-      <mesh ref={pearl} position={[0, -0.05, 0.1]}>
-        <sphereGeometry args={[0.3, 40, 40]} />
-        <meshPhysicalMaterial
-          color={C.pearl}
-          roughness={0.14}
-          clearcoat={1}
-          clearcoatRoughness={0.1}
-          iridescence={0.9}
-          iridescenceIOR={1.32}
-          emissive={C.pearlGlow}
-          emissiveIntensity={0.5}
-          envMapIntensity={1.15}
-        />
-      </mesh>
-      {/* Heartbeat halo sprite */}
-      <sprite ref={halo} position={[0, -0.05, 0.06]} scale={[1.6, 1.6, 1]}>
-        <spriteMaterial map={glowTex} color={C.pearlGlow} transparent opacity={0.34} blending={THREE.AdditiveBlending} depthWrite={false} />
+      {/* The child — serene stylized fetus curled in the embrace */}
+      {/* Heartbeat halo behind the child */}
+      <sprite ref={halo} position={[0, -0.02, 0.02]} scale={[1.7, 1.7, 1]}>
+        <spriteMaterial map={glowTex} color={C.pearlGlow} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
-      {/* Micro orbit rings around the pearl — intimate echo of the celestial ones */}
-      <group ref={haloRings} position={[0, -0.05, 0.1]}>
-        <mesh rotation={[1.15, 0.2, 0]}>
-          <torusGeometry args={[0.44, 0.004, 8, 64]} />
-          <meshBasicMaterial color={C.coral} transparent opacity={0.35} blending={THREE.AdditiveBlending} depthWrite={false} />
+      {/* Mandorla rings framing the child — intimate echo of the celestial ones */}
+      <group ref={haloRings} position={[0, -0.02, -0.15]}>
+        <mesh rotation={[1.35, 0.25, 0]}>
+          <torusGeometry args={[0.62, 0.0045, 8, 72]} />
+          <meshBasicMaterial color={C.coral} transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
-        <mesh rotation={[1.9, -0.3, 0.4]}>
-          <torusGeometry args={[0.52, 0.0035, 8, 64]} />
-          <meshBasicMaterial color={C.sage} transparent opacity={0.28} blending={THREE.AdditiveBlending} depthWrite={false} />
+        <mesh rotation={[1.75, -0.35, 0.5]}>
+          <torusGeometry args={[0.75, 0.004, 8, 72]} />
+          <meshBasicMaterial color={C.sage} transparent opacity={0.24} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       </group>
-      <pointLight ref={pearlLight} position={[0, -0.05, 0.4]} intensity={0.6} distance={3.2} color={C.pearlGlow} />
+      <Fetus reducedMotion={reducedMotion} />
+      <pointLight ref={childLight} position={[0.15, 0, 0.55]} intensity={0.7} distance={3.2} color={C.pearlGlow} />
+      {/* Amniotic shimmer inside the shell */}
+      <Bubbles />
 
       {/* Twisted two-vessel cord */}
       <Cord />
