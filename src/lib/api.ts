@@ -17,15 +17,55 @@ export function apiError(status: number, code: string, message: string, requestI
   return res;
 }
 
-/** Same-origin enforcement for state-changing requests (CSRF defense layer). */
+/**
+ * Same-origin enforcement for state-changing requests (CSRF defense layer).
+ *
+ * Proxy-aware on purpose: behind the sandbox preview gateway (and any generic
+ * reverse proxy) the visible `Host` is frequently rewritten to the internal
+ * upstream while the browser's `Origin` keeps the public origin — a naive
+ * Origin-vs-Host comparison then 403s every legitimate POST (login/register
+ * included). Resolution order:
+ *
+ *   1) `Sec-Fetch-Site` — the browser's own attestation of whether the request
+ *      originated from the same site. `same-origin`/`same-site` can never be a
+ *      cross-site CSRF vector, regardless of host rewriting. `cross-site` is
+ *      rejected outright.
+ *   2) Origin host vs `x-forwarded-host` (comma list) then `Host`.
+ *   3) `NIVA_ALLOWED_ORIGINS` env allowlist (comma-separated origins/hosts)
+ *      for gateways that rewrite even the forwarded-host chain.
+ */
 export function assertSameOrigin(req: Request): boolean {
   const method = req.method.toUpperCase();
   if (method === 'GET' || method === 'HEAD') return true;
   const origin = req.headers.get('origin');
   if (!origin) return true; // non-browser clients
-  const host = req.headers.get('host');
   try {
-    return new URL(origin).host === host;
+    const originHost = new URL(origin).host;
+
+    const fetchSite = (req.headers.get('sec-fetch-site') ?? '').toLowerCase();
+    if (fetchSite === 'same-origin' || fetchSite === 'same-site') return true;
+    if (fetchSite === 'cross-site') return false;
+
+    const forwarded = `${req.headers.get('x-forwarded-host') ?? ''},${req.headers.get('host') ?? ''}`;
+    for (const h of forwarded.split(',')) {
+      const candidate = h.trim();
+      if (candidate && candidate === originHost) return true;
+    }
+
+    const allowlist = (process.env.NIVA_ALLOWED_ORIGINS ?? '')
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
+    for (const entry of allowlist) {
+      if (entry === origin) return true;
+      if (!entry.includes('://')) {
+        if (entry === originHost) return true;
+      } else if (new URL(entry).host === originHost) {
+        return true;
+      }
+    }
+
+    return false;
   } catch {
     return false;
   }

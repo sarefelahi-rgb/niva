@@ -956,3 +956,26 @@ Stage Summary:
 - The landing 3D now tells the full story: from fertilization to birth, interactive via journey chips, auto-playing otherwise.
 - Text overlap eliminated: nothing is absolutely positioned over the chips anymore; floating card has clean 40px clearance.
 - Artifacts: journey-s0..s4.png, journey-sm.png, journey-mobile.png, journey-dark-s0.png, chips-recheck.png.
+
+---
+Task ID: wave10-csrf-fix
+Agent: main (Z.ai Code)
+Task: Fix login failure "Cross-origin request rejected" (user report: ورود ارور Cross-origin request rejected میدهد).
+
+Work Log:
+- Read dev.log: every POST route (/api/auth/login, /api/auth/demo, /api/analytics/landing, /api/scheduler/tick) returned 403 with code CSRF "Cross-origin request rejected".
+- Root cause: assertSameOrigin() in src/lib/api.ts compared Origin host ONLY against the Host header. Behind the sandbox preview gateway the visible Host is rewritten to the internal upstream while the browser Origin keeps the public origin → mismatch → all POSTs 403'd for preview-panel users.
+- Fix (src/lib/api.ts, shared by login/register/demo/scheduler/webhook/analytics routes):
+  1) Trust Sec-Fetch-Site first: same-origin/same-site allowed, cross-site rejected outright (browser's own attestation, immune to host rewriting).
+  2) Origin host vs x-forwarded-host (comma list) then Host (proxy-aware fallback).
+  3) New NIVA_ALLOWED_ORIGINS env allowlist (comma-separated origins or bare hosts) for gateways that rewrite the whole forwarded chain.
+- Added temp POST /api/debug-headers echo route; measured headers via agent-browser fetch() from the real page (origin=host=localhost:3000 direct; confirmed gate logic paths with crafted curl headers).
+- curl matrix: same-origin fetch-site + foreign Origin → gate PASSED (401 invalid creds); cross-site → 403 CSRF kept; x-forwarded-host match → gate PASSED (400 validation); foreign origin w/o signals → 403 CSRF kept. CSRF defense intact.
+- Discovered second blocker: db had ZERO users (POST /api/auth/demo 404 "Demo account is not seeded"). Ran `bun run db:seed` (seed complete; 61 content items flagged pending clinical review as designed).
+- Browser E2E (agent-browser): landing → ورود → demo login (POST /api/auth/demo → 200) → onboarding completed → authenticated dashboard renders (سلام Demo 👋, full nav). GET /api/auth/me → {email: demo@niva.health, role: USER}. No page errors; only pre-existing benign Radix DialogContent aria warning. Screenshot: agent-ctx/shot-login-fixed.png.
+- Removed temp debug route; `bun run lint` clean.
+
+Stage Summary:
+- Login now works end-to-end in the preview context; CSRF protection remains fully enforced (cross-site still rejected; allowlist opt-in via NIVA_ALLOWED_ORIGINS).
+- Real cause was two-fold: proxy-blind Origin check (fixed in shared lib) + empty database (seeded).
+- Note for future waves: keep assertSameOrigin as the single CSRF gate; route-level copies all import it from src/lib/api.ts.
