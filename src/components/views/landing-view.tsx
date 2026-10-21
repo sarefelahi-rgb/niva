@@ -208,6 +208,12 @@ export function LandingView() {
             >
               {/* Base gradient always present → no flash while three.js streams in */}
               <div className="absolute inset-0 niva-grad" aria-hidden="true" />
+              {/* Luminous pool behind the 3D scene — the embrace sits in light */}
+              <div
+                className="absolute inset-0"
+                aria-hidden="true"
+                style={{ background: 'radial-gradient(46% 40% at 50% 42%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 74%)' }}
+              />
               {bloomReady && <HeroBloom />}
               {/* Honesty label — the scene is educational ambiance, not a fetal model */}
               <span className="absolute top-3 end-3 text-[11px] text-muted-foreground bg-background/60 backdrop-blur rounded-full px-2.5 py-1 border border-border/50 flex items-center gap-1">

@@ -893,3 +893,25 @@ Stage Summary:
 - Two user-facing bugs fixed at the root: (1) login was broken because the DB lost its seed (now re-seeded); (2) old landing was the service worker's stale shell cache (now production-only + actively retired in dev + v2 without the 3s timeout).
 - Studio React 19 nested-root race eliminated via stable Html portal; WebGL detection gating added; StrictMode preserved.
 - All fixes browser-verified E2E with zero errors; tsc/lint clean.
+
+---
+Task ID: wave9-3d-polish
+Agent: main (Z.ai Code)
+Task: «نمای سه بعدی ساده است حرفه ای تر و زیباترش کن» — upgrade the landing 3D "Embrace" scene to a studio-grade cinematic composition.
+
+Work Log:
+- Rewrote src/components/landing/hero-bloom.tsx (v2 cinematic pass), keeping the entire Wave 8 performance contract (idle-mount, dpr≤1.5, viewport-gated frameloop, reduced-motion single frame, imperative dispose).
+- Studio lighting: drei <Environment resolution={64} frames={1}> with 4 Lightformers (no HDR download, rendered once) → real reflections on physical materials.
+- Custom GLSL: fresnel rim shader on the translucent shell (replaces backside-sphere hack); stardust shader points (per-particle size/phase, round soft falloff, twinkle — no square points).
+- Pearl upgraded: iridescent meshPhysicalMaterial + additive halo sprite + two micro-orbit rings + pulsing point light, all driven by the double-thump heartbeat envelope.
+- Cord rebuilt as a twisted two-vessel helix: main tube + tapered CatmullRom wrap via curve.computeFrenetFrames (tapered radius → organic, not spring-like).
+- New composition layers: 3 celestial orbit rings with gliding beads (differential speeds), 5 glassy bobbing orbs, 6 bokeh depth sprites + luminous pool, refined nursery mobile with arc hanger and swaying satellites.
+- Cinematic camera rig: breathing dolly + pointer parallax + responsive dolly-out (aspect<1.5 → z=5.9, else 5.3) so nothing clips on mobile.
+- landing-view.tsx: added radial luminous pool behind the canvas.
+- Fixed first-pass issues found in browser review: composition cramped/clipped (camera pulled back), mechanical spring-like cord (tapered helix), shell too opaque (opacity 0.3→0.26, fresnel 0.8→0.95).
+- Verified with agent-browser: desktop light + dark mode + 390px mobile screenshots, zero page errors, zero shader errors (only benign THREE.Clock deprecation from r3f internals).
+
+Stage Summary:
+- Landing hero 3D is now studio-grade: environment reflections, custom fresnel + particle shaders, layered composition (bokeh→rings→shell→pearl→cord→mobile→orbs→dust), cinematic camera.
+- All perf guardrails intact; nothing diagnostic claimed (ambiance visual only).
+- Artifacts: shot-3d-v4.png (desktop light), shot-3d-dark.png (dark), shot-3d-mobile.png (390px).
