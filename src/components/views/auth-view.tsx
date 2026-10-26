@@ -7,7 +7,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription } from '@/components/ui/alert';
-import { Loader2, ShieldCheck, Smartphone, KeyRound, Info } from 'lucide-react';
+import { Loader2, ShieldCheck, Smartphone, KeyRound, Wand2 } from 'lucide-react';
 import { setToken } from '@/lib/auth-token';
 import { maskMobile, normalizeDigits } from '@/lib/phone';
 
@@ -178,13 +178,25 @@ export function AuthView() {
                   {t('auth.otpSent')} <span dir="ltr" className="font-medium text-foreground num">{maskMobile(normalizeDigits(phone).replace(/[^\d+]/g, ''))}</span>
                 </p>
                 {devMode && devCode && (
-                  <Alert role="status" className="border-primary/40 bg-primary/5">
-                    <Info className="h-4 w-4 text-primary" aria-hidden="true" />
-                    <AlertDescription className="text-xs leading-relaxed">
-                      {t('auth.devCodeNote')}
-                      <span dir="ltr" className="block mt-1 font-bold text-base tracking-widest num">{devCode}</span>
-                    </AlertDescription>
-                  </Alert>
+                  <div
+                    role="status"
+                    className="rounded-lg border border-primary/40 bg-primary/5 p-3 text-center space-y-2"
+                  >
+                    <p className="text-xs text-muted-foreground leading-relaxed">{t('auth.devCodeNote')}</p>
+                    <p dir="ltr" aria-label="OTP code" className="font-bold text-3xl tracking-[0.35em] num text-primary select-all">
+                      {devCode}
+                    </p>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      className="min-h-9"
+                      onClick={() => setCode(devCode)}
+                    >
+                      <Wand2 className="h-4 w-4 me-2" aria-hidden="true" />
+                      {t('auth.devCodeFill')}
+                    </Button>
+                  </div>
                 )}
                 <div className="space-y-2">
                   <Label htmlFor="code">{t('auth.otpCode')}</Label>
