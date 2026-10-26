@@ -54,8 +54,8 @@ export const STUDIO_QUALITY_PRESETS: Record<StudioQuality, StudioQualityPreset> 
     tubeSegments: 24,
     vesselSegments: 12,
     eyeSegments: [10, 8],
-    mcRes: 26,
-    maxPoly: 32_000,
+    mcRes: 34,
+    maxPoly: 60_000,
   },
   medium: {
     dprCap: 1.5,
@@ -67,8 +67,8 @@ export const STUDIO_QUALITY_PRESETS: Record<StudioQuality, StudioQualityPreset> 
     tubeSegments: 48,
     vesselSegments: 16,
     eyeSegments: [16, 12],
-    mcRes: 36,
-    maxPoly: 64_000,
+    mcRes: 48,
+    maxPoly: 160_000,
   },
   high: {
     dprCap: 2,
@@ -80,7 +80,7 @@ export const STUDIO_QUALITY_PRESETS: Record<StudioQuality, StudioQualityPreset> 
     tubeSegments: 96,
     vesselSegments: 24,
     eyeSegments: [24, 18],
-    mcRes: 48,
-    maxPoly: 120_000,
+    mcRes: 64,
+    maxPoly: 320_000,
   },
 };

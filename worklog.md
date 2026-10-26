@@ -1043,3 +1043,19 @@ Work Log:
 Stage Summary:
 - OTP login now visibly shows the code in preview mode (sms.ir not connected) with one-tap auto-fill; contract preserved: devCode only exists while SMS_IR_API_KEY/SMS_IR_TEMPLATE_ID are unset — adding the key flips to real sms.ir delivery automatically with no UI hint.
 - Dev stack is self-healing now: dev-watchdog.sh (PID 1 tree) restarts next dev and scheduler after crashes/OOM; root cause of the outage documented.
+---
+Task ID: 12
+Agent: main (Z.ai Code)
+Task: «مدل سه بعدی هفته به هفته داخل سامانه واقعی نیست. کل هفته ها باید بازنگری شود. هفته چهلم چهره ندارد. هفته ۱ تا ۴ را هم ندارد.» — full studio 3D rework.
+
+Work Log:
+- Weeks 1–3 added (ConceptionModel, new src/components/studio/conception-model.tsx): w1 fertilization (ovum, zona pellucida, corona radiata, approaching sperm with tail, pronuclei phase, 2-cell cleavage), w2 4/8-cell → morula → blastocyst (trophectoderm, blastocoel fluid, inner cell mass), w3 implantation (endometrial mound, embedding, embryonic disc + primitive streak, connecting stalk, chorionic villi). Fibonacci-sphere cell distribution, staged cleavage ladder (no overlapping mixes), damped week glide, InstancedMesh cell pool, full dispose hygiene, reduced-motion + quality tiers honored.
+- params.ts: STAGE_WEEKS now [1,2,3,4,5,6,7,8,10,12,14,16,20,24,28,32,36,40] (guided tour covers conception stages), conceptionAnchor() for cellular hotspots, limb keyframes raised across the board (w12 0.40→0.55 … w40 0.97→1.00).
+- Face rig (fetus-model.tsx): real features as resolution-independent overlay meshes — eyes that MIGRATE from wide-set lateral (embryo) to frontal (fetus) with yaw lerp, eyelids (closed → fused-lid seam weeks 8–23 → open with dark iris dome + glint + blink cycle ~26w+), retinal pigment spots before lids form, eyebrows (18w+), nose (bridge/tip/alae/nostrils, 10–26w), lips with seam line (11–22w), ears as pinna+ridge+lobe rising from low-set embryonic position (9–20w); vernix caseosa skin shift (30–38w); shared per-week face palette effect, zero per-frame allocation.
+- Realism fixes: MC grid EXT 1.78→2.05 (kills week 10–14 flat-top head clipping) + mcRes/maxPoly raised (34/48/64, 60k/160k/320k); limbs longer (arm 0.64→0.8, leg 0.7→0.88, hands/feet bigger); umbilical cord control points now scale with the fetus envelope (no more world-size loop at early weeks) + thinner taper; brow metaball overhang reduced so irises are not submerged; default camera lowered/yawed ([0.72, 0.16, zoom·0.96]) so the curled face and early C-silhouette read correctly; reset button now also resets accumulated auto-rotate spin (model remount via spinKey).
+- studio-content.ts: weeks 1–3 bilingual entries (titles, narrations, magnification-honest size comparisons, cited annotations); stageContentForWeek clamp 1..40.
+- fetal-studio.tsx: slider min 1, conception/fetus switch, microscope badge (studio.microScope fa/en) for weeks 1–3, layer toggles mapped to cells/shell/mound.
+- Verified (agent-browser): week 1 (ovum+corona+sperm+pins), week 2 (cleavage + blastocyst pins), week 3 (mound + embedding + disc pins), week 8 (C-curl embryo, natural cord, limb buds), week 12 (face profile, no head clipping), week 20 (distinct face), week 28 (open dark irises + brows + lips), week 40 (nose/lips/brows/ears/chin + vernix). Screenshots: agent-ctx/w12*.png. Lint clean, no console/page errors.
+
+Stage Summary:
+- The week-by-week studio now covers the whole journey 1→40: cellular conception stages with honest magnification framing, embryonic period with migrating facial anatomy, fetal period with a distinct term face (the week-40 complaint), longer limbs, unclipped cranium, natural cord, and a self-consistent camera. Performance contracts kept: LOD tiers, dispose-on-unmount, damped morphs, reduced-motion paths.

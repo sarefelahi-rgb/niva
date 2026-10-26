@@ -23,24 +23,26 @@ export interface StageParams {
 // Keyframes derived from standard human embryology proportion references (educational).
 export const STAGE_KEYFRAMES: Array<{ week: number; p: StageParams }> = [
   { week: 4,  p: { scale: 0.06, headRatio: 0.50, curl: 1.60, limb: 0.00, limbWidth: 0.00, eye: 0.35, cord: 0.50, placenta: 0.40, uterus: 0.95 } },
-  { week: 6,  p: { scale: 0.10, headRatio: 0.55, curl: 1.50, limb: 0.08, limbWidth: 0.20, eye: 0.42, cord: 0.60, placenta: 0.45, uterus: 0.95 } },
-  { week: 8,  p: { scale: 0.16, headRatio: 0.60, curl: 1.30, limb: 0.18, limbWidth: 0.35, eye: 0.46, cord: 0.70, placenta: 0.50, uterus: 0.98 } },
-  { week: 10, p: { scale: 0.24, headRatio: 0.58, curl: 1.00, limb: 0.30, limbWidth: 0.50, eye: 0.40, cord: 0.80, placenta: 0.55, uterus: 1.00 } },
-  { week: 12, p: { scale: 0.32, headRatio: 0.52, curl: 0.75, limb: 0.40, limbWidth: 0.60, eye: 0.35, cord: 0.90, placenta: 0.60, uterus: 1.04 } },
-  { week: 16, p: { scale: 0.45, headRatio: 0.42, curl: 0.50, limb: 0.52, limbWidth: 0.70, eye: 0.30, cord: 1.00, placenta: 0.66, uterus: 1.10 } },
-  { week: 20, p: { scale: 0.58, headRatio: 0.36, curl: 0.40, limb: 0.62, limbWidth: 0.80, eye: 0.26, cord: 1.10, placenta: 0.72, uterus: 1.18 } },
-  { week: 24, p: { scale: 0.70, headRatio: 0.32, curl: 0.32, limb: 0.70, limbWidth: 0.88, eye: 0.24, cord: 1.20, placenta: 0.78, uterus: 1.28 } },
-  { week: 28, p: { scale: 0.80, headRatio: 0.30, curl: 0.28, limb: 0.78, limbWidth: 0.95, eye: 0.22, cord: 1.30, placenta: 0.84, uterus: 1.38 } },
-  { week: 32, p: { scale: 0.88, headRatio: 0.28, curl: 0.25, limb: 0.85, limbWidth: 1.00, eye: 0.20, cord: 1.40, placenta: 0.90, uterus: 1.48 } },
-  { week: 36, p: { scale: 0.95, headRatio: 0.27, curl: 0.22, limb: 0.92, limbWidth: 1.05, eye: 0.19, cord: 1.50, placenta: 0.95, uterus: 1.58 } },
-  { week: 40, p: { scale: 1.00, headRatio: 0.26, curl: 0.20, limb: 0.97, limbWidth: 1.10, eye: 0.18, cord: 1.60, placenta: 1.00, uterus: 1.68 } },
+  { week: 6,  p: { scale: 0.10, headRatio: 0.55, curl: 1.50, limb: 0.10, limbWidth: 0.22, eye: 0.42, cord: 0.60, placenta: 0.45, uterus: 0.95 } },
+  { week: 8,  p: { scale: 0.16, headRatio: 0.60, curl: 1.30, limb: 0.22, limbWidth: 0.38, eye: 0.46, cord: 0.70, placenta: 0.50, uterus: 0.98 } },
+  { week: 10, p: { scale: 0.24, headRatio: 0.58, curl: 1.00, limb: 0.38, limbWidth: 0.52, eye: 0.40, cord: 0.80, placenta: 0.55, uterus: 1.00 } },
+  { week: 12, p: { scale: 0.32, headRatio: 0.52, curl: 0.75, limb: 0.55, limbWidth: 0.62, eye: 0.35, cord: 0.90, placenta: 0.60, uterus: 1.04 } },
+  { week: 16, p: { scale: 0.45, headRatio: 0.42, curl: 0.50, limb: 0.72, limbWidth: 0.72, eye: 0.30, cord: 1.00, placenta: 0.66, uterus: 1.10 } },
+  { week: 20, p: { scale: 0.58, headRatio: 0.36, curl: 0.40, limb: 0.82, limbWidth: 0.82, eye: 0.26, cord: 1.10, placenta: 0.72, uterus: 1.18 } },
+  { week: 24, p: { scale: 0.70, headRatio: 0.32, curl: 0.32, limb: 0.88, limbWidth: 0.90, eye: 0.24, cord: 1.20, placenta: 0.78, uterus: 1.28 } },
+  { week: 28, p: { scale: 0.80, headRatio: 0.30, curl: 0.28, limb: 0.92, limbWidth: 0.97, eye: 0.22, cord: 1.30, placenta: 0.84, uterus: 1.38 } },
+  { week: 32, p: { scale: 0.88, headRatio: 0.28, curl: 0.25, limb: 0.95, limbWidth: 1.02, eye: 0.20, cord: 1.40, placenta: 0.90, uterus: 1.48 } },
+  { week: 36, p: { scale: 0.95, headRatio: 0.27, curl: 0.22, limb: 0.97, limbWidth: 1.08, eye: 0.19, cord: 1.50, placenta: 0.95, uterus: 1.58 } },
+  { week: 40, p: { scale: 1.00, headRatio: 0.26, curl: 0.20, limb: 1.00, limbWidth: 1.14, eye: 0.18, cord: 1.60, placenta: 1.00, uterus: 1.68 } },
 ];
 
-export const STAGE_WEEKS = STAGE_KEYFRAMES.map((k) => k.week);
+export const STAGE_WEEKS = [1, 2, 3, 4, 5, 6, 7, 8, 10, 12, 14, 16, 20, 24, 28, 32, 36, 40];
 
 const lerp = (a: number, b: number, t: number) => a + (b - a) * t;
 
-/** Smoothly interpolates anatomical proportions for any gestational week 4–40. */
+/** Smoothly interpolates anatomical proportions for any gestational week 4–40.
+ *  Weeks 1–3 (cellular stages) reuse the week-4 envelope so shared helpers
+ *  (anchors, cord, membrane) stay finite — the conception renderer ignores it. */
 export function paramsForWeek(week: number): StageParams {
   const w = Math.min(Math.max(week, 4), 40);
   for (let i = 0; i < STAGE_KEYFRAMES.length - 1; i++) {
@@ -160,6 +162,38 @@ export function hotspotPositions(p: StageParams): Record<string, [number, number
 
 /** Annotation marker targets (driven by src/data/studio-content.ts). */
 export type AnnotationTarget = 'head' | 'heart' | 'limb' | 'cord' | 'placenta' | 'uterus' | 'body';
+
+/**
+ * Conception-stage (weeks 1–3) hotspot anchors in the conception scene's local
+ * space. The conception renderer keeps its objects near the unit sphere, so
+ * these are fixed, hand-tuned positions — no parametric envelope involved.
+ */
+export function conceptionAnchor(week: number, target: AnnotationTarget): [number, number, number] {
+  const w = Math.min(Math.max(week, 1), 3);
+  if (w === 1) {
+    switch (target) {
+      case 'head': return [0, 0.06, 0.10];       // zygote / pronuclei
+      case 'placenta': return [0, 0.32, -0.82];  // corona radiata halo (upper back)
+      case 'cord': return [0, -0.34, -0.92];     // zona pellucida shell (lower back)
+      default: return [0, 0, 0.4];
+    }
+  }
+  if (w === 2) {
+    switch (target) {
+      case 'head': return [0, 0.52, 0.30];       // inner cell mass pole
+      case 'placenta': return [0.72, -0.1, -0.55]; // trophectoderm wall
+      case 'cord': return [0, -0.15, 0.25];      // blastocoel cavity centre
+      default: return [0, 0, 0.4];
+    }
+  }
+  switch (target) {
+    case 'head': return [0, -0.12, -0.02];       // embryonic disc (implanted)
+    case 'cord': return [0.42, -0.08, 0.06];     // connecting stalk at the disc edge
+    case 'placenta': return [0.3, -0.35, -0.3];  // early villi into the wall
+    case 'uterus': return [0, -0.62, -0.42];     // endometrial mound front
+    default: return [0, -0.1, 0.2];
+  }
+}
 
 /**
  * Approximate world-space anchors for contextual annotation markers.

@@ -9,10 +9,11 @@ import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
 import { STAGE_WEEKS, paramsForWeek } from './params';
 import { FetusModel } from './fetus-model';
+import { ConceptionModel } from './conception-model';
 import { StudioLighting, AmnioticParticles } from './scene';
 import { STUDIO_QUALITY_PRESETS } from './quality';
 import { stageContentForWeek } from '@/data/studio-content';
-import { Box, Play, Pause, RotateCcw, ZoomIn, ZoomOut, ScanEye, BookOpenText, Layers, Sparkles, Volume2, Square, MonitorPlay, RefreshCw } from 'lucide-react';
+import { Box, Play, Pause, RotateCcw, ZoomIn, ZoomOut, ScanEye, BookOpenText, Layers, Sparkles, Volume2, Square, MonitorPlay, RefreshCw, Microscope } from 'lucide-react';
 import type * as THREE from 'three';
 
 interface AssetInfo {
@@ -39,6 +40,9 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   const [webglOk, setWebglOk] = useState<boolean | null>(null);
   const [ctxLost, setCtxLost] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
+  // Bumped by the reset button: remounts the model group so the accumulated
+  // auto-rotate spin resets together with the camera (spin has no other undo).
+  const [spinKey, setSpinKey] = useState(0);
   const [autoAdjusted, setAutoAdjusted] = useState(false);
   const glRef = useRef<THREE.WebGLRenderer | null>(null);
   const cameraRef = useRef<{ fov: number; updateProjectionMatrix(): void } | null>(null);
@@ -197,7 +201,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           dpr={[1, preset.dprCap]}
           shadows={preset.shadows}
           gl={{ antialias: true, alpha: true }}
-          camera={{ position: [0.55, 0.32, zoom], fov: 40 }}
+          camera={{ position: [0.72, 0.16, zoom * 0.96], fov: 40 }}
           onCreated={({ gl, camera }) => {
             glRef.current = gl;
             cameraRef.current = camera as unknown as { fov: number; updateProjectionMatrix(): void };
@@ -215,18 +219,35 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
         >
           <StudioLighting quality={quality} />
           <Suspense fallback={null}>
-            <FetusModel
-              week={week}
-              showFetus={fetus}
-              showPlacenta={placenta}
-              showUterus={uterus}
-              showLabels={labels && !reduceMotion}
-              autoRotate={autoRotate && !reduceMotion}
-              quality={quality}
-              labelsLang={locale === 'fa' ? 'fa' : 'en'}
-              closeLabel={t('common.close')}
-              labelsPortal={labelsPortal}
-            />
+            {week < 4 ? (
+              <ConceptionModel
+                key={`c${spinKey}`}
+                week={week}
+                showCells={fetus}
+                showShell={placenta}
+                showUterus={uterus}
+                showLabels={labels && !reduceMotion}
+                autoRotate={autoRotate && !reduceMotion}
+                quality={quality}
+                labelsLang={locale === 'fa' ? 'fa' : 'en'}
+                closeLabel={t('common.close')}
+                labelsPortal={labelsPortal}
+              />
+            ) : (
+              <FetusModel
+                key={`f${spinKey}`}
+                week={week}
+                showFetus={fetus}
+                showPlacenta={placenta}
+                showUterus={uterus}
+                showLabels={labels && !reduceMotion}
+                autoRotate={autoRotate && !reduceMotion}
+                quality={quality}
+                labelsLang={locale === 'fa' ? 'fa' : 'en'}
+                closeLabel={t('common.close')}
+                labelsPortal={labelsPortal}
+              />
+            )}
           </Suspense>
           <AmnioticParticles count={preset.particles} size={preset.particleSize} reduceMotion={reduceMotion} />
           <AdaptiveQuality quality={quality} onDegrade={handleDegrade} />
@@ -235,7 +256,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
             enablePan={false}
             minDistance={1.6}
             maxDistance={9}
-            target={[0, 0.05, 0]}
+            target={[0, 0.1, 0]}
             autoRotate={false}
             makeDefault
           />
@@ -279,6 +300,12 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           <Badge className="w-fit bg-warning/15 text-warning-foreground border-warning/30 text-[10px]">
             {t('studio.demoAsset')}
           </Badge>
+          {week < 4 && (
+            <Badge variant="outline" className="w-fit max-w-[210px] whitespace-normal text-start text-[10px] leading-snug">
+              <Microscope className="me-1 h-3 w-3 shrink-0" aria-hidden />
+              {t('studio.microScope')}
+            </Badge>
+          )}
           {stage?.reviewStatus && (
             <Badge variant="outline" className="w-fit text-[10px]">{t(`status.${stage.reviewStatus}`)}</Badge>
           )}
@@ -291,7 +318,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={zoomOut} aria-label={t('studio.zoomOut')}>
             <ZoomOut className="h-4 w-4" />
           </Button>
-          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={() => { setZoom(5.0); setCameraFov(40); }} aria-label={t('studio.reset')}>
+          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={() => { setZoom(5.0); setCameraFov(40); setSpinKey((k) => k + 1); }} aria-label={t('studio.reset')}>
             <RotateCcw className="h-4 w-4" />
           </Button>
         </div>
@@ -313,7 +340,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           <Slider
             value={[week]}
             onValueChange={(v) => setWeek(v[0])}
-            min={4}
+            min={1}
             max={40}
             step={1}
             aria-label={t('studio.stage')}

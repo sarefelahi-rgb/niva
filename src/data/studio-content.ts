@@ -74,6 +74,118 @@ const WHO = {
  */
 export const STUDIO_STAGE_CONTENT: StudioStageContent[] = [
   {
+    week: 1,
+    titleEn: 'The very beginning — fertilization',
+    titleFa: 'سرآغاز — لقاح',
+    narrationEn:
+      'Everything begins with a single cell. In this magnified educational illustration, an ovum meets one sperm out of millions; their nuclei draw together and the complete genetic blueprint for your baby is sealed. Within hours the first division begins — one cell becomes two. At this stage everything is smaller than a grain of sugar, which is why the view here is magnified thousands of times. Development at this point follows its own quiet clock.',
+    narrationFa:
+      'همه‌چیز با یک سلول آغاز می‌شود. در این تصویر آموزشی بزرگ‌نمایی‌شده، یک تخمک با تنها یکی از میلیون‌ها اسپرم دیدار می‌کند؛ هسته‌های آن‌ها به هم نزدیک می‌شوند و نقشه‌ی ژنتیکی کامل فرزند شما مهر و امضا می‌شود. چند ساعت بعد نخستین تقسیم آغاز می‌شود — یک سلول به دو سلول تبدیل می‌شود. در این مرحله همه‌چیز از یک دانه‌ی شکر هم کوچک‌تر است؛ به همین دلیل نمای اینجا هزاران برابر بزرگ‌نمایی شده است. رشد در این نقطه ساعتِ آرام خودش را دنبال می‌کند.',
+    annotations: [
+      {
+        target: 'head',
+        labelEn: 'Zygote', labelFa: 'زیگوت',
+        textEn: 'One fused cell with a complete genome — the very first cell of the new body.',
+        textFa: 'یک سلول به‌هم‌آمده با ژنوم کامل — نخستین سلول بدن جدید.',
+        citationEn: `${MOORE.en}, ch. 2`, citationFa: `${MOORE.fa}، فصل ۲`,
+      },
+      {
+        target: 'placenta',
+        labelEn: 'Corona radiata', labelFa: 'تاج تابان',
+        textEn: 'A halo of helper cells still surrounds the ovum; one sperm tunnels through to reach it.',
+        textFa: 'هاله‌ای از سلول‌های کمکی هنوز دور تخمک را گرفته‌اند؛ تنها یک اسپرم راه خود را تا آن می‌گشاید.',
+        citationEn: `${MOORE.en}, ch. 2`, citationFa: `${MOORE.fa}، فصل ۲`,
+      },
+      {
+        target: 'cord',
+        labelEn: 'Zona pellucida', labelFa: 'شفق شفاف',
+        textEn: 'A protective glycoprotein shell keeps the early cells together until the blastocyst hatches.',
+        textFa: 'پوسته‌ی محافظ پروتئینی، سلول‌های اولیه را کنار هم نگه می‌دارد تا هنگام بیرون‌آمدن بلاستوسیست.',
+        citationEn: `${MOORE.en}, ch. 3`, citationFa: `${MOORE.fa}، فصل ۳`,
+      },
+    ],
+    sizeComparisonEn: 'About 0.1–0.2 mm — smaller than a grain of sugar. View is magnified. Approximate.',
+    sizeComparisonFa: 'حدود ۰٫۱ تا ۰٫۲ میلی‌متر — از دانه‌ی شکر کوچک‌تر. نمای بزرگ‌نمایی‌شده. اندازه تقریبی است.',
+    sources: [MOORE.en, NHS.en],
+  },
+  {
+    week: 2,
+    titleEn: 'Cleavage — morula to blastocyst',
+    titleFa: 'تقسیم سلولی — مورولا تا بلاستوسیست',
+    narrationEn:
+      'While travelling down the fallopian tube, the tiny cluster divides again and again — first a mulberry-like morula, then a hollow blastocyst: a fluid-filled sphere with a special group of cells at one pole. That inner group is the embryo itself; the outer shell will become the placenta’s foundation. This magnified educational illustration shows each cell as a distinct, glowing sphere to make the architecture visible.',
+    narrationFa:
+      'در حالی که این توده‌ی کوچک در راه لوله‌ی رحمی حرکت می‌کند، بارها و بارها تقسیم می‌شود — نخست مورولایی چون شاتوت، سپس بلاستوسیستی توخالی: کره‌ای پر از مایع با گروه ویژه‌ای از سلول‌ها در یک قطب. آن گروه درونی، خودِ جنین است؛ پوسته‌ی بیرونی پایه‌ی جفت آینده خواهد شد. این تصویر آموزشی بزرگ‌نمایی‌شده هر سلول را کره‌ای مجزا و درخشان نشان می‌دهد تا معماری آن دیده شود.',
+    annotations: [
+      {
+        target: 'head',
+        labelEn: 'Inner cell mass', labelFa: 'توده سلولی درونی',
+        textEn: 'A compact knot of cells at one pole — these few cells become the entire embryo.',
+        textFa: 'گره‌ای فشرده از سلول‌ها در یک قطب — همین چند سلول، تمام جنین را می‌سازند.',
+        citationEn: `${MOORE.en}, ch. 3`, citationFa: `${MOORE.fa}، فصل ۳`,
+      },
+      {
+        target: 'placenta',
+        labelEn: 'Trophectoderm', labelFa: 'تروفکتودرم',
+        textEn: 'The outer cell layer presses against the shell; it will form the placenta’s working tissue.',
+        textFa: 'لایه‌ی بیرونی سلول‌ها به پوسته چسبیده است؛ همین لایه بافت کاری جفت را می‌سازد.',
+        citationEn: `${MOORE.en}, ch. 3`, citationFa: `${MOORE.fa}، فصل ۳`,
+      },
+      {
+        target: 'cord',
+        labelEn: 'Blastocoel', labelFa: 'حفره بلاستوسیلی',
+        textEn: 'A fluid-filled cavity expands inside, defining the two polarities every later structure inherits.',
+        textFa: 'حفره‌ای پر از مایع درون آن گسترش می‌یابد و دو قطبیتی را تعریف می‌کند که همه‌ی ساختارهای بعدی از آن بهره می‌برند.',
+        citationEn: `${MOORE.en}, ch. 3`, citationFa: `${MOORE.fa}، فصل ۳`,
+      },
+    ],
+    sizeComparisonEn: 'About 0.1–0.3 mm — a cluster of a few dozen cells. View is magnified. Approximate.',
+    sizeComparisonFa: 'حدود ۰٫۱ تا ۰٫۳ میلی‌متر — خوشه‌ای از چند ده سلول. نمای بزرگ‌نمایی‌شده. اندازه تقریبی است.',
+    sources: [MOORE.en, NHS.en],
+  },
+  {
+    week: 3,
+    titleEn: 'Nesting — implantation & the disc',
+    titleFa: 'لانه‌گزینی — جای‌گیری و صفحه جنینی',
+    narrationEn:
+      'The blastocyst settles into the rich lining of the uterus and disappears into it — implantation. Now the embryo is a flat, two-layered disc; along its midline a faint streak appears, the first hint of the body axis and of the three germ layers to come. Tiny fingers of tissue (early villi) reach into the uterine wall and the first exchanges begin. In this magnified educational illustration the uterine lining is drawn as a soft mound.',
+    narrationFa:
+      'بلاستوسیست در مخاط پربرکت رحم جا می‌گیرد و در آن فرو می‌رود — لانه‌گزینی. اکنون جنین دیسکی تخت و دولایه است؛ در خط میانی‌اش نوار کم‌رنگی پیدا می‌شود، نخستین اشاره به محور بدن و لایه‌های زایای آینده. زائده‌های بافتی ریز (پرزهای اولیه) به دیواره‌ی رحم نفوذ می‌کنند و نخستین تبادل‌ها آغاز می‌شود. در این تصویر آموزشی بزرگ‌نمایی‌شده، مخاط رحم به شکل تپه‌ای نرم ترسیم شده است.',
+    annotations: [
+      {
+        target: 'head',
+        labelEn: 'Embryonic disc', labelFa: 'صفحه جنینی',
+        textEn: 'A flat disc of stacked layers — the plan of the whole body drawn on a circle smaller than a poppy seed.',
+        textFa: 'دیسکی تخت از لایه‌های روی‌هم — نقشه‌ی کل بدن بر دایره‌ای کوچک‌تر از دانه‌ی خشخاش.',
+        citationEn: `${MOORE.en}, ch. 4`, citationFa: `${MOORE.fa}، فصل ۴`,
+      },
+      {
+        target: 'cord',
+        labelEn: 'Connecting stalk', labelFa: 'ساقه رابط',
+        textEn: 'A slender bridge of cells anchors the disc; it will become part of the umbilical cord.',
+        textFa: 'پلی باریک از سلول‌ها، دیسک را مهار می‌کند؛ بخشی از آن به بند ناف تبدیل خواهد شد.',
+        citationEn: `${MOORE.en}, ch. 4`, citationFa: `${MOORE.fa}، فصل ۴`,
+      },
+      {
+        target: 'placenta',
+        labelEn: 'Early villi', labelFa: 'پرزهای اولیه',
+        textEn: 'The first chorionic villi bud into the uterine lining, opening the exchange channels.',
+        textFa: 'نخستین پرزهای کوریونی به مخاط رحم نفوذ می‌کنند و کانال‌های تبادل را می‌گشایند.',
+        citationEn: `${MOORE.en}, ch. 7`, citationFa: `${MOORE.fa}، فصل ۷`,
+      },
+      {
+        target: 'uterus',
+        labelEn: 'Uterine lining', labelFa: 'مخاط رحم',
+        textEn: 'The enriched endometrium envelopes the embryo with warmth, oxygen and nutrients.',
+        textFa: 'آندومتر پربرکت، جنین را با گرما، اکسیژن و مواد مغذی در بر می‌گیرد.',
+        citationEn: NHS.en, citationFa: NHS.fa,
+      },
+    ],
+    sizeComparisonEn: 'About 0.1–0.5 mm with early villi — still microscopic. View is magnified. Approximate.',
+    sizeComparisonFa: 'با پرزهای اولیه حدود ۰٫۱ تا ۰٫۵ میلی‌متر — هنوز میکروسکوپی. نمای بزرگ‌نمایی‌شده. اندازه تقریبی است.',
+    sources: [MOORE.en, NHS.en],
+  },
+  {
     week: 4,
     titleEn: 'Foundations — the embryonic disc',
     titleFa: 'مبانی — صفحه جنینی',
@@ -601,7 +713,7 @@ const BY_WEEK = new Map(STUDIO_STAGE_CONTENT.map((s) => [s.week, s]));
  * never describe structures that have not appeared yet).
  */
 export function stageContentForWeek(week: number): StudioStageContent {
-  const w = Math.min(Math.max(Math.floor(week), 4), 40);
+  const w = Math.min(Math.max(Math.floor(week), 1), 40);
   let best = STUDIO_STAGE_CONTENT[0];
   for (const s of STUDIO_STAGE_CONTENT) {
     if (s.week <= w) best = s;
