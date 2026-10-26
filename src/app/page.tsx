@@ -24,6 +24,8 @@ import { SettingsView } from '@/components/views/settings-view';
 import { AdminView } from '@/components/views/admin-view';
 import { ReviewView } from '@/components/views/review-view';
 import { SafetyView } from '@/components/views/safety-view';
+import { DoctorsView } from '@/components/views/doctors-view';
+import { DoctorView } from '@/components/views/doctor-view';
 import { StudioView } from '@/components/studio/fetal-studio';
 import { ImmersiveShell } from '@/components/shell/app-shell';
 
@@ -43,6 +45,8 @@ function Views() {
       case 'assistant': return <AssistantView />;
       case 'records': return <RecordsView />;
       case 'appointments': return <AppointmentsView />;
+      case 'doctors': return <DoctorsView />;
+      case 'doctor': return user.role === 'DOCTOR' ? <DoctorView /> : <DashboardView />;
       case 'wellness': return <WellnessView />;
       case 'birth': return <BirthPrepView />;
       case 'postpartum': return <PostpartumView />;
@@ -68,7 +72,8 @@ function Views() {
 
   return (
     <AppShell>
-      {!pregnancy && !['onboarding'].includes(view) && <PregnancyGateBanner />}
+      {/* Doctors do not have a pregnancy profile — the gate banner is patient-only. */}
+      {!pregnancy && user.role === 'USER' && !['onboarding'].includes(view) && <PregnancyGateBanner />}
       {body}
       <TourOverlay />
     </AppShell>

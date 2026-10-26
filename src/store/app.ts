@@ -9,11 +9,13 @@ export type View =
   | 'landing' | 'auth' | 'onboarding' | 'dashboard' | 'timeline' | 'studio'
   | 'tracking' | 'assistant' | 'records' | 'appointments' | 'wellness'
   | 'birth' | 'postpartum' | 'family' | 'community' | 'journal'
-  | 'subscription' | 'settings' | 'admin' | 'review' | 'safety' | 'sandbox-checkout';
+  | 'subscription' | 'settings' | 'admin' | 'review' | 'safety' | 'sandbox-checkout'
+  | 'doctors' | 'doctor';
 
 export interface SessionUser {
   id: string;
   email: string;
+  phone?: string | null;
   name: string;
   role: string;
   locale: Locale;

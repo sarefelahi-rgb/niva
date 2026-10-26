@@ -51,17 +51,17 @@ async function main() {
   // superadmin@niva.health holds SUPER_ADMIN so `roles.manage` (role spectrum)
   // is demonstrable without touching the legacy admin account.
   const users = [
-    { email: 'admin@niva.health', name: 'Platform Admin', role: 'ADMIN', pw: 'NivaAdmin!2025' },
-    { email: 'superadmin@niva.health', name: 'NIVA Super Admin', role: 'SUPER_ADMIN', pw: 'NivaSuper!2025' },
-    { email: 'reviewer@niva.health', name: 'Dr. S. Reviewer', role: 'CLINICAL_REVIEWER', pw: 'NivaReview!2025' },
-    { email: 'demo@niva.health', name: 'Demo User', role: 'USER', pw: 'NivaDemo!2025' },
+    { email: 'admin@niva.health', name: 'Platform Admin', role: 'ADMIN', pw: 'NivaAdmin!2025', phone: '09120000000' },
+    { email: 'superadmin@niva.health', name: 'NIVA Super Admin', role: 'SUPER_ADMIN', pw: 'NivaSuper!2025', phone: '09120000009' },
+    { email: 'reviewer@niva.health', name: 'Dr. S. Reviewer', role: 'CLINICAL_REVIEWER', pw: 'NivaReview!2025', phone: null as string | null },
+    { email: 'demo@niva.health', name: 'کاربر نمونه', role: 'USER', pw: 'NivaDemo!2025', phone: '09120000001' },
   ];
   const ids: Record<string, string> = {};
   for (const u of users) {
     const user = await db.user.upsert({
       where: { email: u.email },
-      update: { role: u.role },
-      create: { email: u.email, name: u.name, role: u.role, passwordHash: hashPassword(u.pw), locale: 'fa' },
+      update: { role: u.role, ...(u.phone ? { phone: u.phone } : {}) },
+      create: { email: u.email, name: u.name, role: u.role, passwordHash: hashPassword(u.pw), locale: 'fa', ...(u.phone ? { phone: u.phone } : {}) },
     });
     ids[u.role] = user.id;
     await db.entitlement.upsert({
@@ -392,6 +392,97 @@ async function main() {
   }
 
   // ── Clinical review queue entries ────────────────────────────────────────
+  // ── Wave 11: doctor network (OTP-native accounts, admin-granted) ─────────
+  // Doctors sign in with mobile OTP only; the sandbox has no sms.ir credentials
+  // so the UI falls back to the dev-code hint (see src/lib/sms.ts).
+  const doctorSeeds = [
+    {
+      phone: '09121000001', email: 'dr.mohammadi@niva.health', name: 'دکتر سارا محمدی',
+      specialty: 'زنان، زایمان و نازایی', subSpecialty: 'پریناتولوژی', city: 'تهران',
+      clinicName: 'کلینیک مادر و کودک آرامیس', clinicAddress: 'تهران، خیابان ولیعصر، نرسیده به پارک ساعی',
+      visitTypes: 'BOTH', clinicFee: 900_000, onlineFee: 600_000, experienceYears: 14, status: 'APPROVED', rating: 4.9,
+      bio: 'متخصص زنان و زایمان با تمرکز بر بارداری‌های پرخطر و پیگیری هفتگی مادر و جنین.',
+      hours: [0, 1, 2, 3, 4].map((w) => ({ weekday: w, startMin: 9 * 60, endMin: 13 * 60, slotMin: 20 })),
+    },
+    {
+      phone: '09121000002', email: 'dr.rezaei@niva.health', name: 'دکتر امیر رضایی',
+      specialty: 'طب مادر و جنین', subSpecialty: 'سونوگرافی تخصصی', city: 'تهران',
+      clinicName: 'مرکز تصویربرداری آرامیس', clinicAddress: 'تهران، میدان ونک',
+      visitTypes: 'ONLINE', clinicFee: null as number | null, onlineFee: 750_000, experienceYears: 9, status: 'APPROVED', rating: 4.7,
+      bio: 'مشاوره آنلاین صوتی و تصویری درباره یافته‌های سونوگرافی و غربالگری سه‌ماهه‌ها.',
+      hours: [1, 3, 5].map((w) => ({ weekday: w, startMin: 16 * 60, endMin: 20 * 60, slotMin: 20 })),
+    },
+    {
+      phone: '09121000003', email: 'dr.kazemi@niva.health', name: 'دکتر مریم کاظمی',
+      specialty: 'تغذیه بالینی در بارداری', subSpecialty: null as string | null, city: 'اصفهان',
+      clinicName: 'مطب تغذیه سلامت', clinicAddress: 'اصفهان، خیابان چهارباغ بالا',
+      visitTypes: 'BOTH', clinicFee: 550_000, onlineFee: 400_000, experienceYears: 7, status: 'APPROVED', rating: 4.8,
+      bio: 'برنامه تغذیه هفتگی متناسب با هفته بارداری و مدیریت وزن مادر.',
+      hours: [0, 2, 4].map((w) => ({ weekday: w, startMin: 14 * 60, endMin: 18 * 60, slotMin: 30 })),
+    },
+    {
+      phone: '09121000004', email: 'dr.tavakoli@niva.health', name: 'دکتر نگار توکلی',
+      specialty: 'روان‌شناسی پریناتال', subSpecialty: null as string | null, city: 'شیراز',
+      clinicName: 'مرکز مشاوره آرام', clinicAddress: 'شیراز، بلوار زند',
+      visitTypes: 'ONLINE', clinicFee: null as number | null, onlineFee: 500_000, experienceYears: 11, status: 'PENDING', rating: 4.6,
+      bio: 'مشاوره اضطراب بارداری، آمادگی برای زایمان و بهبود خلق پس از زایمان.',
+      hours: [1, 2, 3].map((w) => ({ weekday: w, startMin: 10 * 60, endMin: 14 * 60, slotMin: 30 })),
+    },
+  ];
+  const doctorIds: string[] = [];
+  for (const d of doctorSeeds) {
+    const du = await db.user.upsert({
+      where: { email: d.email },
+      update: { role: 'DOCTOR', name: d.name, phone: d.phone },
+      create: { email: d.email, name: d.name, role: 'DOCTOR', phone: d.phone, passwordHash: hashPassword('NivaDoctor!2025'), locale: 'fa' },
+    });
+    const profile = await db.doctorProfile.upsert({
+      where: { userId: du.id },
+      update: { status: d.status, specialty: d.specialty },
+      create: {
+        userId: du.id,
+        specialty: d.specialty,
+        subSpecialty: d.subSpecialty,
+        bio: d.bio,
+        city: d.city,
+        clinicName: d.clinicName,
+        clinicAddress: d.clinicAddress,
+        visitTypes: d.visitTypes,
+        clinicFee: d.clinicFee,
+        onlineFee: d.onlineFee,
+        experienceYears: d.experienceYears,
+        status: d.status,
+        ratingAvg: d.rating,
+      },
+    });
+    const availCount = await db.availability.count({ where: { doctorId: profile.id } });
+    if (availCount === 0) await db.availability.createMany({ data: d.hours.map((h) => ({ doctorId: profile.id, ...h })) });
+    doctorIds.push(profile.id);
+  }
+
+  // ── Wave 11: sample doctor booking for the demo patient (CONFIRMED, tomorrow 10:00) ──
+  if (doctorIds[0]) {
+    const existingBooking = await db.doctorAppointment.findFirst({ where: { patientId: demoId, doctorId: doctorIds[0] } });
+    if (!existingBooking) {
+      const tomorrow10 = new Date();
+      tomorrow10.setDate(tomorrow10.getDate() + 1);
+      tomorrow10.setHours(10, 0, 0, 0);
+      await db.doctorAppointment.create({
+        data: {
+          patientId: demoId,
+          doctorId: doctorIds[0],
+          mode: 'CLINIC',
+          scheduledAt: tomorrow10,
+          status: 'CONFIRMED',
+          reason: 'پیگیری سونوگرافی آناتومی و فشار خون',
+          shareTracking: true,
+          shareRecords: true,
+          shareDaily: false,
+        },
+      });
+    }
+  }
+
   const pending = await db.educationalContent.count({ where: { status: 'IN_REVIEW' } });
   console.log(`Review queue: ${pending} content items pending clinical review (honest governance state).`);
   console.log('Seed complete.');

@@ -104,14 +104,14 @@ export function formatMoney(amountMinor: number, currency: MoneyCurrency, locale
 /* ── dates (Jalali for fa, Gregorian for en) ──────────────────────────────── */
 
 function formatDateWith(locale: Locale, date: Date, options: Intl.DateTimeFormatOptions): string {
+  if (Number.isNaN(date.getTime())) return ''; // invalid input → '' (never throw at render time)
   const key = `${dateLocale(locale)}|${JSON.stringify(options)}`;
   let fmt = dateFmtCache.get(key);
   if (!fmt) {
     fmt = new Intl.DateTimeFormat(dateLocale(locale), options);
     dateFmtCache.set(key, fmt);
   }
-  const out = fmt.format(date);
-  return Number.isNaN(date.getTime()) ? '' : out;
+  return fmt.format(date);
 }
 
 const DATE_STYLES: Record<DateStyle, Intl.DateTimeFormatOptions> = {

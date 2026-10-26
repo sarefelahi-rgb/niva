@@ -15,9 +15,10 @@ datasource db {
 model User {
   id           String   @id @default(cuid())
   email        String   @unique
+  phone        String?  @unique // OTP-first identity (sms.ir). Null for legacy email-only accounts.
   passwordHash String
   name         String
-  role         String   @default("USER") // USER | CLINICAL_REVIEWER | MODERATOR | SUPPORT | FINANCE | EDITOR | ADMIN | SUPER_ADMIN (Wave 6.2 role spectrum; ADMIN is kept for backward compat, SUPER_ADMIN manages roles)
+  role         String   @default("USER") // USER | DOCTOR | CLINICAL_REVIEWER | MODERATOR | SUPPORT | FINANCE | EDITOR | ADMIN | SUPER_ADMIN
   locale       String   @default("fa") // fa | en
   deactivatedAt DateTime? // Wave 6.2 user management: soft-disable (login/sessions blocked), data retained
   createdAt    DateTime @default(now())
@@ -59,6 +60,22 @@ model User {
   ticketMessages   TicketMessage[]   @relation("TicketMessageAuthor")
   incidentsOpened  Incident[]        @relation("IncidentOpener")
   pushSubscriptions PushSubscription[]
+  doctorProfile    DoctorProfile?
+  doctorAppointments DoctorAppointment[] @relation("PatientAppointments")
+}
+
+/// Wave 11 — mobile OTP sign-in (sms.ir verify template).
+/// Codes are stored hashed (sha256), single-use, 5-minute expiry, attempt-capped.
+model OtpCode {
+  id         String    @id @default(cuid())
+  phone      String
+  codeHash   String
+  attempts   Int       @default(0)
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
+
+  @@index([phone, createdAt])
 }
 
 model Session {
@@ -87,6 +104,78 @@ model Consent {
   ageConfirmedAt    DateTime?
   withdrawnAt       DateTime?
   updatedAt         DateTime  @updatedAt
+}
+
+// ─── Doctor Network (Wave 11) ─────────────────────────────────────────────────
+// Doctors are Users with role=DOCTOR plus a DoctorProfile. Accounts are granted
+// by ADMIN via /api/admin/doctors (create-or-promote by phone). Login is OTP-only.
+
+model DoctorProfile {
+  id             String  @id @default(cuid())
+  userId         String  @unique
+  user           User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  specialty      String
+  subSpecialty   String?
+  licenseNo      String?
+  bio            String?
+  city           String?
+  clinicName     String?
+  clinicAddress  String?
+  visitTypes     String  @default("BOTH") // CLINIC | ONLINE | BOTH
+  clinicFee      Int?    // IRR minor units (Toman display convention)
+  onlineFee      Int?
+  experienceYears Int    @default(0)
+  status         String  @default("PENDING") // PENDING | APPROVED | SUSPENDED — admin grant/approval workflow
+  ratingAvg      Float   @default(4.8) // display-only aggregate
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  availabilities Availability[]
+  appointments   DoctorAppointment[]
+
+  @@index([status])
+}
+
+/// Weekly recurring working hours. weekday: 0=Sunday … 6=Saturday (JS getDay).
+/// startMin/endMin: minutes from midnight (server-local day anchor).
+model Availability {
+  id        String @id @default(cuid())
+  doctorId  String
+  doctor    DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  weekday   Int
+  startMin  Int
+  endMin    Int
+  slotMin   Int    @default(20)
+  active    Boolean @default(true)
+
+  @@index([doctorId, weekday])
+}
+
+/// Booking of a real doctor visit — clinic appointment or online voice/video
+/// consultation. Kept separate from the personal `Appointment` tracker.
+/// Consent flags are set by the PATIENT per booking and revocable any time:
+/// a doctor can read the corresponding health section only when its flag is true.
+model DoctorAppointment {
+  id            String   @id @default(cuid())
+  patientId     String
+  patient       User     @relation("PatientAppointments", fields: [patientId], references: [id], onDelete: Cascade)
+  doctorId      String
+  doctor        DoctorProfile @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+  mode          String   @default("CLINIC") // CLINIC | ONLINE_VOICE | ONLINE_VIDEO
+  scheduledAt   DateTime
+  durationMin   Int      @default(20)
+  status        String   @default("REQUESTED") // REQUESTED | CONFIRMED | CANCELLED | COMPLETED | NO_SHOW
+  reason        String?
+  patientNote   String?
+  doctorNote    String?
+  shareTracking Boolean  @default(false) // pregnancy week + symptom/tracking entries
+  shareRecords  Boolean  @default(false) // medical documents metadata
+  shareDaily    Boolean  @default(false) // wellness dailies (mood/nutrition/exercise/sleep)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([doctorId, scheduledAt])
+  @@index([patientId, scheduledAt])
 }
 
 // ─── Pregnancy Core ──────────────────────────────────────────────────────────

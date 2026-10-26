@@ -1004,3 +1004,26 @@ Stage Summary:
 - The 3D growth journey is now week-accurate per stage: five bespoke scenes (fertilization → morula+zona → embryo with tail/heart/yolk sac → mid fetus ⅓-head → plump head-down term baby) instead of one rescaled model.
 - Integrity preserved: honesty label + docs still state educational ambiance, not diagnostic.
 - Heartbeat envelope is now stage-aware (embryonic 140 bpm flutter).
+
+---
+Task ID: wave11-doctor-network
+Agent: Z.ai Code (main)
+Task: «یک کاربری هم برای پزشکان قرار بده...» — doctor accounts, clinic + online voice/video booking, doctors directory, consent-gated health sharing, OTP-only sign-in via sms.ir
+
+Work Log:
+- Schema (prisma/schema.prisma): User.phone (@unique, nullable) + 4 new models: OtpCode (sha256-hashed, single-use, 5-min TTL, attempt-capped), DoctorProfile (specialty/fees/visitTypes/status PENDING|APPROVED|SUSPENDED/rating), Availability (weekly template, weekday+startMin/endMin/slotMin), DoctorAppointment (mode CLINIC|ONLINE_VOICE|ONLINE_VIDEO, status REQUESTED|CONFIRMED|CANCELLED|COMPLETED|NO_SHOW, per-booking consent flags shareTracking/shareRecords/shareDaily). db:push OK.
+- src/lib/phone.ts: normalizeMobile (fa/ar digits, +98/0098/98 prefixes → canonical 09…), toSmsIrMobile, maskMobile, phoneEmail (synthetic email for OTP-native accounts).
+- src/lib/sms.ts: sms.ir v1 verify-template client (x-api-key + SMS_IR_TEMPLATE_ID env), dev-fallback returns devCode ONLY when credentials absent (sandbox QA); real SMS never exposes code.
+- API: POST /api/auth/otp/request (rate-limit per-phone 3/10min + per-IP 10/10min), POST /api/auth/otp/verify (consume→find-or-create user→session; audits USER_LOGIN_OTP/USER_REGISTER_OTP). GET /api/doctors (APPROVED only), GET /api/doctors/[id] (14-day free-slot computation, excludes booked+past, 1h lead). /api/consultations GET(role-aware patient/doctor, ?id single w/ ownership)/POST(slot validity + availability alignment + double-booking 409 + reminder+notification tx)/PATCH(patient: cancel + consent edits; doctor: confirm/complete/no_show/cancel with cross-notifications). GET /api/consultations/summary?id (doctor-only, re-reads consent flags per call; sections null when flag false). /api/admin/doctors GET/POST(create-or-promote by phone + default availability template)/PATCH(status/fees/visitTypes), ADMIN-guarded + logAdminAction.
+- AuthView rewritten OTP-first (sole consumer path): phone step → code step (60s resend countdown, masked phone, devCode hint in sandbox, Persian-digit tolerant). Demo button kept. DOCTOR lands directly in panel.
+- UI: DoctorsView (directory+search, booking dialog mode→day→slot→reason→3 consent switches, my-visits with cancel AlertDialog + consent editor dialog + room entry), DoctorView (stats today/upcoming/pending, confirm/complete/no-show/cancel, consent chips, gated health-summary dialog with locked sections), ConsultRoomDialog (getUserMedia local preview, mic/cam toggles, graceful denied state, track dispose on close), AdminDoctors (grant form + approve/suspend list) wired into AdminView tab «پزشکان».
+- Wiring: store View 'doctors'/'doctor' + SessionUser.phone, page.tsx cases + PregnancyGateBanner patient-only, app-shell nav (Hospital icon, doctor panel roles:['DOCTOR']), /api/auth/me returns phone, i18n +120 keys fa/en.
+- Seed: phones for admin(09120000000)/superadmin/demo(09120000001), 4 doctors (3 APPROVED + 1 PENDING) with availabilities, sample CONFIRMED clinic booking. Repaired corrupted demo passwordHash.
+- Fixed: formatDateWith now returns '' for invalid dates BEFORE Intl format (RangeError root cause: JSX dialog children evaluated eagerly in parent render); removed raw `?? ''` date patterns in doctors-view.
+- Verified (curl): OTP request/verify/single-use-reject, doctors list/detail, booking + SLOT_TAKEN 409, doctor OTP login, consent gating (tracking→data, daily→null), cross-doctor 403, admin grant + new doctor OTP login (role DOCTOR).
+- Verified (agent-browser E2E): landing→OTP login (dev code)→dashboard; doctors view render; booking dialog (modes, Jalali day chips, slot grid with booked 10:00 correctly excluded, consent switches)→booking appears «در انتظار تأیید»; doctor OTP login→panel stats→confirm booking→health summary (granted sections show data, daily locked «بیمار اجازه مشاهده…»); admin OTP→doctors tab→grant doctor via UI→new doctor OTP login (role DOCTOR); consult room opens with denied-camera fallback message; EN locale + 390px mobile screenshots clean. Screenshots: agent-ctx/w11-0*.png.
+
+Stage Summary:
+- Full doctor network shipped: OTP-only auth (sms.ir-ready, env SMS_IR_API_KEY/SMS_IR_TEMPLATE_ID), admin-granted doctor accounts, doctors directory, clinic + voice/video booking with slot engine, per-booking revocable consent gating doctor-side health data, consultation room (local media preview; P2P leg documented as production follow-up).
+- Contract honored: rate limits, CSRF gate (assertSameOrigin) on all new POSTs, role guards, audit logging, dispose-on-close, honest dev-mode code hint only without credentials.
+- Known simplifications: server-local (UTC) day anchoring for slots; consultation room media is local-only in this build.

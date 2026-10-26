@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { AdminDoctors } from '@/components/admin/admin-doctors';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
@@ -437,6 +438,7 @@ export function AdminView() {
       <Tabs defaultValue="overview" className="space-y-4">
         <TabsList className="flex-wrap h-auto gap-1 min-h-11">
           <TabsTrigger value="overview">{t('admin.overview')}</TabsTrigger>
+          <TabsTrigger value="doctors">{t('adm.doctors')}</TabsTrigger>
           <TabsTrigger value="users">{t('admin.users')}</TabsTrigger>
           <TabsTrigger value="tickets">{t('admin2.tabTickets')}</TabsTrigger>
           <TabsTrigger value="safety">{t('admin.safety')}</TabsTrigger>
@@ -633,6 +635,10 @@ export function AdminView() {
               ))}
             </CardContent>
           </Card>
+        </TabsContent>
+
+        <TabsContent value="doctors" className="space-y-4">
+          <AdminDoctors />
         </TabsContent>
 
         <TabsContent value="users" className="space-y-3">

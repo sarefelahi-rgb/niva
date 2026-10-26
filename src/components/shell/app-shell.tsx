@@ -11,6 +11,7 @@ import {
   Salad, Baby, Flower2, BookHeart, Users, Crown, Settings, ShieldCheck, Bell,
   LogOut, Menu, Moon, Sun, Languages, HeartPulse, X, ChevronLeft, ChevronRight,
   ClipboardCheck, CreditCard, ShieldAlert, Trash2, BellRing, BellOff, WifiOff,
+  Hospital,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
@@ -42,6 +43,7 @@ const PRIMARY_NAV: NavItem[] = [
 
 const SECONDARY_NAV: NavItem[] = [
   { view: 'appointments', icon: Stethoscope, labelKey: 'nav.appointments' },
+  { view: 'doctors', icon: Hospital, labelKey: 'nav.doctors' },
   { view: 'records', icon: FolderLock, labelKey: 'nav.records' },
   { view: 'wellness', icon: Salad, labelKey: 'nav.wellness' },
   { view: 'birth', icon: Baby, labelKey: 'nav.birth' },
@@ -53,6 +55,7 @@ const SECONDARY_NAV: NavItem[] = [
 ];
 
 const ACCOUNT_NAV: NavItem[] = [
+  { view: 'doctor', icon: Stethoscope, labelKey: 'nav.doctorPanel', roles: ['DOCTOR'] },
   { view: 'subscription', icon: Crown, labelKey: 'nav.subscription' },
   { view: 'settings', icon: Settings, labelKey: 'common.settings' },
 ];

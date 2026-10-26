@@ -12,7 +12,7 @@ export async function GET() {
     orderBy: { createdAt: 'desc' },
   });
   return json({
-    user: { id: user.id, email: user.email, name: user.name, role: user.role, locale: user.locale },
+    user: { id: user.id, email: user.email, phone: user.phone, name: user.name, role: user.role, locale: user.locale },
     plan,
     features,
     pregnancy: pregnancy
