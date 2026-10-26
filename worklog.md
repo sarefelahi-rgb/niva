@@ -979,3 +979,28 @@ Stage Summary:
 - Login now works end-to-end in the preview context; CSRF protection remains fully enforced (cross-site still rejected; allowlist opt-in via NIVA_ALLOWED_ORIGINS).
 - Real cause was two-fold: proxy-blind Origin check (fixed in shared lib) + empty database (seeded).
 - Note for future waves: keep assertSameOrigin as the single CSRF gate; route-level copies all import it from src/lib/api.ts.
+
+---
+Task ID: wave10-week-accurate-journey
+Agent: main (Z.ai Code)
+Task: User report — "تصویر جنین در نمای سه بعدی مطابق هفته های بارداری دقیق نیست" (the 3D fetus does not accurately match the pregnancy weeks).
+
+Work Log:
+- Root cause: journey stages 2/3/4 all rendered the SAME Fetus geometry at different scales (0.45/1.05/1.5) — the embryo looked like a miniature term baby and term looked like an enlarged copy. Biology needed bespoke morphologies.
+- hero-bloom.tsx — three bespoke week-informed models:
+  * NEW Embryo (weeks 4–8): head ≈½ CRL bent in cranial flexure, deep C spine ending in a regressing tail (tube + cone tip), paddle limb buds (no digits), somite ridge (4 bumps), dark optic vesicles (no eyelids yet), heart prominence with FAST realistic flutter — heartbeat() gained a period param (embryo uses 0.43s ≈ 140 bpm), yolk sac on a vitelline duct, translucent gel-like skin (opacity 0.93).
+  * Fetus (weeks 9–27) retuned: head r 0.165 (≈⅓ CRL), slimmer chest/belly/limbs — reads as the mid-pregnancy anatomy-scan look.
+  * NEW TermFetus (weeks 28–40): plump body from fat deposition (belly r 0.155, thick limbs r 0.05–0.062), chubby cheek, head ≈¼ length engaged low (vertex presentation), crossed tucked feet, thicker cord (Wharton's jelly look).
+  * Division (weeks 1–2) gained a translucent iridescent zona pellucida shell around the morula (biologically present until blastocyst hatching ~day 5).
+- Cord: CORD_ENDS → CORDS carrying per-stage navel anchor + thickness (mainR 0.013 → 0.02 → 0.028, wrapR grows too); anchors recomputed for each model's placement.
+- Cinematic per-stage dolly in Rig: stageZ 4.55 (microscopic stages 0/1) → 4.8 (embryo) → 5.05 (fetus) → 5.3 (term); narrow viewports +0.65. Rig resets its reduced-motion one-shot on stage change.
+- Embryo scale 0.74 (bumped from 0.58 after visual check) with baseY -0.1.
+- i18n (fa/en): fixed 'جوید' typo → 'رویان' (Persian embryology: weeks 4–8 = رویان, جنین reserved for 9+); added 5 per-stage size-analogy keys (landing.sizeW0/12/48/927/2840 — poppy seed → sesame → blueberry → lime→eggplant → squash→watermelon).
+- landing-view.tsx: size line under the journey caption (aria-live=polite), swapped per active stage.
+- Browser-verified all 5 stages (auto-cycling made timed screenshots flaky → rapid click+capture loop): distinct morphologies confirmed, size lines match chips, no text overlap (caption/size/chips stack cleanly), dark mode renders beautifully, 390px mobile wraps chips with no collision. Console: only the benign THREE.Clock deprecation. Screenshots: agent-ctx/shot-journey-s0..s4.png, shot-journey-term-dark.png, shot-journey-embryo-mobile.png.
+- bun run lint clean.
+
+Stage Summary:
+- The 3D growth journey is now week-accurate per stage: five bespoke scenes (fertilization → morula+zona → embryo with tail/heart/yolk sac → mid fetus ⅓-head → plump head-down term baby) instead of one rescaled model.
+- Integrity preserved: honesty label + docs still state educational ambiance, not diagnostic.
+- Heartbeat envelope is now stage-aware (embryonic 140 bpm flutter).

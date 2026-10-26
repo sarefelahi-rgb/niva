@@ -60,6 +60,15 @@ const JOURNEY = [
   { name: 'landing.jTerm', week: 'landing.jTermW' },
 ] as const;
 
+/** Per-stage size analogy — reinforces that each scene matches its weeks. */
+const SIZE_KEYS = [
+  'landing.sizeW0',
+  'landing.sizeW12',
+  'landing.sizeW48',
+  'landing.sizeW927',
+  'landing.sizeW2840',
+] as const;
+
 export function LandingView() {
   const { t, setView, user, locale, setLocale } = useApp();
   const { resolvedTheme, setTheme } = useTheme();
@@ -252,6 +261,9 @@ export function LandingView() {
           {/* Journey chips — below the panel so nothing ever overlaps; click to jump */}
           <div className="mt-10 space-y-3">
             <p className="text-center text-xs text-muted-foreground">{t('landing.journeyCaption')}</p>
+            <p aria-live="polite" className="text-center text-xs font-medium text-primary/80">
+              {t(SIZE_KEYS[stage])}
+            </p>
             <div className="flex flex-wrap justify-center gap-2">
               {JOURNEY.map((j, i) => (
                 <button
