@@ -33,6 +33,8 @@ interface Draft {
   uncertain: boolean;
   goals: Goal[];
   units: 'METRIC' | 'IMPERIAL';
+  /** Wave 14: optional last-period start for the TRYING journey companion. */
+  tryingLmp: string;
 }
 
 const EMPTY: Draft = {
@@ -50,6 +52,7 @@ const EMPTY: Draft = {
   uncertain: false,
   goals: [],
   units: 'METRIC',
+  tryingLmp: '',
 };
 
 const DRAFT_KEY = 'niva_onboarding_draft_v2';
@@ -132,6 +135,15 @@ export function OnboardingView() {
           setError(data?.error?.message ?? data?.error?.code ?? t('common.error'));
           return;
         }
+      }
+      // Wave 14: TRYING users seed the cycle companion with their last period
+      // (optional, best-effort — onboarding never fails because of it).
+      if (draft.stage === 'TRYING' && draft.tryingLmp) {
+        await fetch('/api/cycle', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'PERIOD', date: new Date(draft.tryingLmp).toISOString(), flow: 'MEDIUM' }),
+        }).catch(() => null);
       }
       await fetch('/api/preferences', {
         method: 'PUT',
@@ -362,6 +374,20 @@ export function OnboardingView() {
             {((draft.step === 1 && draft.stage !== 'PREGNANT') || draft.step === 2) && (
               <div className="space-y-5" aria-label={t('onboarding.stepPrefs')}>
                 <p className="text-sm text-muted-foreground">{t('onboarding.prefsIntro')}</p>
+
+                {/* Wave 14: TRYING — seed the cycle companion */}
+                {draft.stage === 'TRYING' && (
+                  <div className="space-y-2 rounded-2xl border bg-primary/5 p-4">
+                    <Label htmlFor="trying-lmp">{t('onb.tryingLmpTitle')}</Label>
+                    <Input
+                      id="trying-lmp" type="date" dir="ltr" className="min-h-11"
+                      max={new Date().toISOString().slice(0, 10)}
+                      value={draft.tryingLmp}
+                      onChange={(e) => patch({ tryingLmp: e.target.value })}
+                    />
+                    <p className="text-xs text-muted-foreground leading-relaxed">{t('onb.tryingLmpHint')}</p>
+                  </div>
+                )}
 
                 <div className="space-y-2">
                   <Label>{t('onboarding.goals')}</Label>

@@ -8,7 +8,7 @@ import { clearToken } from '@/lib/auth-token';
 export type View =
   | 'landing' | 'auth' | 'onboarding' | 'dashboard' | 'timeline' | 'studio'
   | 'tracking' | 'assistant' | 'records' | 'appointments' | 'wellness'
-  | 'birth' | 'postpartum' | 'family' | 'community' | 'journal'
+  | 'birth' | 'postpartum' | 'fertility' | 'family' | 'community' | 'journal'
   | 'subscription' | 'settings' | 'admin' | 'review' | 'safety' | 'sandbox-checkout'
   | 'doctors' | 'doctor';
 

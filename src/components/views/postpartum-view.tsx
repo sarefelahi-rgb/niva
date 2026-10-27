@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useApp } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
@@ -9,9 +9,14 @@ import { Badge } from '@/components/ui/badge';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
+import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
-import { Bath, Flower2, HeartCrack, Loader2, Milk, Moon, Scale, StickyNote, Trash2, TriangleAlert, Baby } from 'lucide-react';
+import { Bath, Flower2, HeartCrack, Loader2, Milk, Moon, Scale, StickyNote, Trash2, TriangleAlert, Baby, Info, PartyPopper } from 'lucide-react';
+import { BABY_MILESTONES } from '@/data/baby-milestones';
+import { babyAgeAt } from '@/lib/cycle';
+import { formatDate, bdiWrap } from '@/lib/format';
+import { BirthDialog } from '@/components/shell/birth-dialog';
 
 interface FeedingEntry {
   id: string;
@@ -30,6 +35,21 @@ interface BabyCareEntry {
   detail: string | null;
   value: number | null;
   note: string | null;
+}
+
+interface BabyProfile {
+  id: string;
+  name: string;
+  birthDate: string;
+  gender: string;
+  birthWeightG: number | null;
+  birthLengthCm: number | null;
+  birthNote: string | null;
+}
+
+interface MilestoneEntry {
+  key: string;
+  achievedAt: string;
 }
 
 const METHOD_LABEL: Record<string, string> = {
@@ -75,6 +95,10 @@ export function PostpartumView() {
   const [feeding, setFeeding] = useState<FeedingEntry[]>([]);
   const [care, setCare] = useState<BabyCareEntry[]>([]);
   const [feedsLast24h, setFeedsLast24h] = useState(0);
+  const [profile, setProfile] = useState<BabyProfile | null>(null);
+  const [milestones, setMilestones] = useState<MilestoneEntry[]>([]);
+  const [birthOpen, setBirthOpen] = useState(false);
+  const [selectedMonth, setSelectedMonth] = useState<number | null>(null);
 
   // Feeding form state
   const [fedAt, setFedAt] = useState(() => toLocalInput(new Date()));
@@ -99,6 +123,8 @@ export function PostpartumView() {
       setFeeding(Array.isArray(data?.feeding) ? data.feeding : []);
       setCare(Array.isArray(data?.care) ? data.care : []);
       setFeedsLast24h(Number(data?.feedsLast24h) || 0);
+      setProfile(data?.profile ?? null);
+      setMilestones(Array.isArray(data?.milestones) ? data.milestones : []);
     } catch {
       toast({ description: t('err.validation'), variant: 'destructive' });
     } finally {
@@ -183,6 +209,26 @@ export function PostpartumView() {
     }
   };
 
+  /** Milestone tick/untick — upsert by stable key (wave 14). */
+  const toggleMilestone = async (key: string, achieved: boolean) => {
+    try {
+      if (achieved) {
+        const res = await fetch('/api/baby', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ kind: 'MILESTONE', key, achievedAt: new Date().toISOString() }),
+        });
+        if (!res.ok) throw new Error('save failed');
+      } else {
+        const res = await fetch(`/api/baby?kind=MILESTONE&key=${encodeURIComponent(key)}`, { method: 'DELETE' });
+        if (!res.ok) throw new Error('delete failed');
+      }
+      await load();
+    } catch {
+      toast({ description: t('err.validation'), variant: 'destructive' });
+    }
+  };
+
   const recovery = locale === 'fa'
     ? [
       'ترشحات واژینال (لوکیا) طی چند هفته کم و روشن‌تر می‌شود؛ خونریزی شدید نیازمند بررسی فوری است.',
@@ -228,6 +274,24 @@ export function PostpartumView() {
     return entry.note;
   };
 
+  // ── Wave 14: first-year companion ──
+  const age = useMemo(() => (profile ? babyAgeAt(new Date(profile.birthDate)) : null), [profile]);
+  const currentMonth = age ? Math.min(age.months, 12) : 0;
+  const month = selectedMonth ?? currentMonth;
+  const monthContent = BABY_MILESTONES.find((m) => m.month === month) ?? BABY_MILESTONES[0];
+  const achievedKeys = useMemo(() => new Set(milestones.map((m) => m.key)), [milestones]);
+  const achievedInMonth = monthContent.milestones.filter((m) => achievedKeys.has(m.id)).length;
+  const nf = useMemo(() => new Intl.NumberFormat(locale === 'fa' ? 'fa-IR' : 'en-US'), [locale]);
+  const ageLine = age
+    ? locale === 'fa'
+      ? age.months >= 1
+        ? `${nf.format(age.months)} ماه و ${nf.format(age.days)} روز`
+        : `${nf.format(age.weeks)} هفته و ${nf.format(age.weekDays)} روز`
+      : age.months >= 1
+        ? `${nf.format(age.months)} ${age.months === 1 ? 'month' : 'months'} and ${nf.format(age.days)} ${age.days === 1 ? 'day' : 'days'}`
+        : `${nf.format(age.weeks)} ${age.weeks === 1 ? 'week' : 'weeks'} and ${nf.format(age.weekDays)} ${age.weekDays === 1 ? 'day' : 'days'}`
+    : null;
+
   return (
     <div className="space-y-5 max-w-4xl">
       <header>
@@ -246,7 +310,119 @@ export function PostpartumView() {
         <AlertDescription className="text-sm leading-relaxed">{t('post.warning')}</AlertDescription>
       </Alert>
 
-      {!pregnancy || pregnancy.status !== 'POSTPARTUM' ? (
+      {/* ── Wave 14: first-year companion — baby header ── */}
+      {profile && age && ageLine ? (
+        <Card className="niva-card niva-grad">
+          <CardContent className="p-5 flex flex-wrap items-center gap-4">
+            <span className="grid place-items-center h-14 w-14 rounded-2xl bg-white/60 dark:bg-white/10 shadow-sm shrink-0" aria-hidden>
+              <Baby className="h-7 w-7 text-primary" />
+            </span>
+            <div className="min-w-0 flex-1 space-y-1">
+              <p className="text-lg font-bold flex items-center gap-2">
+                {bdiWrap(profile.name)}
+                <Badge variant="secondary" className="text-[10px]">{t('post2.babyTitle')}</Badge>
+              </p>
+              <p dir="auto" className="text-sm text-muted-foreground">
+                {t('post2.age')}: <span className="font-semibold text-foreground">{ageLine}</span>
+              </p>
+              <p dir="auto" className="text-xs text-muted-foreground">
+                {t('post2.bornOn')} {formatDate(new Date(profile.birthDate), locale)}
+              </p>
+            </div>
+            <div className="flex flex-col items-stretch gap-2 w-full sm:w-auto">
+              <Button variant="outline" onClick={() => setBirthOpen(true)} className="min-h-11">
+                {t('post2.editProfile')}
+              </Button>
+            </div>
+          </CardContent>
+        </Card>
+      ) : (
+        <Card className="niva-card border-primary/40 bg-primary/5">
+          <CardContent className="p-5 space-y-3 text-center">
+            <PartyPopper className="h-7 w-7 text-primary mx-auto" aria-hidden />
+            <p className="text-sm leading-relaxed">{t('post2.noBaby')}</p>
+            <Button onClick={() => setBirthOpen(true)} className="min-h-11">
+              <Baby className="h-4 w-4 me-2" aria-hidden />{t('born.cta')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
+      {/* ── Wave 14: month-by-month milestones (0–12) ── */}
+      {profile && (
+        <Card className="niva-card">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-base flex flex-wrap items-center gap-2">
+              <Info className="h-4 w-4 text-primary" aria-hidden />
+              {t('post2.milestonesTitle')}
+              <Badge variant="secondary" className="num text-[10px]">{nf.format(achievedInMonth)}/{nf.format(monthContent.milestones.length)}</Badge>
+            </CardTitle>
+            <p className="text-sm text-muted-foreground font-normal leading-relaxed">{t('post2.milestonesSub')}</p>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Month chips */}
+            <div className="flex flex-wrap gap-1.5" role="tablist" aria-label={t('post2.milestonesTitle')}>
+              {BABY_MILESTONES.map((m) => (
+                <button
+                  key={m.month}
+                  type="button"
+                  role="tab"
+                  aria-selected={month === m.month}
+                  onClick={() => setSelectedMonth(m.month)}
+                  className={`rounded-full border px-3.5 py-2 text-xs min-h-9 transition-colors ${month === m.month ? 'border-primary bg-primary/10 font-semibold' : 'hover:bg-muted/50'}`}
+                >
+                  <span className="num">{nf.format(m.month)}</span>
+                  {m.month === currentMonth && <span className="ms-1" aria-hidden>⭐</span>}
+                </button>
+              ))}
+            </div>
+
+            {/* Month title + tip */}
+            <div className="rounded-2xl border bg-primary/5 p-4 space-y-1.5">
+              <p className="text-sm font-bold" dir="auto">{locale === 'fa' ? monthContent.titleFa : monthContent.titleEn}</p>
+              <p className="text-xs font-medium text-primary flex items-center gap-1.5">
+                <Info className="h-3.5 w-3.5 shrink-0" aria-hidden />{t('post2.tipTitle')}
+              </p>
+              <p dir="auto" className="text-sm leading-relaxed text-muted-foreground">
+                {locale === 'fa' ? monthContent.tipFa : monthContent.tipEn}
+              </p>
+            </div>
+
+            {/* Milestone checklist */}
+            <ul className="space-y-2">
+              {monthContent.milestones.map((m) => {
+                const achieved = achievedKeys.has(m.id);
+                const entry = milestones.find((x) => x.key === m.id);
+                return (
+                  <li key={m.id}>
+                    <label className="flex items-start gap-3 rounded-xl border p-3 cursor-pointer hover:bg-muted/40 transition-colors has-[[data-state=checked]]:border-primary has-[[data-state=checked]]:bg-primary/5">
+                      <Checkbox
+                        checked={achieved}
+                        onCheckedChange={(v) => toggleMilestone(m.id, v === true)}
+                        className="mt-0.5"
+                        aria-label={locale === 'fa' ? m.fa : m.en}
+                      />
+                      <span className="min-w-0 flex-1">
+                        <span dir="auto" className={`block text-sm leading-relaxed ${achieved ? 'font-medium' : ''}`}>
+                          {locale === 'fa' ? m.fa : m.en}
+                        </span>
+                        {achieved && entry && (
+                          <span dir="auto" className="block text-[11px] text-muted-foreground mt-0.5">
+                            {t('post2.achieved')} · {formatDate(new Date(entry.achievedAt), locale)}
+                          </span>
+                        )}
+                      </span>
+                    </label>
+                  </li>
+                );
+              })}
+            </ul>
+            <p className="text-[11px] text-muted-foreground leading-relaxed">{t('post2.disclaimer')}</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!profile && (!pregnancy || pregnancy.status !== 'POSTPARTUM') ? (
         <Card className="niva-card">
           <CardContent className="p-5 space-y-3">
             <p className="text-sm leading-relaxed">
@@ -279,7 +455,7 @@ export function PostpartumView() {
                 <Label htmlFor="feed-method">{t('post.method')}</Label>
                 <Select value={method} onValueChange={setMethod}>
                   <SelectTrigger id="feed-method" className="min-h-11 w-full" aria-label={t('post.method')}>
-                    <SelectValue />
+                    <span className="truncate">{t(METHOD_LABEL[method] ?? 'post.feedMixed')}</span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="BREAST">{t('post.feedBreast')}</SelectItem>
@@ -296,7 +472,7 @@ export function PostpartumView() {
                   <Label htmlFor="feed-side">{t('post.side')}</Label>
                   <Select value={side} onValueChange={setSide}>
                     <SelectTrigger id="feed-side" className="min-h-11 w-full" aria-label={t('post.side')}>
-                      <SelectValue />
+                      <span className="truncate">{t(SIDE_LABEL[side] ?? 'post.sideNone')}</span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="LEFT">{t('post.sideLeft')}</SelectItem>
@@ -343,7 +519,7 @@ export function PostpartumView() {
                 <Label htmlFor="care-kind">{t('post.careKind')}</Label>
                 <Select value={careKind} onValueChange={(v) => { setCareKind(v); setValueStr(''); }}>
                   <SelectTrigger id="care-kind" className="min-h-11 w-full" aria-label={t('post.careKind')}>
-                    <SelectValue />
+                    <span className="truncate">{t(CARE_KIND_LABEL[careKind] ?? 'post.careNote')}</span>
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="DIAPER">{t('post.diaper')}</SelectItem>
@@ -361,7 +537,7 @@ export function PostpartumView() {
                   <Label htmlFor="care-detail">{t('post.detailDiaper')}</Label>
                   <Select value={detail} onValueChange={setDetail}>
                     <SelectTrigger id="care-detail" className="min-h-11 w-full" aria-label={t('post.detailDiaper')}>
-                      <SelectValue />
+                      <span className="truncate">{t(DETAIL_LABEL[detail] ?? 'post.detailDiaper')}</span>
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="WET">{t('post.diaperWet')}</SelectItem>
@@ -518,6 +694,8 @@ export function PostpartumView() {
           </p>
         </CardContent>
       </Card>
+
+      <BirthDialog open={birthOpen} onClose={() => setBirthOpen(false)} existing={profile} />
     </div>
   );
 }

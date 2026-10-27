@@ -8,16 +8,30 @@ import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { gestationalAgeAt, trimesterOf } from '@/lib/gestational';
+import { babyAgeAt } from '@/lib/cycle';
 import type { Locale } from '@/lib/i18n';
 import { formatDate, formatDateTime, formatWeeksDays, bdiWrap } from '@/lib/format';
 import { formatMessage } from '@/lib/icu';
 import { WEEKLY_CONTENT } from '@/data/weekly-content';
 import { BlockMenu } from '@/components/shell/block-menu';
 import { tileStyle } from '@/components/shell/nav-config';
-import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock } from 'lucide-react';
+import { BirthDialog } from '@/components/shell/birth-dialog';
+import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock, CalendarHeart, Baby, Flower2 } from 'lucide-react';
 
 interface Appointment { id: string; title: string; scheduledAt: string; provider: string | null }
 interface Reminder { id: string; title: string; dueAt: string; type: string }
+interface CycleStatsLike {
+  avgCycleDays: number | null;
+  nextPeriodStart: string | null;
+  ovulationDate: string | null;
+  fertileWindow: { start: string; end: string } | null;
+  cycleDay: number | null;
+}
+interface BabyProfileLite {
+  name: string;
+  birthDate: string;
+  gender: string;
+}
 
 /** Educational dating-uncertainty band by confidence (never a diagnostic claim). */
 const UNCERTAINTY_DAYS: Record<string, number> = { HIGH: 7, MEDIUM: 14, LOW: 21 };
@@ -61,6 +75,9 @@ export function DashboardView() {
   const [loading, setLoading] = useState(true);
   const [failed, setFailed] = useState(false);
   const [stage, setStage] = useState<string | null>(null);
+  const [cycleStats, setCycleStats] = useState<CycleStatsLike | null>(null);
+  const [baby, setBaby] = useState<BabyProfileLite | null>(null);
+  const [birthOpen, setBirthOpen] = useState(false);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoading(true);
@@ -76,8 +93,17 @@ export function DashboardView() {
       if (signal?.aborted) return;
       setNext(apptRes?.upcoming?.[0] ?? null);
       setReminders((remRes?.reminders ?? []).slice(0, 4));
-      setStage(prefRes?.stage ?? null);
+      const st = prefRes?.stage ?? null;
+      setStage(st);
       if (!apptRes && !remRes) setFailed(true); // both failed → show retry
+      // Stage journey data (wave 14): cycle companion for TRYING, baby for POSTPARTUM.
+      if (st === 'TRYING') {
+        const cyc = await fetch('/api/cycle', { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (!signal?.aborted) setCycleStats(cyc?.stats ?? null);
+      } else if (st === 'POSTPARTUM') {
+        const bb = await fetch('/api/baby', { signal }).then((r) => (r.ok ? r.json() : null)).catch(() => null);
+        if (!signal?.aborted) setBaby(bb?.profile ?? null);
+      }
     } finally {
       if (!signal?.aborted) setLoading(false);
     }
@@ -95,15 +121,30 @@ export function DashboardView() {
 
   // Stage-aware no-pregnancy state: TRYING/POSTPARTUM/EXPLORING users get a
   // welcoming card instead of being pushed back into pregnancy onboarding.
-  if (!pregnancy || !ga) {
-    const nonPregnant = stage && stage !== 'PREGNANT';
+  // A pregnancy whose status moved to POSTPARTUM (birth registered, wave 14)
+  // also lands here — the journey continues with the baby, not the bump.
+  const postpartumJourney = pregnancy?.status === 'POSTPARTUM';
+  if (!pregnancy || !ga || postpartumJourney) {
+    // displayStage: null while preferences load; POSTPARTUM is forced when the
+    // pregnancy status already moved (birth registered) so the baby card shows
+    // immediately — never call .charAt on the null stage.
+    const displayStage: string | null = postpartumJourney ? 'POSTPARTUM' : stage;
+    const nonPregnant = displayStage !== null && displayStage !== 'PREGNANT';
+    const babyAge = baby ? babyAgeAt(new Date(baby.birthDate)) : null;
     return (
       <div className="space-y-4">
         <BlockMenu />
         <Card className="niva-card">
           <CardContent className="p-8 text-center space-y-3">
+            {displayStage === 'POSTPARTUM' ? (
+              <Flower2 className="h-8 w-8 text-primary mx-auto" aria-hidden />
+            ) : displayStage === 'TRYING' ? (
+              <CalendarHeart className="h-8 w-8 text-primary mx-auto" aria-hidden />
+            ) : null}
             <p className="text-lg font-semibold">
-              {nonPregnant ? t(`onboarding.stage${stage.charAt(0)}${stage.slice(1).toLowerCase()}`) : t('onboarding.title')}
+              {nonPregnant && displayStage
+                ? t(`onboarding.stage${displayStage.charAt(0)}${displayStage.slice(1).toLowerCase()}`)
+                : t('onboarding.title')}
             </p>
             <p className="text-sm text-muted-foreground max-w-md mx-auto">
               {nonPregnant ? t('dash.stageWelcome') : t('onboarding.intro')}
@@ -111,6 +152,56 @@ export function DashboardView() {
             {!nonPregnant && (
               <Button onClick={() => setView('onboarding')} className="min-h-12">{t('onboarding.finish')}</Button>
             )}
+
+            {/* TRYING → cycle summary + companion CTA */}
+            {displayStage === 'TRYING' && (
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 pt-2 text-start">
+                {([
+                  ['f.cycleDay', cycleStats?.cycleDay != null ? String(cycleStats.cycleDay) : null],
+                  ['f.avgCycle', cycleStats?.avgCycleDays != null ? `${cycleStats.avgCycleDays} ${t('common.days')}` : null],
+                  ['f.nextPeriod', cycleStats?.nextPeriodStart ? formatDate(new Date(cycleStats.nextPeriodStart), locale) : null],
+                  ['f.fertileWindow', cycleStats?.fertileWindow ? `${formatDate(new Date(cycleStats.fertileWindow.start), locale)} — ${formatDate(new Date(cycleStats.fertileWindow.end), locale)}` : null],
+                ] as const).map(([key, value]) => (
+                  <div key={key} className="rounded-xl border bg-primary/5 p-2.5">
+                    <p className="text-[10px] text-muted-foreground truncate">{t(key)}</p>
+                    <p dir="auto" className="text-xs font-bold mt-0.5 truncate">{value ?? '—'}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+            {displayStage === 'TRYING' && (
+              <Button onClick={() => setView('fertility')} className="min-h-11">
+                <CalendarHeart className="h-4 w-4 me-2" aria-hidden />{t('f.dashOpen')}
+              </Button>
+            )}
+
+            {/* POSTPARTUM → baby card or birth registration CTA */}
+            {displayStage === 'POSTPARTUM' && baby && babyAge && (
+              <div className="mx-auto max-w-sm rounded-2xl border bg-primary/5 p-4 space-y-1">
+                <p className="flex items-center justify-center gap-2 text-base font-bold">
+                  <Baby className="h-4 w-4 text-primary" aria-hidden />{bdiWrap(baby.name)}
+                </p>
+                <p dir="auto" className="text-sm text-muted-foreground">
+                  {t('post2.age')}:{' '}
+                  {babyAge.months >= 1
+                    ? `${babyAge.months} ${t('post2.months')}${babyAge.days ? ` و ${babyAge.days} ${t('post2.days')}` : ''}`
+                    : `${babyAge.weeks} ${t('post2.weeks')}${babyAge.weekDays ? ` و ${babyAge.weekDays} ${t('post2.days')}` : ''}`}
+                </p>
+              </div>
+            )}
+            {displayStage === 'POSTPARTUM' && (
+              <div className="flex flex-wrap justify-center gap-2 pt-1">
+                {baby && (
+                  <Button onClick={() => setView('postpartum')} className="min-h-11">
+                    <Flower2 className="h-4 w-4 me-2" aria-hidden />{t('nav.postpartum')}
+                  </Button>
+                )}
+                <Button variant={baby ? 'outline' : 'default'} onClick={() => setBirthOpen(true)} className="min-h-11">
+                  <Baby className="h-4 w-4 me-2" aria-hidden />{baby ? t('post2.editProfile') : t('born.cta')}
+                </Button>
+              </div>
+            )}
+
             <div className="grid grid-cols-2 gap-2.5 max-w-sm mx-auto pt-2">
               <Button variant="outline" onClick={() => setView('tracking')} className="min-h-11 flex-col gap-1 h-16">
                 <Activity className="h-5 w-5 text-primary" /><span className="text-xs">{t('dash.trackToday')}</span>
@@ -121,6 +212,7 @@ export function DashboardView() {
             </div>
           </CardContent>
         </Card>
+        <BirthDialog open={birthOpen} onClose={() => setBirthOpen(false)} existing={baby} />
       </div>
     );
   }
@@ -225,6 +317,16 @@ export function DashboardView() {
         </Card>
       </section>
 
+      {/* Birth registration (term-approach companion, wave 14) */}
+      {week >= 36 && (
+        <Card className="niva-card border-primary/40 bg-primary/5">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <p className="text-sm font-medium leading-relaxed">🌸 {t('born.cta')}</p>
+            <Button onClick={() => setBirthOpen(true)} className="min-h-11">{t('born.title')}</Button>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Safety + dating notices */}
       <section className="grid gap-4 lg:grid-cols-2" aria-label="notices">
         <Alert className="border-destructive/30 bg-destructive/5">
@@ -303,6 +405,8 @@ export function DashboardView() {
           </CardContent>
         </Card>
       </section>
+
+      <BirthDialog open={birthOpen} onClose={() => setBirthOpen(false)} />
     </div>
   );
 }

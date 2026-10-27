@@ -16,6 +16,7 @@ import { AppointmentsView } from '@/components/views/appointments-view';
 import { WellnessView } from '@/components/views/wellness-view';
 import { BirthPrepView } from '@/components/views/birth-prep-view';
 import { PostpartumView } from '@/components/views/postpartum-view';
+import { FertilityView } from '@/components/views/fertility-view';
 import { FamilyView } from '@/components/views/family-view';
 import { CommunityView } from '@/components/views/community-view';
 import { JournalView } from '@/components/views/journal-view';
@@ -50,6 +51,7 @@ function Views() {
       case 'wellness': return <WellnessView />;
       case 'birth': return <BirthPrepView />;
       case 'postpartum': return <PostpartumView />;
+      case 'fertility': return <FertilityView />;
       case 'family': return <FamilyView />;
       case 'community': return <CommunityView />;
       case 'journal': return <JournalView />;

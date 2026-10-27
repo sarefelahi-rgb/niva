@@ -62,6 +62,10 @@ model User {
   pushSubscriptions PushSubscription[]
   doctorProfile    DoctorProfile?
   doctorAppointments DoctorAppointment[] @relation("PatientAppointments")
+  cycleEntries     CycleEntry[]
+  intimacyEntries  IntimacyEntry[]
+  babyProfile      BabyProfile?
+  milestoneEntries MilestoneEntry[]
 }
 
 /// Wave 11 — mobile OTP sign-in (sms.ir verify template).
@@ -859,4 +863,65 @@ model BabyCareEntry {
   createdAt  DateTime @default(now())
 
   @@index([userId, happenedAt])
+}
+
+// ─── Wave 14: Full journey — pre-conception → birth → baby's first year ────
+
+/// One logged period start (trying-to-conceive companion).
+/// One row per logged day of flow; predictions derive from start dates.
+model CycleEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime // period start day (local date, UTC midnight)
+  flow      String   @default("MEDIUM") // SPOTTING | LIGHT | MEDIUM | HEAVY
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+/// Logged intercourse date («تاریخ اقدام به نزدیکی») — conception-timing
+/// companion. Educational only; never a medical conclusion.
+model IntimacyEntry {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date      DateTime // local date, UTC midnight
+  notes     String?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, date])
+}
+
+/// The child — created at birth registration; anchors baby age (0–12 months)
+/// for the postpartum journey. One active profile per user.
+model BabyProfile {
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  birthDate      DateTime
+  gender         String   @default("UNDISCLOSED") // GIRL | BOY | UNDISCLOSED
+  birthWeightG   Int?
+  birthLengthCm  Int?
+  birthNote      String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@unique([userId])
+}
+
+/// Achieved developmental milestone (key = stable id from baby-milestones.ts).
+model MilestoneEntry {
+  id         String   @id @default(cuid())
+  userId     String
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  key        String   // milestone id, e.g. 'first-social-smile'
+  achievedAt DateTime
+  note       String?
+  createdAt  DateTime @default(now())
+
+  @@unique([userId, key])
+  @@index([userId])
 }

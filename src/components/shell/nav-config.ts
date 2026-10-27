@@ -1,7 +1,7 @@
 import {
   LayoutDashboard, CalendarClock, Box, Activity, Sparkles, FolderLock, Stethoscope,
   Salad, Baby, Flower2, BookHeart, Users, Crown, Settings, ShieldCheck,
-  HeartPulse, Hospital,
+  HeartPulse, Hospital, CalendarHeart,
 } from 'lucide-react';
 import type { View } from '@/store/app';
 
@@ -25,6 +25,7 @@ export const PRIMARY_NAV: NavItem[] = [
 
 /** Care & life sections. */
 export const SECONDARY_NAV: NavItem[] = [
+  { view: 'fertility', icon: CalendarHeart, labelKey: 'nav.fertility', tile: 3 },
   { view: 'appointments', icon: Stethoscope, labelKey: 'nav.appointments', tile: 6 },
   { view: 'doctors', icon: Hospital, labelKey: 'nav.doctors', tile: 7 },
   { view: 'records', icon: FolderLock, labelKey: 'nav.records', tile: 8 },
