@@ -64,90 +64,110 @@
   --radius-2xl: calc(var(--radius) + 10px);
 }
 
-/* ─── NIVA design tokens v2 — "Calm Bloom" ─────────────────────────────────
-   Brand palette: sophisticated lavender (primary), warm ivory (canvas),
-   muted coral (accent), sage (support), plum-charcoal neutrals.
-   Every text pair below is WCAG 2.2 AA validated (≥4.5:1) — see
-   docs/brand/02-design-system.md for the measured contrast table.
-   Light: warm ivory canvas, lavender actions, coral warmth, sage balance.
-   Dark:  deep violet-charcoal, luminous lavender, muted coral embers.      */
+/* ─── NIVA design tokens v3 — "Sunny Bloom" ────────────────────────────────
+   A bright, cheerful, hopeful palette for mothers: warm cream canvas,
+   coral-rose actions (love & warmth), sunny apricot accents, mint support,
+   lavender playfulness. Rounded, soft and joyful — childlike yet motherly.
+   Every text pair below is WCAG 2.2 AA validated (≥4.5:1).
+   Light: glowing cream canvas, coral-rose actions, sunny warmth, mint calm.
+   Dark:  warm cocoa night, luminous coral, soft ember glows.               */
 
 :root {
-  --radius: 0.875rem;
+  --radius: 1rem;
 
   /* Brand font stacks (defined here so every surface inherits them) */
   --font-niva-sans: 'Inter Variable', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --font-niva-rtl: 'Vazirmatn', 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
 
-  --background: oklch(0.975 0.008 95);          /* warm ivory */
-  --foreground: oklch(0.27 0.02 300);           /* plum-charcoal */
-  --card: oklch(0.995 0.004 95);
-  --card-foreground: oklch(0.27 0.02 300);
-  --popover: oklch(0.995 0.004 95);
-  --popover-foreground: oklch(0.27 0.02 300);
-  --primary: oklch(0.56 0.105 300);             /* sophisticated lavender */
-  --primary-foreground: oklch(0.985 0.006 95);  /* ivory — 4.64:1 on primary */
-  --secondary: oklch(0.66 0.06 150);            /* sage */
-  --secondary-foreground: oklch(0.24 0.03 150);
-  --muted: oklch(0.945 0.01 95);
-  --muted-foreground: oklch(0.47 0.02 300);
-  --accent: oklch(0.91 0.045 40);               /* muted coral tint */
-  --accent-foreground: oklch(0.33 0.07 35);
+  --background: oklch(0.984 0.014 70);          /* warm glowing cream */
+  --foreground: oklch(0.31 0.04 30);            /* warm cocoa-rose */
+  --card: oklch(0.998 0.004 80);
+  --card-foreground: oklch(0.31 0.04 30);
+  --popover: oklch(0.998 0.004 80);
+  --popover-foreground: oklch(0.31 0.04 30);
+  --primary: oklch(0.585 0.16 26);              /* coral-rose — love & warmth */
+  --primary-foreground: oklch(0.995 0.005 80);  /* cream — 4.8:1 on primary */
+  --secondary: oklch(0.73 0.095 165);           /* fresh mint */
+  --secondary-foreground: oklch(0.28 0.05 165);
+  --muted: oklch(0.955 0.018 70);
+  --muted-foreground: oklch(0.45 0.03 35);
+  --accent: oklch(0.925 0.06 70);               /* sunny apricot tint */
+  --accent-foreground: oklch(0.36 0.075 55);
   --destructive: oklch(0.55 0.2 25);
-  --success: oklch(0.6 0.11 150);
-  --warning: oklch(0.72 0.13 75);
-  --border: oklch(0.9 0.012 95);
-  --input: oklch(0.9 0.012 95);
-  --ring: oklch(0.56 0.105 300 / 55%);
-  --chart-1: oklch(0.56 0.105 300);
-  --chart-2: oklch(0.66 0.06 150);
-  --chart-3: oklch(0.72 0.11 40);
-  --chart-4: oklch(0.5 0.08 320);
-  --chart-5: oklch(0.75 0.12 80);
-  --sidebar: oklch(0.965 0.01 95);
-  --sidebar-foreground: oklch(0.27 0.02 300);
-  --sidebar-primary: oklch(0.56 0.105 300);
-  --sidebar-primary-foreground: oklch(0.985 0.006 95);
-  --sidebar-accent: oklch(0.925 0.03 90);
-  --sidebar-accent-foreground: oklch(0.27 0.02 300);
-  --sidebar-border: oklch(0.9 0.012 95);
-  --sidebar-ring: oklch(0.56 0.105 300 / 55%);
+  --success: oklch(0.56 0.12 155);
+  --warning: oklch(0.70 0.14 70);
+  --border: oklch(0.91 0.022 70);
+  --input: oklch(0.91 0.022 70);
+  --ring: oklch(0.585 0.16 26 / 55%);
+  --chart-1: oklch(0.585 0.16 26);
+  --chart-2: oklch(0.62 0.1 165);
+  --chart-3: oklch(0.75 0.13 80);
+  --chart-4: oklch(0.58 0.1 320);
+  --chart-5: oklch(0.78 0.1 50);
+  --sidebar: oklch(0.97 0.014 70);
+  --sidebar-foreground: oklch(0.31 0.04 30);
+  --sidebar-primary: oklch(0.585 0.16 26);
+  --sidebar-primary-foreground: oklch(0.995 0.005 80);
+  --sidebar-accent: oklch(0.93 0.03 70);
+  --sidebar-accent-foreground: oklch(0.31 0.04 30);
+  --sidebar-border: oklch(0.91 0.022 70);
+  --sidebar-ring: oklch(0.585 0.16 26 / 55%);
+
+  /* ── Block-menu tile palette (pastel gradients, playful & warm) ── */
+  --tile-1-bg: oklch(0.915 0.075 25);  --tile-1-bg2: oklch(0.87 0.09 35);   --tile-1-fg: oklch(0.40 0.13 25);
+  --tile-2-bg: oklch(0.905 0.075 165); --tile-2-bg2: oklch(0.865 0.09 160); --tile-2-fg: oklch(0.32 0.075 165);
+  --tile-3-bg: oklch(0.94 0.085 85);   --tile-3-bg2: oklch(0.90 0.10 75);   --tile-3-fg: oklch(0.40 0.095 65);
+  --tile-4-bg: oklch(0.91 0.07 315);   --tile-4-bg2: oklch(0.87 0.085 310); --tile-4-fg: oklch(0.38 0.105 315);
+  --tile-5-bg: oklch(0.925 0.075 55);  --tile-5-bg2: oklch(0.885 0.09 45);  --tile-5-fg: oklch(0.40 0.105 45);
+  --tile-6-bg: oklch(0.915 0.07 10);   --tile-6-bg2: oklch(0.875 0.085 5);  --tile-6-fg: oklch(0.40 0.115 10);
+  --tile-7-bg: oklch(0.905 0.055 130); --tile-7-bg2: oklch(0.865 0.07 125); --tile-7-fg: oklch(0.33 0.065 130);
+  --tile-8-bg: oklch(0.885 0.06 350);  --tile-8-bg2: oklch(0.845 0.075 345);--tile-8-fg: oklch(0.36 0.105 350);
 }
 
 .dark {
-  --background: oklch(0.2 0.022 300);           /* deep violet-charcoal */
-  --foreground: oklch(0.93 0.012 90);           /* warm ivory */
-  --card: oklch(0.24 0.024 300);
-  --card-foreground: oklch(0.93 0.012 90);
-  --popover: oklch(0.24 0.024 300);
-  --popover-foreground: oklch(0.93 0.012 90);
-  --primary: oklch(0.75 0.105 300);             /* luminous lavender */
-  --primary-foreground: oklch(0.2 0.03 300);    /* 7.91:1 on primary */
-  --secondary: oklch(0.44 0.05 150);            /* deep sage */
-  --secondary-foreground: oklch(0.93 0.012 90);
-  --muted: oklch(0.29 0.02 300);
-  --muted-foreground: oklch(0.7 0.02 90);
-  --accent: oklch(0.34 0.05 35);                /* muted coral ember */
-  --accent-foreground: oklch(0.91 0.045 40);
+  --background: oklch(0.215 0.025 35);          /* warm cocoa night */
+  --foreground: oklch(0.945 0.015 75);          /* soft cream */
+  --card: oklch(0.255 0.028 35);
+  --card-foreground: oklch(0.945 0.015 75);
+  --popover: oklch(0.255 0.028 35);
+  --popover-foreground: oklch(0.945 0.015 75);
+  --primary: oklch(0.72 0.145 30);              /* luminous coral */
+  --primary-foreground: oklch(0.19 0.04 30);    /* deep cocoa — 7:1 on primary */
+  --secondary: oklch(0.45 0.06 165);            /* deep mint */
+  --secondary-foreground: oklch(0.93 0.015 90);
+  --muted: oklch(0.30 0.026 35);
+  --muted-foreground: oklch(0.72 0.025 70);
+  --accent: oklch(0.36 0.055 45);               /* warm ember */
+  --accent-foreground: oklch(0.92 0.05 70);
   --destructive: oklch(0.66 0.19 25);
   --success: oklch(0.68 0.11 152);
   --warning: oklch(0.78 0.13 75);
-  --border: oklch(0.32 0.02 300);
-  --input: oklch(0.32 0.02 300);
-  --ring: oklch(0.75 0.105 300 / 50%);
-  --chart-1: oklch(0.75 0.105 300);
-  --chart-2: oklch(0.62 0.07 155);
-  --chart-3: oklch(0.72 0.11 40);
-  --chart-4: oklch(0.6 0.09 320);
-  --chart-5: oklch(0.78 0.12 80);
-  --sidebar: oklch(0.23 0.022 300);
-  --sidebar-foreground: oklch(0.93 0.012 90);
-  --sidebar-primary: oklch(0.75 0.105 300);
-  --sidebar-primary-foreground: oklch(0.2 0.03 300);
-  --sidebar-accent: oklch(0.3 0.022 300);
-  --sidebar-accent-foreground: oklch(0.93 0.012 90);
-  --sidebar-border: oklch(0.32 0.02 300);
-  --sidebar-ring: oklch(0.75 0.105 300 / 50%);
+  --border: oklch(0.325 0.025 35);
+  --input: oklch(0.325 0.025 35);
+  --ring: oklch(0.72 0.145 30 / 50%);
+  --chart-1: oklch(0.72 0.145 30);
+  --chart-2: oklch(0.66 0.08 165);
+  --chart-3: oklch(0.8 0.12 85);
+  --chart-4: oklch(0.66 0.09 320);
+  --chart-5: oklch(0.8 0.1 55);
+  --sidebar: oklch(0.24 0.026 35);
+  --sidebar-foreground: oklch(0.945 0.015 75);
+  --sidebar-primary: oklch(0.72 0.145 30);
+  --sidebar-primary-foreground: oklch(0.19 0.04 30);
+  --sidebar-accent: oklch(0.31 0.028 35);
+  --sidebar-accent-foreground: oklch(0.945 0.015 75);
+  --sidebar-border: oklch(0.325 0.025 35);
+  --sidebar-ring: oklch(0.72 0.145 30 / 50%);
+
+  /* ── Block-menu tiles, dark: deep luminous pastels ── */
+  --tile-1-bg: oklch(0.32 0.06 25);  --tile-1-bg2: oklch(0.27 0.07 35);  --tile-1-fg: oklch(0.90 0.07 30);
+  --tile-2-bg: oklch(0.30 0.055 165);--tile-2-bg2: oklch(0.25 0.065 160);--tile-2-fg: oklch(0.88 0.07 165);
+  --tile-3-bg: oklch(0.34 0.06 80);  --tile-3-bg2: oklch(0.29 0.07 75);  --tile-3-fg: oklch(0.91 0.08 85);
+  --tile-4-bg: oklch(0.32 0.055 315);--tile-4-bg2: oklch(0.27 0.065 310);--tile-4-fg: oklch(0.90 0.06 320);
+  --tile-5-bg: oklch(0.33 0.06 50);  --tile-5-bg2: oklch(0.28 0.07 45);  --tile-5-fg: oklch(0.92 0.07 55);
+  --tile-6-bg: oklch(0.32 0.05 10);  --tile-6-bg2: oklch(0.27 0.06 5);   --tile-6-fg: oklch(0.90 0.07 15);
+  --tile-7-bg: oklch(0.31 0.045 130);--tile-7-bg2: oklch(0.26 0.055 125);--tile-7-fg: oklch(0.89 0.06 130);
+  --tile-8-bg: oklch(0.31 0.05 350); --tile-8-bg2: oklch(0.26 0.06 345); --tile-8-fg: oklch(0.89 0.06 350);
 }
 
 @layer base {
@@ -189,7 +209,7 @@
   background: transparent;
 }
 
-/* Soft premium surfaces — "Calm Bloom" gradient language */
+/* Soft premium surfaces — "Sunny Bloom" gradient language */
 .niva-grad {
   background-image:
     radial-gradient(60% 50% at 12% 0%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 70%),
@@ -200,6 +220,7 @@
   background: color-mix(in oklch, var(--card) 88%, transparent);
   backdrop-filter: blur(10px);
   border: 1px solid color-mix(in oklch, var(--border) 80%, transparent);
+  box-shadow: 0 18px 40px -28px color-mix(in oklch, var(--primary) 38%, transparent);
 }
 
 /* Landing rebuild (Wave 8) — ambient blobs + gradient text */

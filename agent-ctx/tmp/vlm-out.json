@@ -1,0 +1,28 @@
+{
+  "choices": [
+    {
+      "finish_reason": "stop",
+      "index": 0,
+      "message": {
+        "content": "Based on the center-cropped view of the 3D scene, here is a detailed description of the fetus:\n\n**Visible Facial Features:**\n*   **Eyes:** The eyes appear to be **closed**, represented by subtle, darkened slits or indentations on the face.\n*   **Nose:** There is a small, faint **nasal protrusion** or button-like shape, though it lacks defined nostrils at this stage.\n*   **Lips:** Very **faint hints of lips** are visible as a slight differentiation in the mouth area.\n*   **Ears:** Small, rounded **ear flaps** are visible on the sides of the head, positioned relatively low.\n*   **Eyebrows:** Extremely **faint eyebrow hints** can be seen above the eye area.\n\n**Hand Position and Limbs:**\nThe figure is in a classic curled fetal position. The **hands are brought up near the face** (specifically near the chin and cheek area), and the legs are tucked toward the torso. The limbs appear proportioned for this stage of development.\n\n**Proportions and Condition:**\n*   The **head is approximately one-third of the total body length (CRL)**, which is anatomically accurate for the 14-22 week range.\n*   The skin has a **softly glowing, translucent quality**, typical of a fetus surrounded by fluid.\n*   **Nothing appears broken;** the model looks intact and continuous.\n\n**Naturalism Rating:**\n**7/10**\n*Reasoning:* This is a highly stylized but educationally accurate representation. It captures the correct proportions (large head, limb positioning) and general facial feature placement. However, it loses points for being overly \"smooth\" and \"doll-like\" compared to a real fetus, which would have more visible vascularization, thinner skin, and less \"perfect\" rounding. It serves its purpose well as a clear, non-threatening educational visual.",
+        "role": "assistant"
+      }
+    }
+  ],
+  "created": 1793119868,
+  "id": "20261028005100af58a62d149848f4",
+  "model": "glm-5v-turbo",
+  "object": "chat.completion",
+  "request_id": "20261028005100af58a62d149848f4",
+  "usage": {
+    "completion_tokens": 401,
+    "completion_tokens_details": {
+      "reasoning_tokens": 0
+    },
+    "prompt_tokens": 2834,
+    "prompt_tokens_details": {
+      "cached_tokens": 0
+    },
+    "total_tokens": 3235
+  }
+}

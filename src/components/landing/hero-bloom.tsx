@@ -11,17 +11,19 @@
  * - The child: a serene, stylized FETUS — curled profile with closed eyes,
  *   folded limbs and a warm subsurface-like skin, sculpted from soft-blended
  *   primitives; heartbeat halo + mandorla rings + pulsing inner light.
- * - GROWTH JOURNEY — five stages driven by the landing's journey chips
- *   (auto-cycled, click to jump), each with its own week-informed morphology
- *   instead of one rescaled model: fertilization (glowing egg, corona radiata,
- *   swimming sperm), cell division (morula inside its zona pellucida), the
- *   EMBRYO (weeks 4–8: huge head in cranial flexure, deep C-curve with a
- *   regressing tail, paddle limb buds, somite ridge, dark optic vesicles,
- *   heart prominence fluttering at ~140 bpm, yolk sac on its vitelline duct),
- *   the mid-pregnancy FETUS (weeks 9–27: head ≈⅓ of length, sealed lids,
- *   folded limbs), and the full-term child (weeks 28–40: plump from fat
- *   deposition, head ≈¼ of length, head-down vertex presentation). The cord
- *   grows thicker and re-anchors at the navel of each stage's model.
+ * - GROWTH JOURNEY — eight stages driven by the landing's journey chips
+ *   (auto-cycled, click to jump), each with its own week-informed
+ *   morphology instead of one rescaled model: fertilization (translucent
+ *   ovum with corona radiata, zona pellucida, polar body, two pronuclei
+ *   and swimming sperm), the blastocyst (trophectoderm, inner cell mass,
+ *   blastocoel, hatching zona), the EARLY EMBRYO (weeks 4–5: deep C-curve,
+ *   huge head fold, somite ridge, tail bud, heart prominence at ~140 bpm,
+ *   yolk sac), the LATE EMBRYO (weeks 6–8: paddle hands with finger rays,
+ *   lens vesicles, ear ridges, regressing tail), and four fetal stages
+ *   (weeks 9–13 fused eyelids & separated fingers, 14–22 hands near the
+ *   face, 23–30 open dark irises & forming cheeks, and the term newborn
+ *   with vernix-creamy skin and a clear sleeping face). The cord grows
+ *   thicker and re-anchors at the navel of each stage's model.
  * - Anatomically-inspired cord: a twisted two-vessel helix (Frenet frames)
  *   anchored at the fetus's navel.
  * - Amniotic shimmer bubbles drift inside the shell.
@@ -67,9 +69,8 @@ const C = {
   ivory: '#fff7ef',
 } as const;
 
-/* Child palette — warm, subsurface-like skin */
-const SKIN = '#ffcdb2';
-const SKIN_LINE = '#b06a58';
+/* Dark detail color — lash lines, lip seams, fused-lid seams */
+const DARK = '#5d3a33';
 
 /**
  * Double-thump heartbeat envelope: two soft bumps per period.
@@ -441,114 +442,6 @@ function Limb({ a, b, r, material }: { a: V3; b: V3; r: number; material: THREE.
   );
 }
 
-/**
- * The child — a serene, stylized fetus curled in the embrace.
- * Side profile facing +X: head tucked low, knees drawn up, feet near the
- * hips, arms folded across the chest; closed eyes, tiny nose & ear. Softly
- * blended spheres/capsules with a warm subsurface-like skin. Sways gently
- * and pulses with the heartbeat. Educational ambiance — not an anatomical
- * or diagnostic model.
- */
-function Fetus({ reducedMotion, scale = 1.42, pulse = 0.5 }: { reducedMotion: boolean; scale?: number; pulse?: number }) {
-  const group = useRef<THREE.Group>(null);
-
-  const skin = useMemo(
-    () =>
-      new THREE.MeshPhysicalMaterial({
-        color: SKIN,
-        roughness: 0.34,
-        metalness: 0,
-        clearcoat: 0.3,
-        clearcoatRoughness: 0.5,
-        sheen: 1,
-        sheenColor: new THREE.Color(C.pearlGlow),
-        sheenRoughness: 0.55,
-        emissive: new THREE.Color('#ff8a70'),
-        emissiveIntensity: 0.1,
-        envMapIntensity: 0.7,
-      }),
-    []
-  );
-  useEffect(() => () => skin.dispose(), [skin]);
-  const line = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: SKIN_LINE, transparent: true, opacity: 0.55 }),
-    []
-  );
-  useEffect(() => () => line.dispose(), [line]);
-
-  useFrame(({ clock }) => {
-    const t = clock.getElapsedTime();
-    if (reducedMotion || !group.current) return;
-    const hb = heartbeat(t);
-    group.current.scale.setScalar(scale * (1 + (hb - 1) * pulse));
-    group.current.rotation.z = Math.sin(t * 0.32) * 0.02;
-    // 3/4 pose — profile turned gently toward the visitor
-    group.current.rotation.y = 0.38 + Math.sin(t * 0.21) * 0.05;
-    group.current.position.y = -0.02 + Math.sin(t * 0.45 + 0.8) * 0.02;
-  });
-
-  /* Spine — the defining C-curve of the fetal silhouette (imperative,
-     disposed on unmount). */
-  const spineGeo = useMemo(() => {
-    const spine = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0.1, -0.16, 0),
-      new THREE.Vector3(-0.06, -0.1, -0.01),
-      new THREE.Vector3(-0.13, 0.04, -0.01),
-      new THREE.Vector3(-0.09, 0.19, 0),
-    ]);
-    return new THREE.TubeGeometry(spine, 24, 0.088, 14, false);
-  }, []);
-  useEffect(() => () => spineGeo.dispose(), [spineGeo]);
-
-  return (
-    <group ref={group} position={[0, -0.02, 0.12]} rotation={[0, 0.38, 0]} scale={scale}>
-      {/* curved back — one smooth C-arc from neck to sacrum */}
-      <mesh geometry={spineGeo} material={skin} />
-      {/* head — week 9–27 proportion: ≈⅓ of crown-rump length */}
-      <mesh position={[0.13, -0.27, 0]} scale={[0.94, 1.04, 0.96]} material={skin}>
-        <sphereGeometry args={[0.165, 36, 36]} />
-      </mesh>
-      <mesh position={[0.1, -0.15, 0]} material={skin}>
-        <sphereGeometry args={[0.08, 20, 20]} />
-      </mesh>
-      {/* chest / belly / hips — blended onto the spine arc */}
-      <mesh position={[0.07, -0.09, 0]} material={skin}>
-        <sphereGeometry args={[0.098, 26, 26]} />
-      </mesh>
-      <mesh position={[0.03, 0.02, 0]} material={skin}>
-        <sphereGeometry args={[0.12, 26, 26]} />
-      </mesh>
-      <mesh position={[-0.07, 0.19, 0]} material={skin}>
-        <sphereGeometry args={[0.09, 24, 24]} />
-      </mesh>
-      {/* folded arm across the chest */}
-      <Limb a={[0.06, 0, 0.07]} b={[0.19, -0.05, 0.075]} r={0.04} material={skin} />
-      <Limb a={[0.19, -0.05, 0.075]} b={[0.215, -0.17, 0.06]} r={0.034} material={skin} />
-      <mesh position={[0.22, -0.195, 0.055]} material={skin}>
-        <sphereGeometry args={[0.032, 14, 14]} />
-      </mesh>
-      {/* leg — knee drawn up, foot tucked near the hips */}
-      <Limb a={[-0.08, 0.16, 0.06]} b={[0.15, 0.09, 0.07]} r={0.05} material={skin} />
-      <mesh position={[0.15, 0.09, 0.07]} material={skin}>
-        <sphereGeometry args={[0.05, 16, 16]} />
-      </mesh>
-      <Limb a={[0.15, 0.09, 0.07]} b={[0, 0.27, 0.03]} r={0.04} material={skin} />
-      <mesh position={[0, 0.285, 0.03]} material={skin}>
-        <sphereGeometry args={[0.032, 14, 14]} />
-      </mesh>
-      {/* profile beauty marks */}
-      <mesh position={[0.265, -0.29, 0.045]} material={skin}>
-        <sphereGeometry args={[0.016, 12, 12]} />
-      </mesh>
-      <mesh position={[0.06, -0.28, 0.13]} material={skin}>
-        <sphereGeometry args={[0.02, 12, 12]} />
-      </mesh>
-      {/* closed eye — a calm lash line */}
-      <Limb a={[0.19, -0.23, 0.115]} b={[0.24, -0.205, 0.095]} r={0.006} material={line} />
-    </group>
-  );
-}
-
 /** Amniotic shimmer — tiny bubbles drifting inside the shell. */
 function Bubbles() {
   const group = useRef<THREE.Group>(null);
@@ -584,17 +477,74 @@ function Bubbles() {
 /* ----------------------------------------------------------- growth journey */
 
 /**
- * Cord anchor + thickness per journey stage (null = no cord yet). The anchor
- * is each stage model's navel in scene coordinates — kept in sync with the
- * stage placement (group offset + scale × local umbilicus).
+ * Eight bespoke scenes cover the whole journey, weeks 1–40:
+ *  0 · fertilization (wk 1) — translucent ovum with two pronuclei, a polar
+ *    body, zona pellucida, corona radiata escort and four sperm whose
+ *    segmented tails undulate with a traveling wave.
+ *  1 · cell division (wk 2–3) — the blastocyst: trophectoderm shell of
+ *    flattened cells, inner cell mass as a compact knob at one pole, the
+ *    blastocoel cavity and a thin zona pellucida with a hatching gap.
+ *  2 · early embryo (wk 4–5) — the classic deep-C: huge head fold in
+ *    cranial flexure, somite ridge, tail bud, bulging heart prominence
+ *    (~140 bpm), yolk sac on its vitelline duct, nascent limb buds.
+ *  3 · late embryo (wk 6–8) — the curl evolves: paddle hands with faint
+ *    finger rays, leg paddles, dark lens vesicles, ear ridges, a tail
+ *    that is nearly gone.
+ *  4 · early fetus (wk 9–13) — head ≈½ of length, eyelids fused shut,
+ *    separated fingers and toes, low-set ears, body straightening.
+ *  5 · fetus (wk 14–22) — head ≈⅓, faint lips and brows, hands near the
+ *    face, softly glowing translucent skin.
+ *  6 · late fetus (wk 23–30) — head ≈¼+, plumpness beginning, eyes open
+ *    with dark irises, brows and lashes, cheeks forming.
+ *  7 · term (wk 31–40) — the flagship: a plump newborn with vernix-creamy
+ *    skin and a clear sleeping face — lash lines curving toward the cheek,
+ *    soft brows, nostrils, rosy lips, chubby cheeks and ears.
+ * Educational ambiance — stylized, never a diagnostic model.
  */
+
+/** Stage placement registry — the models and the cord anchors share these
+ *  constants, so the cord always meets each navel by construction. */
+type Placement = { pos: V3; yaw: number; scale: number };
+
+const P_EMBRYO_EARLY: Placement = { pos: [0, -0.1, 0.1], yaw: 0.42, scale: 0.74 };
+const P_EMBRYO_LATE: Placement = { pos: [0, -0.06, 0.1], yaw: 0.4, scale: 0.82 };
+const P_FETAL: Placement[] = [
+  { pos: [0, -0.03, 0.12], yaw: 0.44, scale: 0.98 }, // wk 9–13
+  { pos: [0, -0.02, 0.12], yaw: 0.42, scale: 1.08 }, // wk 14–22
+  { pos: [0, -0.02, 0.12], yaw: 0.4, scale: 1.16 }, // wk 23–30
+  { pos: [0, -0.03, 0.12], yaw: 0.38, scale: 1.28 }, // wk 31–40
+];
+
+/** Maps a point in a model's local space to scene space (base pose). */
+function placed(p: V3, pl: Placement): V3 {
+  const c = Math.cos(pl.yaw);
+  const s = Math.sin(pl.yaw);
+  return [
+    pl.pos[0] + (p[0] * c + p[2] * s) * pl.scale,
+    pl.pos[1] + p[1] * pl.scale,
+    pl.pos[2] + (-p[0] * s + p[2] * c) * pl.scale,
+  ];
+}
+
+/** Cord anchor + thickness per stage (null = no cord yet): slender in the
+ *  embryonic weeks → thick with Wharton's jelly by term. */
 const CORDS: ({ end: V3; mainR: number; wrapR: number } | null)[] = [
   null,
   null,
-  { end: [0.01, -0.08, 0.16], mainR: 0.013, wrapR: 0.005 }, // embryo — slender early cord
-  { end: [0.05, 0, 0.21], mainR: 0.02, wrapR: 0.0065 }, // mid-pregnancy fetus
-  { end: [0.03, -0.02, 0.28], mainR: 0.028, wrapR: 0.009 }, // term — plump with Wharton's jelly
+  { end: placed([0.02, 0.0, 0.075], P_EMBRYO_EARLY), mainR: 0.011, wrapR: 0.004 },
+  { end: placed([0.04, 0.02, 0.08], P_EMBRYO_LATE), mainR: 0.015, wrapR: 0.005 },
+  { end: placed([-0.04, 0.03, 0.11], P_FETAL[0]), mainR: 0.018, wrapR: 0.006 },
+  { end: placed([-0.04, 0.02, 0.112], P_FETAL[1]), mainR: 0.021, wrapR: 0.007 },
+  { end: placed([-0.03, 0.02, 0.121], P_FETAL[2]), mainR: 0.025, wrapR: 0.008 },
+  { end: placed([-0.03, 0.03, 0.146], P_FETAL[3]), mainR: 0.028, wrapR: 0.009 },
 ];
+
+/** Mandorla ring scale per stage — the rings always frame the child. */
+const MANDORLA = [0.5, 0.5, 0.62, 0.68, 0.8, 0.88, 0.94, 1] as const;
+
+/** Per-stage camera dolly: microscopic stages invite a lean-in; the growing
+ *  child pulls the camera back step by step. */
+const STAGE_Z = [4.55, 4.55, 4.75, 4.85, 5.0, 5.1, 5.2, 5.35] as const;
 
 /** Entrance wrapper — each stage blooms in with a soft ease-out scale. */
 function StageGate({ stage, reducedMotion, children }: { stage: number; reducedMotion: boolean; children: ReactNode }) {
@@ -617,7 +567,8 @@ function StageGate({ stage, reducedMotion, children }: { stage: number; reducedM
   );
 }
 
-/** Journey stage 0 — the radiant egg with its corona radiata. */
+/** Journey stage 0 — the radiant egg: zona pellucida, corona radiata,
+ *  polar body and two pronuclei (the two genomes meeting). */
 function Egg({ tex }: { tex: THREE.CanvasTexture }) {
   const corona = useRef<THREE.Group>(null);
   useFrame(({ clock }) => {
@@ -625,10 +576,10 @@ function Egg({ tex }: { tex: THREE.CanvasTexture }) {
   });
   const cells = useMemo(
     () =>
-      Array.from({ length: 14 }, (_, i) => {
-        const a = (i / 14) * Math.PI * 2;
-        const r = 0.44 + (i % 2) * 0.035;
-        return { p: [Math.cos(a) * r, Math.sin(a) * r, (i % 3) * 0.045 - 0.045] as V3 };
+      Array.from({ length: 16 }, (_, i) => {
+        const a = (i / 16) * Math.PI * 2;
+        const r = 0.44 + (i % 2) * 0.035 + (i % 3) * 0.012;
+        return { p: [Math.cos(a) * r, Math.sin(a) * r, (i % 3) * 0.05 - 0.05] as V3, r: 0.03 + (i % 4) * 0.004 };
       }),
     []
   );
@@ -637,13 +588,32 @@ function Egg({ tex }: { tex: THREE.CanvasTexture }) {
       <sprite scale={[1.4, 1.4, 1]}>
         <spriteMaterial map={tex} color="#ffd9a1" transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
+      {/* zona pellucida — the glycoprotein shell around the ovum */}
       <mesh>
-        <sphereGeometry args={[0.34, 40, 40]} />
+        <sphereGeometry args={[0.4, 44, 44]} />
+        <meshPhysicalMaterial
+          color="#ffe9d2"
+          roughness={0.18}
+          transparent
+          opacity={0.13}
+          clearcoat={1}
+          clearcoatRoughness={0.2}
+          iridescence={0.55}
+          iridescenceIOR={1.3}
+          depthWrite={false}
+          envMapIntensity={0.8}
+        />
+      </mesh>
+      {/* ovum — softly translucent so the pronuclei show within */}
+      <mesh>
+        <sphereGeometry args={[0.34, 44, 44]} />
         <meshPhysicalMaterial
           color="#ffddb8"
           roughness={0.24}
           clearcoat={1}
           clearcoatRoughness={0.2}
+          transparent
+          opacity={0.62}
           emissive="#ff9d85"
           emissiveIntensity={0.3}
           iridescence={0.3}
@@ -651,16 +621,34 @@ function Egg({ tex }: { tex: THREE.CanvasTexture }) {
           envMapIntensity={0.9}
         />
       </mesh>
-      {/* nucleus hint */}
-      <mesh position={[0.03, 0.04, 0.2]}>
-        <sphereGeometry args={[0.1, 20, 20]} />
-        <meshPhysicalMaterial color="#ffb98f" roughness={0.3} emissive="#ff8a70" emissiveIntensity={0.35} />
+      {/* two pronuclei — egg and sperm genomes side by side */}
+      <mesh position={[-0.06, 0.035, 0.2]}>
+        <sphereGeometry args={[0.072, 20, 20]} />
+        <meshPhysicalMaterial color="#ffb98f" roughness={0.3} transparent opacity={0.78} emissive="#ff8a70" emissiveIntensity={0.5} />
       </mesh>
-      {/* corona radiata — escorting cells */}
+      <mesh position={[0.075, -0.025, 0.19]}>
+        <sphereGeometry args={[0.072, 20, 20]} />
+        <meshPhysicalMaterial color="#ffb98f" roughness={0.3} transparent opacity={0.78} emissive="#ff8a70" emissiveIntensity={0.5} />
+      </mesh>
+      {/* nucleoli */}
+      <mesh position={[-0.06, 0.045, 0.26]}>
+        <sphereGeometry args={[0.018, 8, 8]} />
+        <meshStandardMaterial color="#e07a5f" roughness={0.4} />
+      </mesh>
+      <mesh position={[0.075, -0.015, 0.25]}>
+        <sphereGeometry args={[0.018, 8, 8]} />
+        <meshStandardMaterial color="#e07a5f" roughness={0.4} />
+      </mesh>
+      {/* polar body — the tiny first-division bump under the zona */}
+      <mesh position={[-0.26, 0.21, 0.12]} scale={[1, 1, 0.8]}>
+        <sphereGeometry args={[0.05, 14, 14]} />
+        <meshPhysicalMaterial color="#ffe6c9" roughness={0.3} clearcoat={0.8} emissive="#ff9d85" emissiveIntensity={0.18} />
+      </mesh>
+      {/* corona radiata — escorting cells outside the zona */}
       <group ref={corona}>
         {cells.map((c, i) => (
           <mesh key={i} position={c.p}>
-            <sphereGeometry args={[0.034, 10, 10]} />
+            <sphereGeometry args={[c.r, 10, 10]} />
             <meshStandardMaterial color="#ffe3c9" roughness={0.4} transparent opacity={0.72} />
           </mesh>
         ))}
@@ -669,7 +657,9 @@ function Egg({ tex }: { tex: THREE.CanvasTexture }) {
   );
 }
 
-/** A single sperm — teardrop head + undulating helical tail. */
+/** A single sperm — elongated teardrop head, mitochondrial midpiece and a
+ *  three-segment tail undulating with a traveling wave (phase-lagged
+ *  chain — zero per-frame allocation). */
 function Sperm({
   radius,
   speed,
@@ -682,16 +672,23 @@ function Sperm({
   reducedMotion: boolean;
 }) {
   const g = useRef<THREE.Group>(null);
-  const tail = useRef<THREE.Mesh>(null);
-  const tailGeo = useMemo(() => {
-    const pts: THREE.Vector3[] = [];
-    for (let i = 0; i <= 20; i++) {
-      const u = i / 20;
-      pts.push(new THREE.Vector3(-u * 0.22, Math.sin(u * Math.PI * 3) * 0.02 * (1 - u * 0.5), 0));
-    }
-    return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 24, 0.007, 6, false);
+  const t1 = useRef<THREE.Group>(null);
+  const t2 = useRef<THREE.Group>(null);
+  const t3 = useRef<THREE.Group>(null);
+
+  const segGeo = useMemo(() => {
+    const mk = (len: number, r: number) => {
+      const pts: THREE.Vector3[] = [];
+      for (let i = 0; i <= 8; i++) {
+        const u = i / 8;
+        pts.push(new THREE.Vector3(-u * len, Math.sin(u * Math.PI) * 0.012, 0));
+      }
+      return new THREE.TubeGeometry(new THREE.CatmullRomCurve3(pts), 12, r, 6, false);
+    };
+    return [mk(0.11, 0.0075), mk(0.1, 0.0055), mk(0.09, 0.0038)];
   }, []);
-  useEffect(() => () => tailGeo.dispose(), [tailGeo]);
+  useEffect(() => () => segGeo.forEach((geo) => geo.dispose()), [segGeo]);
+
   useFrame(({ clock }) => {
     if (reducedMotion || !g.current) return;
     const t = clock.getElapsedTime();
@@ -699,22 +696,46 @@ function Sperm({
     // Lissajous drift around the egg, head always facing the travel direction
     g.current.position.set(Math.cos(a) * radius, Math.sin(a) * radius * 0.62, Math.sin(a * 1.7) * 0.16);
     g.current.rotation.z = Math.atan2(0.62 * Math.cos(a), -Math.sin(a));
-    if (tail.current) tail.current.rotation.z = Math.sin(t * 8 + phase) * 0.2;
+    // traveling wave down the tail — phase-lagged segments
+    const w = t * 9 + phase * 6.3;
+    if (t1.current) t1.current.rotation.z = Math.sin(w) * 0.42;
+    if (t2.current) t2.current.rotation.z = Math.sin(w - 1.2) * 0.55;
+    if (t3.current) t3.current.rotation.z = Math.sin(w - 2.4) * 0.68;
   });
+
   return (
     <group ref={g}>
-      <mesh scale={[1.5, 0.85, 0.85]}>
-        <sphereGeometry args={[0.045, 16, 16]} />
+      {/* elongated teardrop head */}
+      <mesh scale={[1.75, 0.78, 0.78]}>
+        <sphereGeometry args={[0.045, 18, 18]} />
         <meshPhysicalMaterial color="#fff1e4" roughness={0.3} clearcoat={0.8} emissive="#ffd9c9" emissiveIntensity={0.3} />
       </mesh>
-      <mesh ref={tail} geometry={tailGeo} position={[-0.06, 0, 0]}>
-        <meshStandardMaterial color="#ffe8d8" roughness={0.5} transparent opacity={0.8} />
+      {/* mitochondrial midpiece */}
+      <mesh position={[-0.075, 0, 0]}>
+        <sphereGeometry args={[0.016, 10, 10]} />
+        <meshStandardMaterial color="#ffe8d8" roughness={0.4} transparent opacity={0.85} />
       </mesh>
+      {/* tail — three phase-lagged segments → a sinusoidal traveling wave */}
+      <group ref={t1} position={[-0.08, 0, 0]}>
+        <mesh geometry={segGeo[0]}>
+          <meshStandardMaterial color="#ffe8d8" roughness={0.5} transparent opacity={0.8} />
+        </mesh>
+        <group ref={t2} position={[-0.105, 0.002, 0]}>
+          <mesh geometry={segGeo[1]}>
+            <meshStandardMaterial color="#ffe8d8" roughness={0.5} transparent opacity={0.75} />
+          </mesh>
+          <group ref={t3} position={[-0.095, 0.002, 0]}>
+            <mesh geometry={segGeo[2]}>
+              <meshStandardMaterial color="#ffe8d8" roughness={0.5} transparent opacity={0.7} />
+            </mesh>
+          </group>
+        </group>
+      </group>
     </group>
   );
 }
 
-/** Journey stage 0 — fertilization. */
+/** Journey stage 0 — fertilization: four swimmers closing on the ovum. */
 function Fertilization({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
   return (
     <group>
@@ -723,97 +744,184 @@ function Fertilization({ reducedMotion, tex }: { reducedMotion: boolean; tex: TH
         <Sperm radius={1.05} speed={0.5} phase={0} reducedMotion={reducedMotion} />
         <Sperm radius={0.85} speed={-0.42} phase={2.2} reducedMotion={reducedMotion} />
         <Sperm radius={1.22} speed={0.34} phase={4.1} reducedMotion={reducedMotion} />
-      </group>
-    </group>
-  );
-}
-
-/** Journey stage 1 — cell division: a gently pulsing morula. */
-function Division({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
-  const cluster = useRef<THREE.Group>(null);
-  const cells = useMemo(() => {
-    const arr: { p: V3; r: number }[] = [{ p: [0, 0, 0], r: 0.078 }];
-    const N = 15;
-    for (let i = 0; i < N; i++) {
-      const y = 1 - (i / (N - 1)) * 2;
-      const rad = Math.sqrt(Math.max(0, 1 - y * y));
-      const th = i * 2.39996; // golden-angle spiral → even packing
-      arr.push({ p: [Math.cos(th) * rad * 0.16, y * 0.16, Math.sin(th) * rad * 0.16], r: 0.06 + (i % 3) * 0.008 });
-    }
-    return arr;
-  }, []);
-  useFrame(({ clock }) => {
-    if (reducedMotion || !cluster.current) return;
-    const t = clock.getElapsedTime();
-    const hb = heartbeat(t);
-    cluster.current.rotation.y = t * 0.25;
-    cluster.current.rotation.x = Math.sin(t * 0.3) * 0.2;
-    cluster.current.scale.setScalar(1 + (hb - 1) * 0.9);
-  });
-  return (
-    <group position={[0, -0.05, 0.1]}>
-      <sprite scale={[1.2, 1.2, 1]}>
-        <spriteMaterial map={tex} color="#ffd9a1" transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
-      </sprite>
-      {/* zona pellucida — the glycoprotein shell that surrounds the morula
-          until the blastocyst hatches (~day 5); gently shimmering here */}
-      <mesh>
-        <sphereGeometry args={[0.26, 32, 32]} />
-        <meshPhysicalMaterial
-          color="#ffe9d2"
-          roughness={0.15}
-          transparent
-          opacity={0.14}
-          clearcoat={1}
-          clearcoatRoughness={0.15}
-          iridescence={0.6}
-          iridescenceIOR={1.3}
-          depthWrite={false}
-          envMapIntensity={0.8}
-        />
-      </mesh>
-      <group ref={cluster}>
-        {cells.map((c, i) => (
-          <mesh key={i} position={c.p}>
-            <sphereGeometry args={[c.r, 18, 18]} />
-            <meshPhysicalMaterial
-              color="#ffddc0"
-              roughness={0.26}
-              clearcoat={0.8}
-              clearcoatRoughness={0.25}
-              emissive="#ff9d85"
-              emissiveIntensity={0.22}
-              sheen={0.6}
-              sheenColor="#ff9d85"
-              envMapIntensity={0.8}
-            />
-          </mesh>
-        ))}
+        <Sperm radius={0.95} speed={-0.46} phase={5.3} reducedMotion={reducedMotion} />
       </group>
     </group>
   );
 }
 
 /**
- * Journey stage 2 — the EMBRYO, weeks 4–8 (bespoke morphology).
+ * Journey stage 1 — weeks 2–3: the BLASTOCYST, not a mere ball.
+ * - Trophectoderm: a shell of flattened epithelial cells on the outside.
+ * - Inner cell mass: a compact knob of cells pressed against one pole.
+ * - Blastocoel: the fluid-filled cavity glowing within.
+ * - Zona pellucida: the thin shell with a hatching gap and two cells
+ *   squeezing through — the day-5 hatch hinted at the edge.
+ */
+function Blastocyst({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
+  const cluster = useRef<THREE.Group>(null);
+
+  const trophMat = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: '#ffddc0',
+        roughness: 0.26,
+        clearcoat: 0.8,
+        clearcoatRoughness: 0.25,
+        emissive: new THREE.Color('#ff9d85'),
+        emissiveIntensity: 0.18,
+        sheen: 0.6,
+        sheenColor: new THREE.Color('#ff9d85'),
+        envMapIntensity: 0.8,
+        transparent: true,
+        opacity: 0.92,
+      }),
+    []
+  );
+  useEffect(() => () => trophMat.dispose(), [trophMat]);
+  const icmMat = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: '#ffd6b2',
+        roughness: 0.24,
+        clearcoat: 0.7,
+        emissive: new THREE.Color('#ff9d85'),
+        emissiveIntensity: 0.32,
+        envMapIntensity: 0.8,
+      }),
+    []
+  );
+  useEffect(() => () => icmMat.dispose(), [icmMat]);
+  const fluidMat = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: '#fff2e6',
+        roughness: 0.05,
+        transparent: true,
+        opacity: 0.12,
+        clearcoat: 1,
+        depthWrite: false,
+      }),
+    []
+  );
+  useEffect(() => () => fluidMat.dispose(), [fluidMat]);
+  const zonaMat = useMemo(
+    () =>
+      new THREE.MeshPhysicalMaterial({
+        color: '#ffe9d2',
+        roughness: 0.15,
+        transparent: true,
+        opacity: 0.13,
+        clearcoat: 1,
+        clearcoatRoughness: 0.15,
+        iridescence: 0.6,
+        iridescenceIOR: 1.3,
+        depthWrite: false,
+        side: THREE.DoubleSide,
+        envMapIntensity: 0.8,
+      }),
+    []
+  );
+  useEffect(() => () => zonaMat.dispose(), [zonaMat]);
+
+  /* trophectoderm cells — flattened, tangent to the sphere (golden-angle
+     packing, deterministic) */
+  const troph = useMemo(() => {
+    const N = 26;
+    const up = new THREE.Vector3(0, 0, 1);
+    const arr: { p: V3; q: THREE.Quaternion; r: number }[] = [];
+    for (let i = 0; i < N; i++) {
+      const y = 1 - (i / (N - 1)) * 2;
+      const rad = Math.sqrt(Math.max(0, 1 - y * y));
+      const th = i * 2.39996;
+      const dir = new THREE.Vector3(Math.cos(th) * rad, y, Math.sin(th) * rad);
+      const q = new THREE.Quaternion().setFromUnitVectors(up, dir.clone().negate());
+      arr.push({ p: [dir.x * 0.235, dir.y * 0.235, dir.z * 0.235], q, r: 0.05 + (i % 3) * 0.008 });
+    }
+    return arr;
+  }, []);
+  /* inner cell mass — a compact knob at the embryonic pole */
+  const icm = useMemo(() => {
+    const pole = new THREE.Vector3(0, 0.95, 0.32).normalize();
+    const arr: V3[] = [];
+    for (let i = 0; i < 9; i++) {
+      const y = 1 - (i / 8) * 2;
+      const rad = Math.sqrt(Math.max(0, 1 - y * y)) * 0.072;
+      const th = i * 2.39996;
+      const off = new THREE.Vector3(Math.cos(th) * rad, y * 0.072, Math.sin(th) * rad);
+      const p = pole.clone().multiplyScalar(0.17).add(off);
+      arr.push([p.x, p.y, p.z]);
+    }
+    return arr;
+  }, []);
+
+  useFrame(({ clock }) => {
+    if (reducedMotion || !cluster.current) return;
+    const t = clock.getElapsedTime();
+    const hb = heartbeat(t);
+    // gentle sway keeps the ICM pole and the hatching gap in view
+    cluster.current.rotation.y = 0.25 + Math.sin(t * 0.28) * 0.3;
+    cluster.current.rotation.x = Math.sin(t * 0.23) * 0.16;
+    cluster.current.scale.setScalar(1 + (hb - 1) * 0.7);
+  });
+
+  return (
+    <group position={[0, -0.05, 0.1]}>
+      <sprite scale={[1.2, 1.2, 1]}>
+        <spriteMaterial map={tex} color="#ffd9a1" transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
+      </sprite>
+      {/* zona pellucida with its hatching gap */}
+      <mesh rotation={[0, -0.4, 0]} material={zonaMat}>
+        <sphereGeometry args={[0.3, 48, 32, 0.5, 5.3]} />
+      </mesh>
+      <group ref={cluster}>
+        {/* blastocoel — the fluid cavity */}
+        <mesh material={fluidMat}>
+          <sphereGeometry args={[0.16, 24, 24]} />
+        </mesh>
+        {/* trophectoderm — flattened cells lying on the sphere */}
+        {troph.map((c, i) => (
+          <mesh key={i} position={c.p} quaternion={c.q} scale={[1, 1, 0.48]} material={trophMat}>
+            <sphereGeometry args={[c.r, 14, 14]} />
+          </mesh>
+        ))}
+        {/* inner cell mass */}
+        {icm.map((p, i) => (
+          <mesh key={i} position={p} material={icmMat}>
+            <sphereGeometry args={[0.05 - (i % 2) * 0.006, 16, 16]} />
+          </mesh>
+        ))}
+        {/* hatch hint — cells squeezing through the gap */}
+        <mesh position={[0.27, 0.05, 0.1]} material={trophMat}>
+          <sphereGeometry args={[0.03, 10, 10]} />
+        </mesh>
+        <mesh position={[0.26, -0.06, -0.08]} material={trophMat}>
+          <sphereGeometry args={[0.026, 10, 10]} />
+        </mesh>
+      </group>
+    </group>
+  );
+}
+
+/**
+ * Journey stages 2–3 — the EMBRYO, weeks 4–8 (bespoke morphologies).
  * Week-informed silhouette, unmistakably NOT a miniature term baby:
  * - Head ≈ half of crown–rump length, bent forward in cranial flexure.
- * - Deep C-curve ending in a regressing tail (weeks 4–7 hallmark).
- * - Paddle limb buds instead of formed limbs.
- * - A somite ridge along the back and dark optic vesicles — eyelids have
- *   not formed yet.
- * - The heart prominence bulging on the chest, fluttering fast at the
- *   realistic embryonic rate (~140 bpm; beating since ~day 22).
- * - The yolk sac still attached by the vitelline duct.
+ * - Deep C-curve ending in a tail — a prominent bud at weeks 4–5, a
+ *   regressing nub by weeks 6–8.
+ * - Somite ridge along the back; paddle limb buds (faint finger rays
+ *   appear in the later weeks); dark optic vesicles that gain a lens.
+ * - The heart prominence fluttering at the realistic embryonic rate
+ *   (~140 bpm; beating since ~day 22).
+ * - The yolk sac, still attached by the vitelline duct.
  * Soft-blended primitives, translucent gel-like skin; educational and
  * stylized — never diagnostic.
  */
-function Embryo({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.CanvasTexture }) {
+function Embryo({ reducedMotion, tex, mature }: { reducedMotion: boolean; tex: THREE.CanvasTexture; mature: boolean }) {
   const group = useRef<THREE.Group>(null);
   const heart = useRef<THREE.Mesh>(null);
   const heartHalo = useRef<THREE.Sprite>(null);
-  const scale = 0.74;
-  const baseY = -0.1;
+  const P = mature ? P_EMBRYO_LATE : P_EMBRYO_EARLY;
 
   const skin = useMemo(
     () =>
@@ -835,21 +943,22 @@ function Embryo({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.Can
     []
   );
   useEffect(() => () => skin.dispose(), [skin]);
-  const somite = useMemo(
-    () => new THREE.MeshStandardMaterial({ color: '#f2b49c', roughness: 0.42 }),
-    []
-  );
+  const somite = useMemo(() => new THREE.MeshStandardMaterial({ color: '#f2b49c', roughness: 0.42 }), []);
   useEffect(() => () => somite.dispose(), [somite]);
+  const dark = useMemo(() => new THREE.MeshStandardMaterial({ color: '#5d3a44', roughness: 0.25 }), []);
+  useEffect(() => () => dark.dispose(), [dark]);
+  const ray = useMemo(() => new THREE.MeshBasicMaterial({ color: '#e8a98f', transparent: true, opacity: 0.65 }), []);
+  useEffect(() => () => ray.dispose(), [ray]);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     if (reducedMotion || !group.current) return;
     // The embryonic heart beats FAST — the whole bud quivers with it
     const hb = heartbeat(t, 0.43);
-    group.current.scale.setScalar(scale * (1 + (hb - 1) * 0.5));
-    group.current.rotation.y = 0.4 + Math.sin(t * 0.3) * 0.05;
+    group.current.scale.setScalar(P.scale * (1 + (hb - 1) * 0.5));
+    group.current.rotation.y = P.yaw + Math.sin(t * 0.3) * 0.05;
     group.current.rotation.z = Math.sin(t * 0.4) * 0.02;
-    group.current.position.y = baseY + Math.sin(t * 0.55 + 0.6) * 0.016;
+    group.current.position.y = P.pos[1] + Math.sin(t * 0.55 + 0.6) * 0.016;
     if (heart.current) heart.current.scale.setScalar(1 + (hb - 1) * 2.6);
     if (heartHalo.current) {
       const s = 0.42 + (hb - 1) * 3.4;
@@ -860,87 +969,133 @@ function Embryo({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.Can
 
   /* Deep C spine — head end curls far under, tail end sweeps behind */
   const spineGeo = useMemo(() => {
-    const spine = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.2, 0.27, 0),
-      new THREE.Vector3(-0.14, 0.13, -0.01),
-      new THREE.Vector3(-0.06, 0.01, -0.012),
-      new THREE.Vector3(0.03, -0.05, -0.01),
-      new THREE.Vector3(0.1, -0.01, 0),
-      new THREE.Vector3(0.12, -0.12, 0),
-    ]);
-    return new THREE.TubeGeometry(spine, 32, 0.062, 14, false);
-  }, []);
+    const spine = new THREE.CatmullRomCurve3(
+      mature
+        ? [
+            new THREE.Vector3(-0.22, 0.31, 0),
+            new THREE.Vector3(-0.16, 0.15, -0.01),
+            new THREE.Vector3(-0.06, 0.03, -0.012),
+            new THREE.Vector3(0.05, -0.03, -0.01),
+            new THREE.Vector3(0.14, 0.0, 0),
+            new THREE.Vector3(0.18, -0.12, 0),
+          ]
+        : [
+            new THREE.Vector3(-0.2, 0.29, 0),
+            new THREE.Vector3(-0.15, 0.14, -0.01),
+            new THREE.Vector3(-0.06, 0.02, -0.012),
+            new THREE.Vector3(0.04, -0.05, -0.01),
+            new THREE.Vector3(0.12, -0.02, 0),
+            new THREE.Vector3(0.15, -0.13, 0),
+          ]
+    );
+    return new THREE.TubeGeometry(spine, 32, mature ? 0.064 : 0.06, 14, false);
+  }, [mature]);
   useEffect(() => () => spineGeo.dispose(), [spineGeo]);
   const tailGeo = useMemo(() => {
-    const tail = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(-0.17, 0.25, 0),
-      new THREE.Vector3(-0.25, 0.32, 0),
-      new THREE.Vector3(-0.32, 0.35, 0),
-    ]);
-    return new THREE.TubeGeometry(tail, 16, 0.022, 8, false);
-  }, []);
+    const tail = new THREE.CatmullRomCurve3(
+      mature
+        ? [new THREE.Vector3(-0.21, 0.3, 0), new THREE.Vector3(-0.26, 0.34, 0)]
+        : [new THREE.Vector3(-0.19, 0.27, 0), new THREE.Vector3(-0.27, 0.34, -0.005), new THREE.Vector3(-0.35, 0.38, 0)]
+    );
+    return new THREE.TubeGeometry(tail, 16, mature ? 0.015 : 0.021, 8, false);
+  }, [mature]);
   useEffect(() => () => tailGeo.dispose(), [tailGeo]);
 
   return (
-    <group ref={group} position={[0, baseY, 0.1]} rotation={[0, 0.4, 0]} scale={scale}>
+    <group ref={group} position={P.pos} rotation={[0, P.yaw, 0]} scale={P.scale}>
       <mesh geometry={spineGeo} material={skin} />
       {/* tail — tapering continuation of the spine (regresses by week 8) */}
       <mesh geometry={tailGeo} material={skin} />
-      <mesh position={[-0.35, 0.36, 0]} rotation={[0, 0, -1.1]} material={skin}>
-        <coneGeometry args={[0.02, 0.07, 10]} />
+      <mesh position={mature ? [-0.27, 0.345, 0] : [-0.37, 0.385, 0]} rotation={[0, 0, -1.25]} material={skin}>
+        <coneGeometry args={[mature ? 0.014 : 0.02, mature ? 0.05 : 0.07, 10]} />
       </mesh>
 
       {/* head — huge (≈½ CRL), bent in cranial flexure, chin toward chest */}
       <mesh position={[0.16, -0.22, 0]} scale={[0.95, 1.02, 0.98]} material={skin}>
-        <sphereGeometry args={[0.135, 32, 32]} />
+        <sphereGeometry args={[mature ? 0.135 : 0.145, 36, 36]} />
       </mesh>
-      <mesh position={[0.11, -0.14, 0]} material={skin}>
-        <sphereGeometry args={[0.082, 22, 22]} />
+      {/* forehead / midbrain bulge */}
+      <mesh position={[0.11, -0.15, 0]} material={skin}>
+        <sphereGeometry args={[mature ? 0.08 : 0.088, 22, 22]} />
       </mesh>
-      {/* optic vesicles — dark eye spots; eyelids have not formed yet */}
-      <mesh position={[0.245, -0.24, 0.055]}>
-        <sphereGeometry args={[0.026, 12, 12]} />
-        <meshStandardMaterial color="#5d3a44" roughness={0.25} />
+
+      {/* eyes — dark optic vesicles, gaining a lens vesicle by weeks 6–8 */}
+      <mesh position={[mature ? 0.255 : 0.245, -0.24, 0.055]} material={dark}>
+        <sphereGeometry args={[mature ? 0.028 : 0.026, 12, 12]} />
       </mesh>
-      <mesh position={[0.235, -0.25, -0.06]}>
-        <sphereGeometry args={[0.024, 12, 12]} />
-        <meshStandardMaterial color="#5d3a44" roughness={0.25} />
+      <mesh position={[mature ? 0.245 : 0.235, -0.25, -0.06]} material={dark}>
+        <sphereGeometry args={[mature ? 0.026 : 0.024, 12, 12]} />
       </mesh>
+      {mature && (
+        <mesh position={[0.272, -0.248, 0.068]} material={ray}>
+          <sphereGeometry args={[0.012, 8, 8]} />
+        </mesh>
+      )}
+      {/* ear ridges (late weeks) — small curved ridges low on the head */}
+      {mature && (
+        <mesh position={[0.1, -0.25, 0.115]} rotation={[0.4, 0.5, 0.6]} material={skin}>
+          <torusGeometry args={[0.022, 0.008, 8, 16, 3.6]} />
+        </mesh>
+      )}
 
       {/* heart prominence — the bulging first heartbeat (~140 bpm) */}
       <mesh ref={heart} position={[0.08, -0.03, 0.075]}>
-        <sphereGeometry args={[0.052, 18, 18]} />
+        <sphereGeometry args={[mature ? 0.044 : 0.052, 18, 18]} />
         <meshPhysicalMaterial color="#ff9d85" roughness={0.3} emissive="#ff6a55" emissiveIntensity={0.5} clearcoat={0.6} />
       </mesh>
       <sprite ref={heartHalo} position={[0.09, -0.02, 0.1]} scale={[0.42, 0.42, 1]}>
         <spriteMaterial map={tex} color="#ff9d85" transparent opacity={0.26} blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
 
-      {/* rump / belly mass on the spine arc */}
+      {/* rump / belly masses on the spine arc */}
       <mesh position={[-0.05, 0.1, 0]} material={skin}>
-        <sphereGeometry args={[0.085, 22, 22]} />
+        <sphereGeometry args={[mature ? 0.09 : 0.085, 22, 22]} />
+      </mesh>
+      {mature && (
+        <mesh position={[-0.13, 0.2, 0]} material={skin}>
+          <sphereGeometry args={[0.07, 20, 20]} />
+        </mesh>
+      )}
+
+      {/* limb buds — stubby paddles; arms gain faint finger rays by week 7 */}
+      <Limb a={[0.04, 0.02, 0.05]} b={[mature ? 0.15 : 0.13, 0.03, 0.06]} r={mature ? 0.024 : 0.02} material={skin} />
+      <mesh position={[mature ? 0.18 : 0.15, 0.035, 0.062]} rotation={[0, 0, -0.5]} scale={[1.25, 0.8, 0.5]} material={skin}>
+        <sphereGeometry args={[mature ? 0.034 : 0.026, 14, 14]} />
+      </mesh>
+      {mature && (
+        <>
+          <Limb a={[0.2, 0.045, 0.065]} b={[0.245, 0.062, 0.065]} r={0.005} material={ray} />
+          <Limb a={[0.202, 0.03, 0.065]} b={[0.252, 0.032, 0.065]} r={0.005} material={ray} />
+          <Limb a={[0.2, 0.015, 0.065]} b={[0.246, 0.002, 0.065]} r={0.005} material={ray} />
+        </>
+      )}
+      <Limb a={[-0.02, 0.14, 0.05]} b={[mature ? 0.05 : 0.04, 0.22, 0.05]} r={mature ? 0.026 : 0.022} material={skin} />
+      <mesh position={[mature ? 0.07 : 0.055, 0.24, 0.05]} rotation={[0, 0, -0.4]} scale={[1.2, 0.85, 0.5]} material={skin}>
+        <sphereGeometry args={[mature ? 0.03 : 0.024, 14, 14]} />
       </mesh>
 
-      {/* limb buds — stubby paddles; digits appear only from week 7 */}
-      <Limb a={[0.04, 0.02, 0.05]} b={[0.14, 0.03, 0.06]} r={0.028} material={skin} />
-      <Limb a={[-0.02, 0.14, 0.05]} b={[0.05, 0.22, 0.05]} r={0.03} material={skin} />
-
       {/* somites — the segmented ridge along the back (weeks 4–6 hallmark) */}
-      {[
-        [-0.05, 0.12, -0.058],
-        [-0.095, 0.175, -0.052],
-        [-0.135, 0.225, -0.044],
-        [-0.175, 0.265, -0.034],
-      ].map((p, i) => (
+      {(mature
+        ? [
+            [-0.09, 0.17, -0.052],
+            [-0.13, 0.225, -0.044],
+          ]
+        : [
+            [-0.05, 0.12, -0.058],
+            [-0.095, 0.175, -0.052],
+            [-0.135, 0.225, -0.044],
+            [-0.175, 0.265, -0.034],
+          ]
+      ).map((p, i) => (
         <mesh key={i} position={p as [number, number, number]} material={somite}>
-          <sphereGeometry args={[0.018, 10, 10]} />
+          <sphereGeometry args={[mature ? 0.014 : 0.018, 10, 10]} />
         </mesh>
       ))}
 
       {/* yolk sac — still connected by the vitelline duct (weeks 4–8) */}
-      <Limb a={[0, 0.05, -0.02]} b={[-0.09, 0.13, -0.12]} r={0.011} material={skin} />
-      <mesh position={[-0.11, 0.15, -0.13]}>
-        <sphereGeometry args={[0.05, 18, 18]} />
+      <Limb a={[0, 0.05, -0.02]} b={[mature ? -0.1 : -0.09, 0.13, -0.12]} r={mature ? 0.009 : 0.011} material={skin} />
+      <mesh position={[mature ? -0.12 : -0.11, 0.15, -0.13]}>
+        <sphereGeometry args={[mature ? 0.04 : 0.052, 18, 18]} />
         <meshPhysicalMaterial
           color="#ffe6b8"
           roughness={0.3}
@@ -956,117 +1111,475 @@ function Embryo({ reducedMotion, tex }: { reducedMotion: boolean; tex: THREE.Can
   );
 }
 
+/* -------------------------------------------------- fetal face & body */
+
+interface FaceLook {
+  r: number;
+  fat: number; // 0..1 — cheek growth
+  earY: number; // ear height (fraction of headR; negative = low-set)
+  openEyes: boolean; // weeks 23–30: eyes can be open (dark irises)
+  lashes: boolean; // sleeping lash lines
+  browOp: number; // brow visibility (0 = none yet)
+  lips: number; // 0..1 lip fullness
+  nostrils: boolean;
+  seamOnly: boolean; // fused-lid seam without lashes (youngest fetus)
+}
+
 /**
- * Journey stage 4 — full term, ready for birth, weeks 28–40 (bespoke).
- * What the final weeks actually change, visibly:
- * - Fat deposition → plump rounded body, chubby limbs and cheeks.
- * - Head ≈ ¼ of length (the newborn proportion — much smaller relative to
- *   the week 9–27 fetus).
- * - Head-down VERTEX presentation with knees drawn up and feet tucked —
- *   the classic ready-for-birth lie.
- * Soft educational visual, as always not a diagnostic model.
+ * The head — skull + forehead + jaw + growing cheek masses with a full,
+ * natural face set: closed (or open) eyes with lash lines and brows, a
+ * nose with bridge, tip, alae and nostrils, stacked lip arcs with a dark
+ * seam, a chin and ears with pinna/ridge/lobe. Built from soft-blended
+ * volumes in a frame where +Z is the face normal; the parent yaws it into
+ * a ¾ view. Every element overlaps softly — no hard intersections.
  */
-function TermFetus({ reducedMotion, scale = 1.5 }: { reducedMotion: boolean; scale?: number }) {
+function Head({ look, skin }: { look: FaceLook; skin: THREE.Material }) {
+  const { r } = look;
+  const cheek = 0.26 * (1 + look.fat * 0.65);
+
+  const dark = useMemo(() => new THREE.MeshBasicMaterial({ color: DARK, transparent: true, opacity: 0.6 }), []);
+  useEffect(() => () => dark.dispose(), [dark]);
+  const nostril = useMemo(() => new THREE.MeshBasicMaterial({ color: '#3a2320', transparent: true, opacity: 0.85 }), []);
+  useEffect(() => () => nostril.dispose(), [nostril]);
+  const brow = useMemo(() => new THREE.MeshBasicMaterial({ color: '#c68b6d', transparent: true, opacity: look.browOp }), [look.browOp]);
+  useEffect(() => () => brow.dispose(), [brow]);
+  const lip = useMemo(
+    () => new THREE.MeshStandardMaterial({ color: '#d96a58', roughness: 0.3, transparent: true, opacity: 0.4 + look.lips * 0.55 }),
+    [look.lips]
+  );
+  useEffect(() => () => lip.dispose(), [lip]);
+  const iris = useMemo(() => new THREE.MeshStandardMaterial({ color: '#43303a', roughness: 0.25 }), []);
+  useEffect(() => () => iris.dispose(), [iris]);
+  const pupil = useMemo(() => new THREE.MeshBasicMaterial({ color: '#150f13' }), []);
+  useEffect(() => () => pupil.dispose(), [pupil]);
+  const glint = useMemo(() => new THREE.MeshBasicMaterial({ color: '#fff6ec' }), []);
+  useEffect(() => () => glint.dispose(), [glint]);
+
+  return (
+    <group>
+      {/* skull */}
+      <mesh scale={[0.92, 1.02, 0.95]} material={skin}>
+        <sphereGeometry args={[r, 44, 44]} />
+      </mesh>
+      {/* forehead — upper-front bulge */}
+      <mesh position={[0, 0.36 * r, 0.4 * r]} material={skin}>
+        <sphereGeometry args={[0.6 * r, 30, 30]} />
+      </mesh>
+      {/* jaw / chin mass, low-front */}
+      <mesh position={[0, -0.5 * r, 0.3 * r]} scale={[0.85, 0.8, 0.9]} material={skin}>
+        <sphereGeometry args={[0.5 * r, 26, 26]} />
+      </mesh>
+      {/* cheeks — grow with fat (weeks 23+) */}
+      <mesh position={[0.5 * r, -0.26 * r, 0.58 * r]} material={skin}>
+        <sphereGeometry args={[cheek * r, 24, 24]} />
+      </mesh>
+      <mesh position={[-0.5 * r, -0.26 * r, 0.58 * r]} material={skin}>
+        <sphereGeometry args={[cheek * r, 24, 24]} />
+      </mesh>
+
+      {/* eyes */}
+      {[-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.4 * r, 0.03 * r, 0.8 * r]} rotation={[0, sx * 0.3, 0]}>
+          {look.openEyes ? (
+            <>
+              {/* open dark iris under a soft upper lid */}
+              <mesh position={[0, 0, 0.02 * r]} scale={[1, 1.08, 0.5]} material={iris}>
+                <sphereGeometry args={[0.085 * r, 20, 20]} />
+              </mesh>
+              <mesh position={[0, 0.008 * r, 0.05 * r]} scale={[1, 1, 0.5]} material={pupil}>
+                <sphereGeometry args={[0.036 * r, 12, 12]} />
+              </mesh>
+              <mesh position={[-0.018 * r, 0.022 * r, 0.058 * r]} material={glint}>
+                <sphereGeometry args={[0.011 * r, 8, 8]} />
+              </mesh>
+              {/* upper lid rim */}
+              <mesh position={[0, 0.035 * r, 0.045 * r]} rotation={[0.12, 0, 0.78]} material={skin}>
+                <torusGeometry args={[0.105 * r, 0.03 * r, 8, 24, 1.6]} />
+              </mesh>
+              {/* lower lash hint */}
+              <mesh position={[0, -0.055 * r, 0.055 * r]} rotation={[0.15, 0, 3.72]} material={dark}>
+                <torusGeometry args={[0.105 * r, 0.009 * r, 6, 20, 1.5]} />
+              </mesh>
+            </>
+          ) : (
+            <>
+              {/* closed eyelid — a smooth shell slightly proud of the skull */}
+              <mesh scale={[1.15, 0.66, 0.42]} material={skin}>
+                <sphereGeometry args={[0.19 * r, 22, 22]} />
+              </mesh>
+              {/* fused-lid seam — the youngest fetus's smooth shut eyes */}
+              {look.seamOnly && (
+                <mesh position={[0, -0.045 * r, 0.07 * r]} rotation={[0.18, 0, 3.65]} material={dark}>
+                  <torusGeometry args={[0.125 * r, 0.008 * r, 6, 20, 1.6]} />
+                </mesh>
+              )}
+              {/* sleeping lash line — a thin dark arc curving down toward the cheek */}
+              {look.lashes && (
+                <mesh position={[0, -0.05 * r, 0.08 * r]} rotation={[0.18, 0, 3.75 + sx * 0.1]} material={dark}>
+                  <torusGeometry args={[0.13 * r, 0.014 * r, 8, 24, 1.75]} />
+                </mesh>
+              )}
+            </>
+          )}
+          {/* soft brow */}
+          {look.browOp > 0 && (
+            <mesh position={[0, 0.15 * r, 0.055 * r]} rotation={[0.22, 0, 0.85]} material={brow}>
+              <torusGeometry args={[0.15 * r, 0.02 * r, 8, 20, 1.5]} />
+            </mesh>
+          )}
+        </group>
+      ))}
+
+      {/* nose — bridge down the face slope, tip, alae, nostrils */}
+      <group position={[0, -0.08 * r, 0.86 * r]}>
+        <mesh position={[0, 0.13 * r, 0.03 * r]} rotation={[0.3, 0, 0]} material={skin}>
+          <capsuleGeometry args={[0.042 * r, 0.2 * r, 6, 12]} />
+        </mesh>
+        <mesh position={[0, -0.02 * r, 0.035 * r]} material={skin}>
+          <sphereGeometry args={[0.075 * r, 18, 18]} />
+        </mesh>
+        <mesh position={[0.085 * r, -0.05 * r, 0.01 * r]} material={skin}>
+          <sphereGeometry args={[0.05 * r, 14, 14]} />
+        </mesh>
+        <mesh position={[-0.085 * r, -0.05 * r, 0.01 * r]} material={skin}>
+          <sphereGeometry args={[0.05 * r, 14, 14]} />
+        </mesh>
+        {look.nostrils && (
+          <>
+            <mesh position={[0.042 * r, -0.088 * r, 0.03 * r]} material={nostril}>
+              <sphereGeometry args={[0.015 * r, 8, 8]} />
+            </mesh>
+            <mesh position={[-0.042 * r, -0.088 * r, 0.03 * r]} material={nostril}>
+              <sphereGeometry args={[0.015 * r, 8, 8]} />
+            </mesh>
+          </>
+        )}
+      </group>
+
+      {/* mouth — stacked lip arcs below the nose, with a dark seam */}
+      <group position={[0, -0.42 * r, 0.78 * r]}>
+        {look.lips > 0.4 && (
+          <>
+            {/* upper lip — gentle arch */}
+            <mesh scale={[1, 0.62, 0.5]} rotation={[0.14, 0, 0]} material={lip}>
+              <torusGeometry args={[0.13 * r, 0.034 * r, 8, 24, Math.PI]} />
+            </mesh>
+            {/* lower lip — fuller */}
+            <mesh position={[0, -0.038 * r, 0.005 * r]} scale={[0.94, 0.72, 0.55]} rotation={[0.14, 0, Math.PI]} material={lip}>
+              <torusGeometry args={[0.125 * r, 0.038 * r, 8, 24, Math.PI]} />
+            </mesh>
+          </>
+        )}
+        {/* lip seam */}
+        <mesh position={[0, -0.004 * r, 0.02 * r]} rotation={[0, 0, Math.PI / 2]} material={dark}>
+          <capsuleGeometry args={[0.008 * r, 0.2 * r, 4, 8]} />
+        </mesh>
+      </group>
+
+      {/* chin */}
+      <mesh position={[0, -0.62 * r, 0.68 * r]} material={skin}>
+        <sphereGeometry args={[0.09 * r, 16, 16]} />
+      </mesh>
+
+      {/* ears — pinna, inner ridge and lobe, flat side facing outward */}
+      {[-1, 1].map((sx) => (
+        <group key={sx} position={[sx * 0.92 * r, look.earY * r, 0.02 * r]} rotation={[0, sx * Math.PI / 2, 0]}>
+          <mesh rotation={[0, 0, 0.4]} scale={[1, 1.15, 0.6]} material={skin}>
+            <torusGeometry args={[0.12 * r, 0.045 * r, 10, 24, 4.2]} />
+          </mesh>
+          <mesh position={[0, 0.015 * r, 0.035 * r]} rotation={[0, 0, 0.55]} scale={[1, 1.1, 0.6]} material={skin}>
+            <torusGeometry args={[0.065 * r, 0.022 * r, 8, 18, 3.4]} />
+          </mesh>
+          <mesh position={[0, -0.11 * r, 0.02 * r]} material={skin}>
+            <sphereGeometry args={[0.042 * r, 12, 12]} />
+          </mesh>
+        </group>
+      ))}
+    </group>
+  );
+}
+
+/** Fanned separated digits (fingers / toes) radiating from a palm or foot. */
+function Digits({ at, angle, n, spread, len, r, z, material }: {
+  at: V3;
+  angle: number;
+  n: number;
+  spread: number;
+  len: number;
+  r: number;
+  z: number;
+  material: THREE.Material;
+}) {
+  const ends = useMemo(() => {
+    const arr: V3[] = [];
+    for (let i = 0; i < n; i++) {
+      const a = angle + (i - (n - 1) / 2) * spread;
+      arr.push([at[0] + Math.cos(a) * len, at[1] + Math.sin(a) * len, z]);
+    }
+    return arr;
+  }, [at, angle, n, spread, len, z]);
+  return (
+    <>
+      {ends.map((e, i) => (
+        <Limb key={i} a={at} b={e} r={r} material={material} />
+      ))}
+    </>
+  );
+}
+
+interface FetalLook {
+  headR: number;
+  headPos: V3;
+  headYaw: number;
+  flex: number; // cranial flexion — chin tucked toward the chest
+  neck: V3;
+  neckR: number;
+  spine: V3[];
+  spineR: number;
+  chest: V3;
+  chestR: number;
+  belly: V3;
+  bellyR: number;
+  hips: V3;
+  hipsR: number;
+  navel: V3;
+  shoulder: V3;
+  elbow: V3;
+  wrist: V3;
+  handR: number;
+  armR: number;
+  handAngle: number;
+  hip: V3;
+  knee: V3;
+  ankle: V3;
+  legR: number;
+  kneeR: number;
+  foot: V3;
+  footR: number;
+  fat: number; // 0..1 — cheek & limb plumpness
+  earY: number;
+  openEyes: boolean;
+  lashes: boolean;
+  browOp: number;
+  lips: number;
+  nostrils: boolean;
+  seamOnly: boolean;
+  skin: string;
+  skinOp: number;
+  pulse: number;
+}
+
+/** Four week-informed fetal looks — weeks 9–13 / 14–22 / 23–30 / 31–40. */
+const FETAL_LOOKS: readonly FetalLook[] = [
+  // 0 · weeks 9–13 — head ≈½ of length, lids fused, fingers/toes separated
+  {
+    headR: 0.2, headPos: [0.16, -0.38, 0], headYaw: 0.72, flex: 0.15,
+    neck: [0.09, -0.27, 0], neckR: 0.085,
+    spine: [
+      [0.05, -0.24, 0],
+      [-0.04, -0.13, -0.008],
+      [-0.1, 0.02, -0.008],
+      [-0.04, 0.17, 0],
+    ],
+    spineR: 0.068,
+    chest: [0.0, -0.08, 0], chestR: 0.102,
+    belly: [-0.07, 0.05, 0], bellyR: 0.115,
+    hips: [-0.03, 0.18, 0], hipsR: 0.095,
+    navel: [-0.04, 0.03, 0.11],
+    shoulder: [0.04, -0.12, 0.06], elbow: [0.16, -0.07, 0.075], wrist: [0.2, -0.16, 0.07],
+    handR: 0.03, armR: 0.03, handAngle: -1.15,
+    hip: [-0.05, 0.16, 0.06], knee: [0.1, 0.13, 0.07], ankle: [0.05, 0.27, 0.045],
+    legR: 0.042, kneeR: 0.048, foot: [0.06, 0.29, 0.04], footR: 0.036,
+    fat: 0, earY: -0.22, openEyes: false, lashes: false, browOp: 0,
+    lips: 0.25, nostrils: false, seamOnly: true,
+    skin: '#ffc9b2', skinOp: 0.92, pulse: 0.45,
+  },
+  // 1 · weeks 14–22 — head ≈⅓, faint lips/brows, hands near the face
+  {
+    headR: 0.19, headPos: [0.15, -0.37, 0], headYaw: 0.66, flex: 0.18,
+    neck: [0.08, -0.26, 0], neckR: 0.082,
+    spine: [
+      [0.05, -0.24, 0],
+      [-0.04, -0.13, -0.008],
+      [-0.1, 0.02, -0.008],
+      [-0.04, 0.17, 0],
+    ],
+    spineR: 0.066,
+    chest: [0.0, -0.08, 0], chestR: 0.1,
+    belly: [-0.07, 0.05, 0], bellyR: 0.112,
+    hips: [-0.03, 0.18, 0], hipsR: 0.092,
+    navel: [-0.04, 0.02, 0.112],
+    shoulder: [0.04, -0.13, 0.065], elbow: [0.17, -0.06, 0.08], wrist: [0.21, -0.19, 0.085],
+    handR: 0.032, armR: 0.034, handAngle: -1.25,
+    hip: [-0.05, 0.16, 0.06], knee: [0.11, 0.13, 0.07], ankle: [0.05, 0.27, 0.045],
+    legR: 0.046, kneeR: 0.05, foot: [0.06, 0.29, 0.04], footR: 0.038,
+    fat: 0.25, earY: -0.15, openEyes: false, lashes: true, browOp: 0.35,
+    lips: 0.55, nostrils: true, seamOnly: false,
+    skin: '#ffc9b0', skinOp: 0.9, pulse: 0.45,
+  },
+  // 2 · weeks 23–30 — head ≈¼+, eyes open with dark irises, cheeks forming
+  {
+    headR: 0.185, headPos: [0.15, -0.38, 0], headYaw: 0.58, flex: 0.2,
+    neck: [0.08, -0.26, 0], neckR: 0.08,
+    spine: [
+      [0.05, -0.24, 0],
+      [-0.04, -0.13, -0.008],
+      [-0.1, 0.02, -0.008],
+      [-0.04, 0.17, 0],
+    ],
+    spineR: 0.066,
+    chest: [0.0, -0.08, 0], chestR: 0.104,
+    belly: [-0.07, 0.05, 0], bellyR: 0.122,
+    hips: [-0.03, 0.18, 0], hipsR: 0.098,
+    navel: [-0.03, 0.02, 0.121],
+    shoulder: [0.04, -0.13, 0.07], elbow: [0.17, -0.06, 0.085], wrist: [0.21, -0.2, 0.09],
+    handR: 0.034, armR: 0.04, handAngle: -1.25,
+    hip: [-0.05, 0.16, 0.065], knee: [0.12, 0.13, 0.075], ankle: [0.04, 0.28, 0.045],
+    legR: 0.052, kneeR: 0.054, foot: [0.06, 0.3, 0.04], footR: 0.04,
+    fat: 0.55, earY: -0.08, openEyes: true, lashes: true, browOp: 0.5,
+    lips: 0.85, nostrils: true, seamOnly: false,
+    skin: '#ffcdb4', skinOp: 1, pulse: 0.4,
+  },
+  // 3 · weeks 31–40 — the flagship: plump, vernix-creamy, sleeping face
+  {
+    headR: 0.175, headPos: [0.16, -0.4, 0], headYaw: 0.55, flex: 0.22,
+    neck: [0.09, -0.28, 0], neckR: 0.088,
+    spine: [
+      [0.06, -0.26, 0],
+      [-0.05, -0.14, -0.01],
+      [-0.11, 0.02, -0.01],
+      [-0.05, 0.19, 0],
+    ],
+    spineR: 0.092,
+    chest: [0.02, -0.1, 0], chestR: 0.118,
+    belly: [-0.06, 0.04, 0], bellyR: 0.148,
+    hips: [-0.04, 0.19, 0], hipsR: 0.112,
+    navel: [-0.03, 0.03, 0.146],
+    shoulder: [0.05, -0.14, 0.075], elbow: [0.18, -0.08, 0.095], wrist: [0.22, -0.2, 0.09],
+    handR: 0.042, armR: 0.046, handAngle: -1.2,
+    hip: [-0.07, 0.17, 0.07], knee: [0.13, 0.13, 0.085], ankle: [0.02, 0.29, 0.05],
+    legR: 0.056, kneeR: 0.06, foot: [0.04, 0.31, 0.045], footR: 0.046,
+    fat: 1, earY: -0.03, openEyes: false, lashes: true, browOp: 0.5,
+    lips: 1, nostrils: true, seamOnly: false,
+    skin: '#ffd8c0', skinOp: 1, pulse: 0.35,
+  },
+];
+
+/**
+ * Journey stages 4–7 — the FETUS, weeks 9–40 (bespoke per stage).
+ * One anatomical builder, four week-informed looks:
+ * - Head share of length shrinks ½ → ⅓ → ¼+ as the body outpaces it.
+ * - Fat deposition plumps cheeks, limbs and belly toward term.
+ * - Eyelids: fused shut (9–13) → soft closed lids with lashes → open dark
+ *   irises (23–30) → the term child's clear sleeping face.
+ * - Ears rise from a low-set embryonic position toward their final height.
+ * Curled fetal tuck, head turned to the visitor in ¾ view; gentle sway and
+ * heartbeat pulse. Educational ambiance — never a diagnostic model.
+ */
+function FetalStage({ reducedMotion, variant }: { reducedMotion: boolean; variant: 0 | 1 | 2 | 3 }) {
+  const v = FETAL_LOOKS[variant];
+  const P = P_FETAL[variant];
   const group = useRef<THREE.Group>(null);
 
   const skin = useMemo(
     () =>
       new THREE.MeshPhysicalMaterial({
-        color: '#ffc4ae',
-        roughness: 0.38,
+        color: v.skin,
+        roughness: 0.36 - v.fat * 0.05,
         metalness: 0,
-        clearcoat: 0.25,
+        clearcoat: 0.28,
         clearcoatRoughness: 0.5,
+        transparent: v.skinOp < 1,
+        opacity: v.skinOp,
         sheen: 1,
         sheenColor: new THREE.Color(C.pearlGlow),
         sheenRoughness: 0.5,
         emissive: new THREE.Color('#ff8a70'),
-        emissiveIntensity: 0.08,
+        emissiveIntensity: 0.09,
         envMapIntensity: 0.7,
       }),
-    []
+    [v]
   );
   useEffect(() => () => skin.dispose(), [skin]);
-  const line = useMemo(
-    () => new THREE.MeshBasicMaterial({ color: SKIN_LINE, transparent: true, opacity: 0.5 }),
-    []
-  );
-  useEffect(() => () => line.dispose(), [line]);
 
   useFrame(({ clock }) => {
     const t = clock.getElapsedTime();
     if (reducedMotion || !group.current) return;
     const hb = heartbeat(t);
-    group.current.scale.setScalar(scale * (1 + (hb - 1) * 0.35));
+    group.current.scale.setScalar(P.scale * (1 + (hb - 1) * v.pulse));
     group.current.rotation.z = Math.sin(t * 0.3) * 0.02;
-    group.current.rotation.y = 0.3 + Math.sin(t * 0.19) * 0.045;
-    group.current.position.y = -0.06 + Math.sin(t * 0.42 + 0.5) * 0.018;
+    group.current.rotation.y = P.yaw + Math.sin(t * 0.2) * 0.045;
+    group.current.position.y = P.pos[1] + Math.sin(t * 0.44 + 0.6) * 0.018;
   });
 
   const spineGeo = useMemo(() => {
-    const spine = new THREE.CatmullRomCurve3([
-      new THREE.Vector3(0.06, -0.2, 0),
-      new THREE.Vector3(-0.08, -0.12, -0.01),
-      new THREE.Vector3(-0.15, 0.04, -0.01),
-      new THREE.Vector3(-0.1, 0.21, 0),
-    ]);
-    return new THREE.TubeGeometry(spine, 24, 0.1, 14, false);
-  }, []);
+    const spine = new THREE.CatmullRomCurve3(v.spine.map((p) => new THREE.Vector3(p[0], p[1], p[2])));
+    return new THREE.TubeGeometry(spine, 32, v.spineR, 16, false);
+  }, [v]);
   useEffect(() => () => spineGeo.dispose(), [spineGeo]);
 
+  const look: FaceLook = {
+    r: v.headR, fat: v.fat, earY: v.earY, openEyes: v.openEyes, lashes: v.lashes,
+    browOp: v.browOp, lips: v.lips, nostrils: v.nostrils, seamOnly: v.seamOnly,
+  };
+
   return (
-    <group ref={group} position={[0, -0.06, 0.1]} rotation={[0, 0.3, 0]} scale={scale}>
-      {/* plump curved back */}
+    <group ref={group} position={P.pos} rotation={[0, P.yaw, 0]} scale={P.scale}>
+      {/* curved back — one smooth arc from neck to sacrum */}
       <mesh geometry={spineGeo} material={skin} />
-      {/* head — engaged low (vertex presentation), ≈¼ of length, rounder */}
-      <mesh position={[0.17, -0.33, 0]} scale={[0.95, 1.0, 0.95]} material={skin}>
-        <sphereGeometry args={[0.13, 36, 36]} />
+
+      {/* neck — distinct from the earliest fetal weeks on */}
+      <mesh position={v.neck} material={skin}>
+        <sphereGeometry args={[v.neckR, 22, 22]} />
       </mesh>
-      <mesh position={[0.13, -0.22, 0]} material={skin}>
-        <sphereGeometry args={[0.07, 20, 20]} />
+
+      {/* head — ¾ view toward the visitor, chin tucked in flexion */}
+      <group position={v.headPos} rotation={[0, v.headYaw, 0]}>
+        <group rotation={[v.flex, 0, 0]}>
+          <Head look={look} skin={skin} />
+        </group>
+      </group>
+
+      {/* chest / round belly / hips — plumping with fat deposition */}
+      <mesh position={v.chest} material={skin}>
+        <sphereGeometry args={[v.chestR, 28, 28]} />
       </mesh>
-      {/* chest / round belly / hips — the full-term plumpness */}
-      <mesh position={[0.08, -0.11, 0]} material={skin}>
-        <sphereGeometry args={[0.115, 26, 26]} />
+      <mesh position={v.belly} material={skin}>
+        <sphereGeometry args={[v.bellyR, 28, 28]} />
       </mesh>
-      <mesh position={[0.01, 0.01, 0]} material={skin}>
-        <sphereGeometry args={[0.155, 26, 26]} />
+      <mesh position={v.hips} material={skin}>
+        <sphereGeometry args={[v.hipsR, 24, 24]} />
       </mesh>
-      <mesh position={[-0.08, 0.17, 0]} material={skin}>
-        <sphereGeometry args={[0.115, 24, 24]} />
+      {/* navel — the cord's meeting point */}
+      <mesh position={v.navel} material={skin}>
+        <sphereGeometry args={[0.018, 10, 10]} />
       </mesh>
-      {/* chubby cheek */}
-      <mesh position={[0.25, -0.31, 0.045]} material={skin}>
-        <sphereGeometry args={[0.036, 14, 14]} />
+
+      {/* arm — folded, hand resting near the cheek */}
+      <Limb a={v.shoulder} b={v.elbow} r={v.armR} material={skin} />
+      <Limb a={v.elbow} b={v.wrist} r={v.armR * 0.85} material={skin} />
+      <mesh position={v.wrist} material={skin}>
+        <sphereGeometry args={[v.handR, 16, 16]} />
       </mesh>
-      {/* arm — hand resting near the cheek */}
-      <Limb a={[0.07, -0.04, 0.085]} b={[0.21, -0.09, 0.095]} r={0.05} material={skin} />
-      <Limb a={[0.21, -0.09, 0.095]} b={[0.245, -0.235, 0.075]} r={0.044} material={skin} />
-      <mesh position={[0.25, -0.26, 0.07]} material={skin}>
-        <sphereGeometry args={[0.042, 14, 14]} />
+      <Digits at={v.wrist} angle={v.handAngle} n={4} spread={0.42} len={v.handR * 1.7} r={v.handR * 0.22} z={v.wrist[2] + 0.005} material={skin} />
+
+      {/* leg — knee drawn up, foot tucked toward the head end */}
+      <Limb a={v.hip} b={v.knee} r={v.legR} material={skin} />
+      <mesh position={v.knee} material={skin}>
+        <sphereGeometry args={[v.kneeR, 18, 18]} />
       </mesh>
-      {/* legs — knees drawn up, feet crossed near the head */}
-      <Limb a={[-0.1, 0.13, 0.07]} b={[0.17, 0.1, 0.08]} r={0.062} material={skin} />
-      <mesh position={[0.17, 0.1, 0.08]} material={skin}>
-        <sphereGeometry args={[0.062, 16, 16]} />
+      <Limb a={v.knee} b={v.ankle} r={v.legR * 0.82} material={skin} />
+      <mesh position={v.foot} scale={[1.2, 0.8, 0.9]} material={skin}>
+        <sphereGeometry args={[v.footR, 16, 16]} />
       </mesh>
-      <Limb a={[0.17, 0.1, 0.08]} b={[0.03, 0.27, 0.04]} r={0.05} material={skin} />
-      <mesh position={[0.03, 0.285, 0.04]} material={skin}>
-        <sphereGeometry args={[0.042, 14, 14]} />
-      </mesh>
-      {/* second foot peeking — the tucked, crossed-feet look */}
-      <mesh position={[0.12, 0.26, -0.01]} scale={[1, 0.8, 0.8]} material={skin}>
-        <sphereGeometry args={[0.036, 12, 12]} />
-      </mesh>
-      {/* profile details — nose, ear */}
-      <mesh position={[0.29, -0.35, 0.05]} material={skin}>
-        <sphereGeometry args={[0.018, 12, 12]} />
-      </mesh>
-      <mesh position={[0.08, -0.34, 0.12]} material={skin}>
-        <sphereGeometry args={[0.024, 12, 12]} />
-      </mesh>
-      {/* closed eye — calm lash line */}
-      <Limb a={[0.2, -0.29, 0.105]} b={[0.255, -0.265, 0.085]} r={0.006} material={line} />
+      <Digits at={v.foot} angle={0.5} n={3} spread={0.4} len={v.footR * 1.15} r={v.footR * 0.16} z={v.foot[2] + 0.01} material={skin} />
+
+      {/* second foot peeking — the tucked, crossed-feet look (term) */}
+      {variant === 3 && (
+        <mesh position={[0.11, 0.28, -0.02]} scale={[1.1, 0.8, 0.8]} material={skin}>
+          <sphereGeometry args={[0.038, 14, 14]} />
+        </mesh>
+      )}
     </group>
   );
 }
@@ -1150,7 +1663,7 @@ function Embrace({ reducedMotion, stage }: { reducedMotion: boolean; stage: numb
       shell.current.scale.set(b, 1 / b, b);
     }
     // Child heartbeat → halo sprite, mandorla rings, inner light (the fetus
-    // pulses its own scale/sway inside <Fetus>)
+    // pulses its own scale/sway inside <FetalStage>)
     const hb = heartbeat(t);
     if (halo.current) {
       const s = 1.7 + (hb - 1) * 3;
@@ -1158,7 +1671,7 @@ function Embrace({ reducedMotion, stage }: { reducedMotion: boolean; stage: numb
       (halo.current.material as THREE.SpriteMaterial).opacity = 0.22 + (hb - 1) * 2;
     }
     if (haloRings.current) {
-      const mandorla = stage <= 1 ? 0.5 : stage === 2 ? 0.62 : stage === 3 ? 0.85 : 1;
+      const mandorla = MANDORLA[Math.min(stage, MANDORLA.length - 1)];
       haloRings.current.scale.setScalar(mandorla * (1 + (hb - 1) * 1.2));
     }
     if (childLight.current) childLight.current.intensity = 0.7 + (hb - 1) * 2.2;
@@ -1210,7 +1723,7 @@ function Embrace({ reducedMotion, stage }: { reducedMotion: boolean; stage: numb
         <spriteMaterial map={glowTex} color={C.pearlGlow} transparent opacity={0.22} blending={THREE.AdditiveBlending} depthWrite={false} />
       </sprite>
       {/* Mandorla rings framing the child — intimate echo of the celestial ones */}
-      <group ref={haloRings} position={[0, -0.02, -0.15]} scale={stage <= 1 ? 0.5 : stage === 2 ? 0.62 : stage === 3 ? 0.85 : 1}>
+      <group ref={haloRings} position={[0, -0.02, -0.15]} scale={MANDORLA[Math.min(stage, MANDORLA.length - 1)]}>
         <mesh rotation={[1.35, 0.25, 0]}>
           <torusGeometry args={[0.62, 0.0045, 8, 72]} />
           <meshBasicMaterial color={C.coral} transparent opacity={0.3} blending={THREE.AdditiveBlending} depthWrite={false} />
@@ -1220,13 +1733,16 @@ function Embrace({ reducedMotion, stage }: { reducedMotion: boolean; stage: numb
           <meshBasicMaterial color={C.sage} transparent opacity={0.24} blending={THREE.AdditiveBlending} depthWrite={false} />
         </mesh>
       </group>
-      {/* Growth journey — the child through five week-accurate stages */}
+      {/* Growth journey — the child through eight week-accurate stages */}
       <StageGate stage={stage} reducedMotion={reducedMotion}>
         {stage === 0 && <Fertilization reducedMotion={reducedMotion} tex={glowTex} />}
-        {stage === 1 && <Division reducedMotion={reducedMotion} tex={glowTex} />}
-        {stage === 2 && <Embryo reducedMotion={reducedMotion} tex={glowTex} />}
-        {stage === 3 && <Fetus reducedMotion={reducedMotion} scale={1.05} />}
-        {stage === 4 && <TermFetus reducedMotion={reducedMotion} scale={1.5} />}
+        {stage === 1 && <Blastocyst reducedMotion={reducedMotion} tex={glowTex} />}
+        {stage === 2 && <Embryo reducedMotion={reducedMotion} tex={glowTex} mature={false} />}
+        {stage === 3 && <Embryo reducedMotion={reducedMotion} tex={glowTex} mature />}
+        {stage === 4 && <FetalStage reducedMotion={reducedMotion} variant={0} />}
+        {stage === 5 && <FetalStage reducedMotion={reducedMotion} variant={1} />}
+        {stage === 6 && <FetalStage reducedMotion={reducedMotion} variant={2} />}
+        {stage === 7 && <FetalStage reducedMotion={reducedMotion} variant={3} />}
       </StageGate>
       <pointLight ref={childLight} position={[0.15, 0, 0.55]} intensity={0.7} distance={3.2} color={C.pearlGlow} />
       {/* Amniotic shimmer inside the shell */}
@@ -1271,7 +1787,7 @@ function Rig({ reducedMotion, stage }: { reducedMotion: boolean; stage: number }
   // Per-stage dolly: the microscopic stages (fertilization → embryo) invite a
   // lean-in close-up; the mid fetus and the full-term child pull the camera
   // back as the child fills more of the embrace.
-  const stageZ = stage <= 1 ? 4.55 : stage === 2 ? 4.8 : stage === 3 ? 5.05 : 5.3;
+  const stageZ = STAGE_Z[Math.min(stage, STAGE_Z.length - 1)];
   useEffect(() => {
     did.current = false;
   }, [stage]);

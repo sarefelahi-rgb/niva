@@ -1,17 +1,17 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { useApp, type View } from '@/store/app';
+import { useApp } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from '@/components/ui/sheet';
 import { Badge } from '@/components/ui/badge';
 import { cn } from '@/lib/utils';
+import { BlockMenu } from './block-menu';
+import { ALL_NAV, PRIMARY_NAV } from './nav-config';
 import {
-  LayoutDashboard, CalendarClock, Box, Activity, Sparkles, FolderLock, Stethoscope,
-  Salad, Baby, Flower2, BookHeart, Users, Crown, Settings, ShieldCheck, Bell,
-  LogOut, Menu, Moon, Sun, Languages, HeartPulse, X, ChevronLeft, ChevronRight,
+  CalendarClock, Bell, LayoutGrid,
+  LogOut, Moon, Sun, Languages, X,
   ClipboardCheck, CreditCard, ShieldAlert, Trash2, BellRing, BellOff, WifiOff,
-  Hospital,
 } from 'lucide-react';
 import { useTheme } from 'next-themes';
 import { useToast } from '@/hooks/use-toast';
@@ -25,45 +25,6 @@ import {
   subscribeToPush,
   unsubscribeFromPush,
 } from '@/lib/push-client';
-
-interface NavItem {
-  view: View;
-  icon: React.ComponentType<{ className?: string }>;
-  labelKey: string;
-  roles?: string[];
-}
-
-const PRIMARY_NAV: NavItem[] = [
-  { view: 'dashboard', icon: LayoutDashboard, labelKey: 'nav.dashboard' },
-  { view: 'timeline', icon: CalendarClock, labelKey: 'nav.timeline' },
-  { view: 'studio', icon: Box, labelKey: 'nav.studio' },
-  { view: 'tracking', icon: Activity, labelKey: 'nav.tracking' },
-  { view: 'assistant', icon: Sparkles, labelKey: 'nav.assistant' },
-];
-
-const SECONDARY_NAV: NavItem[] = [
-  { view: 'appointments', icon: Stethoscope, labelKey: 'nav.appointments' },
-  { view: 'doctors', icon: Hospital, labelKey: 'nav.doctors' },
-  { view: 'records', icon: FolderLock, labelKey: 'nav.records' },
-  { view: 'wellness', icon: Salad, labelKey: 'nav.wellness' },
-  { view: 'birth', icon: Baby, labelKey: 'nav.birth' },
-  { view: 'postpartum', icon: Flower2, labelKey: 'nav.postpartum' },
-  { view: 'safety', icon: HeartPulse, labelKey: 'nav.safety' },
-  { view: 'journal', icon: BookHeart, labelKey: 'nav.journal' },
-  { view: 'community', icon: Users, labelKey: 'nav.community' },
-  { view: 'family', icon: Users, labelKey: 'nav.family' },
-];
-
-const ACCOUNT_NAV: NavItem[] = [
-  { view: 'doctor', icon: Stethoscope, labelKey: 'nav.doctorPanel', roles: ['DOCTOR'] },
-  { view: 'subscription', icon: Crown, labelKey: 'nav.subscription' },
-  { view: 'settings', icon: Settings, labelKey: 'common.settings' },
-];
-
-const GOVERNANCE_NAV: NavItem[] = [
-  { view: 'review', icon: ShieldCheck, labelKey: 'nav.review', roles: ['ADMIN', 'CLINICAL_REVIEWER'] },
-  { view: 'admin', icon: ShieldCheck, labelKey: 'nav.admin', roles: ['ADMIN'] },
-];
 
 /** Notification type → icon (bell sheet rows + scheduled section). */
 const NOTIF_TYPE_ICONS: Record<string, React.ComponentType<{ className?: string }>> = {
@@ -84,7 +45,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const { t, view, setView, user, logout, locale, setLocale } = useApp();
   const { theme, setTheme, resolvedTheme } = useTheme();
   const [mounted, setMounted] = useState(false);
-  const [moreOpen, setMoreOpen] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const [notifOpen, setNotifOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotifRow[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledRow[]>([]);
@@ -189,8 +150,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     });
   }, [updateReady, toast, t, locale, applyUpdate]);
 
-  const visible = (items: NavItem[]) => items.filter((i) => !i.roles || (user && i.roles.includes(user.role)));
-  const allNav = [...PRIMARY_NAV, ...SECONDARY_NAV, ...ACCOUNT_NAV, ...GOVERNANCE_NAV];
+  const allNav = ALL_NAV;
   const current = allNav.find((n) => n.view === view);
 
   const toggleTheme = () => {
@@ -292,32 +252,21 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       {/* Header */}
       <header className="sticky top-0 z-40 niva-card border-b">
         <div className="mx-auto max-w-7xl px-3 sm:px-6 h-14 flex items-center gap-2">
-          {/* Mobile menu */}
-          <Sheet open={moreOpen} onOpenChange={setMoreOpen}>
+          {/* Block menu — the colorful tile grid, available from any view */}
+          <Sheet open={menuOpen} onOpenChange={setMenuOpen}>
             <SheetTrigger asChild>
-              <Button variant="ghost" size="icon" className="md:hidden" aria-label={t('nav.more')}>
-                <Menu className="h-5 w-5" />
+              <Button variant="ghost" size="sm" className="gap-1.5 min-h-9" aria-label={t('nav.menu')}>
+                <LayoutGrid className="h-4.5 w-4.5 text-primary" aria-hidden />
+                <span className="text-xs font-semibold">{t('nav.menu')}</span>
               </Button>
             </SheetTrigger>
-            <SheetContent side={locale === 'fa' ? 'right' : 'left'} className="w-72 p-0">
+            <SheetContent side={locale === 'fa' ? 'right' : 'left'} className="w-80 sm:w-[26rem] p-0">
               <SheetHeader className="p-4 pb-2">
-                <SheetTitle className="text-primary">NIVA</SheetTitle>
+                <SheetTitle className="text-primary">{t('nav.menu')}</SheetTitle>
               </SheetHeader>
-              <nav className="px-2 pb-6 max-h-[calc(100vh-6rem)] overflow-y-auto" aria-label={t('nav.more')}>
-                {[...visible(PRIMARY_NAV), ...visible(SECONDARY_NAV), ...visible(ACCOUNT_NAV), ...visible(GOVERNANCE_NAV)].map((item) => (
-                  <button
-                    key={item.view}
-                    onClick={() => { setView(item.view); setMoreOpen(false); }}
-                    className={cn(
-                      'w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors min-h-11',
-                      view === item.view ? 'bg-primary/10 text-primary font-medium' : 'text-foreground/80 hover:bg-muted'
-                    )}
-                  >
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    {t(item.labelKey)}
-                  </button>
-                ))}
-              </nav>
+              <div className="px-4 pb-6 max-h-[calc(100vh-6rem)] overflow-y-auto">
+                <BlockMenu onNavigate={() => setMenuOpen(false)} />
+              </div>
             </SheetContent>
           </Sheet>
 
@@ -474,36 +423,30 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </header>
 
-      <div className="flex flex-1 w-full mx-auto max-w-7xl">
-        {/* Desktop sidebar */}
-        <aside className="hidden md:flex flex-col w-60 shrink-0 py-6 pe-4">
-          <nav className="space-y-6" aria-label="Primary">
-            <NavGroup items={visible(PRIMARY_NAV)} />
-            <NavGroup items={visible(SECONDARY_NAV)} />
-            <NavGroup items={visible(ACCOUNT_NAV)} />
-            {visible(GOVERNANCE_NAV).length > 0 && <NavGroup items={visible(GOVERNANCE_NAV)} />}
-          </nav>
-        </aside>
-
-        {/* Main content */}
-        <main className="flex-1 min-w-0 py-4 sm:py-6 px-3 sm:px-0 pb-24 md:pb-8">{children}</main>
-      </div>
+      {/* Main content — full width, no sidebar: the colorful block menu
+          (dashboard grid + header sheet) replaces the old list sidebar. */}
+      <main className="flex-1 w-full mx-auto max-w-7xl py-4 sm:py-6 px-3 sm:px-6 pb-24 md:pb-8">{children}</main>
 
       {/* Mobile bottom nav */}
       <nav className="md:hidden fixed bottom-0 inset-x-0 z-40 niva-card border-t pb-[env(safe-area-inset-bottom)]" aria-label="Bottom navigation">
         <div className="grid grid-cols-5 h-16">
-          {PRIMARY_NAV.map((item) => (
-            <button
-              key={item.view}
-              onClick={() => setView(item.view)}
-              className={cn('flex flex-col items-center justify-center gap-1 text-[10px] min-h-11 transition-colors',
-                view === item.view ? 'text-primary font-semibold' : 'text-muted-foreground')}
-              aria-current={view === item.view ? 'page' : undefined}
-            >
-              <item.icon className="h-5 w-5" />
-              {t(item.labelKey)}
-            </button>
-          ))}
+          {PRIMARY_NAV.map((item) => {
+            const active = view === item.view;
+            return (
+              <button
+                key={item.view}
+                onClick={() => setView(item.view)}
+                className={cn('flex flex-col items-center justify-center gap-1 text-[10px] min-h-11 transition-colors',
+                  active ? 'text-primary font-semibold' : 'text-muted-foreground')}
+                aria-current={active ? 'page' : undefined}
+              >
+                <span className={cn('grid place-items-center rounded-full transition-colors', active ? 'bg-primary/12 h-8 w-12' : 'h-8 w-12')}>
+                  <item.icon className="h-5 w-5" aria-hidden />
+                </span>
+                {t(item.labelKey)}
+              </button>
+            );
+          })}
         </div>
       </nav>
 
@@ -518,31 +461,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </p>
         </div>
       </footer>
-    </div>
-  );
-}
-
-function NavGroup({ items }: { items: NavItem[] }) {
-  const { t, view, setView, locale } = useApp();
-  if (items.length === 0) return null;
-  const Direction = locale === 'fa' ? ChevronLeft : ChevronRight;
-  return (
-    <div className="space-y-0.5">
-      {items.map((item) => (
-        <button
-          key={item.view}
-          onClick={() => setView(item.view)}
-          className={cn(
-            'w-full flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm transition-colors min-h-11',
-            view === item.view ? 'bg-primary/10 text-primary font-medium' : 'text-foreground/75 hover:bg-muted hover:text-foreground'
-          )}
-          aria-current={view === item.view ? 'page' : undefined}
-        >
-          <item.icon className="h-4 w-4 shrink-0" />
-          <span className="truncate">{t(item.labelKey)}</span>
-          {view === item.view && <span className="ms-auto"><Direction className="h-3.5 w-3.5 text-primary/60" /></span>}
-        </button>
-      ))}
     </div>
   );
 }

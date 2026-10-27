@@ -2,90 +2,60 @@
 
 import { Suspense, useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Canvas, useFrame, useThree } from '@react-three/fiber';
-import { OrbitControls } from '@react-three/drei';
 import { useApp } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Slider } from '@/components/ui/slider';
-import { STAGE_WEEKS, paramsForWeek } from './params';
+import { STAGE_WEEKS } from './params';
 import { FetusModel } from './fetus-model';
 import { ConceptionModel } from './conception-model';
 import { StudioLighting, AmnioticParticles } from './scene';
 import { STUDIO_QUALITY_PRESETS } from './quality';
 import { stageContentForWeek } from '@/data/studio-content';
-import { Box, Play, Pause, RotateCcw, ZoomIn, ZoomOut, ScanEye, BookOpenText, Layers, Sparkles, Volume2, Square, MonitorPlay, RefreshCw, Microscope } from 'lucide-react';
-import type * as THREE from 'three';
+import { Box, BookOpenText, Volume2, Square, MonitorPlay, RefreshCw, Microscope, Sparkles } from 'lucide-react';
+import { paramsForWeek } from './params';
 
 interface AssetInfo {
   assetId: string; gestationalStage: number; titleEn: string; titleFa: string;
   descriptionEn: string; descriptionFa: string; reviewStatus: string; locked?: boolean;
 }
 
+/**
+ * Studio view — one realistic 3D experience, deliberately non-interactive:
+ * a slow cinematic turntable of the week-accurate model with full anatomy
+ * always on (no photo/2D mode, no orbit/zoom/layer/quality controls — those
+ * were removed by design). The only controls that remain are week navigation
+ * (slider + stage chips) and the narration card, i.e. content selection,
+ * not model interaction. Silent adaptive quality and context-loss recovery
+ * still protect frame rate and GPU memory behind the scenes.
+ */
 export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
-  const { t, locale, features, setView } = useApp();
+  const { t, locale } = useApp();
   const [assets, setAssets] = useState<AssetInfo[]>([]);
   const [week, setWeek] = useState(12);
-  const [fetus, setFetus] = useState(true);
-  const [placenta, setPlacenta] = useState(true);
-  const [uterus, setUterus] = useState(true);
-  const [labels, setLabels] = useState(true);
-  const [autoRotate, setAutoRotate] = useState(true);
-  const [guided, setGuided] = useState(false);
   const [reduceMotion, setReduceMotion] = useState(false);
-  const [arSupported, setArSupported] = useState(false);
-  const [zoom, setZoom] = useState(5.0);
-  const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('medium');
+  const [quality, setQuality] = useState<'low' | 'medium' | 'high'>('high');
   // Wave 3.4: WebGL availability, context-loss recovery, adaptive degrade,
   // and a dev-only memory readout (renderer.info) for the memory-budget test.
   const [webglOk, setWebglOk] = useState<boolean | null>(null);
   const [ctxLost, setCtxLost] = useState(false);
   const [canvasKey, setCanvasKey] = useState(0);
-  // Bumped by the reset button: remounts the model group so the accumulated
-  // auto-rotate spin resets together with the camera (spin has no other undo).
-  const [spinKey, setSpinKey] = useState(0);
   const [autoAdjusted, setAutoAdjusted] = useState(false);
-  const glRef = useRef<THREE.WebGLRenderer | null>(null);
-  const cameraRef = useRef<{ fov: number; updateProjectionMatrix(): void } | null>(null);
+  const glRef = useRef<WebGLRendererLike | null>(null);
   const ctxHandlers = useRef<{ lost: (e: Event) => void; restored: () => void } | null>(null);
-  // Stable DOM target for drei <Html> annotation labels. Without it, Html's
-  // layout effect re-runs when R3F connects events (target flips from the
-  // canvas parent to events.connected), synchronously unmounting each label's
-  // ReactDOM root mid-commit — React 19's "Attempted to synchronously unmount
-  // a root while React was already rendering". A pre-created detached element
-  // keeps the target identity stable for the whole studio lifetime.
-  const [labelsPortalEl] = useState(() => (typeof document !== 'undefined' ? document.createElement('div') : null));
-  // Html's portal prop demands RefObject<HTMLElement>; the element is created
-  // eagerly on the client (studio is a client-only view), so the cast is sound.
-  const labelsPortal = useMemo(
-    () => ({ current: labelsPortalEl as unknown as HTMLElement }),
-    [labelsPortalEl]
-  );
 
-  useEffect(() => {
-    const el = labelsPortalEl;
-    const host = glRef.current?.domElement.parentElement ?? canvasHostRef.current;
-    if (!el || !host) return;
-    host.appendChild(el);
-    return () => {
-      el.remove();
-    };
-  }, [labelsPortalEl, webglOk]);
-  const canvasHostRef = useRef<HTMLDivElement | null>(null);
-
-  const canAdvanced = features?.advanced3DLayers ?? false;
-  const stage = useMemo(() => assets.find((a) => a.gestationalStage === week), [assets, week]);
-  const content = useMemo(() => stageContentForWeek(week), [week]);
+  const stage = assets.find((a) => a.gestationalStage === week);
+  const content = stageContentForWeek(week);
   const preset = STUDIO_QUALITY_PRESETS[quality];
 
   useEffect(() => {
     fetch('/api/assets').then((r) => r.json()).then((d) => setAssets(d.assets ?? [])).catch(() => undefined);
-    // Device-adaptive quality (LOD tier 1) + WebXR AR capability detection — deferred to avoid sync effects.
+    // Device-adaptive quality + motion preference — deferred to avoid sync effects.
     const id = requestAnimationFrame(() => {
       const isMobile = window.matchMedia('(max-width: 640px)').matches;
       const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-      setQuality(isMobile ? 'low' : 'medium');
+      setQuality(isMobile ? 'medium' : 'high');
       setReduceMotion(reduce);
-      if (reduce) setAutoRotate(false);
       // WebGL feature detection — drives the graceful fallback panel (3.4).
       try {
         const c = document.createElement('canvas');
@@ -93,8 +63,6 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
       } catch {
         setWebglOk(false);
       }
-      const xr = (navigator as Navigator & { xr?: { isSessionSupported(m: string): Promise<boolean> } }).xr;
-      if (xr) xr.isSessionSupported('immersive-ar').then(setArSupported).catch(() => setArSupported(false));
     });
     return () => cancelAnimationFrame(id);
   }, []);
@@ -117,150 +85,77 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
     []
   );
 
-  // Narration read-aloud lives in NarrationCard (keyed by week) so speech and
-  // speaking state reset with the stage — no setState-in-effect.
-
   // Adaptive degrade (3.4): one step down when the sustained FPS budget is missed.
   const handleDegrade = useCallback(() => {
     setQuality((q) => (q === 'high' ? 'medium' : q === 'medium' ? 'low' : q));
     setAutoAdjusted(true);
   }, []);
 
-  // Guided tour: advance through stages every 5 seconds.
-  useEffect(() => {
-    if (!guided) return;
-    const id = setInterval(() => {
-      setWeek((w) => {
-        const idx = STAGE_WEEKS.indexOf(w);
-        return STAGE_WEEKS[(idx + 1) % STAGE_WEEKS.length];
-      });
-    }, 5000);
-    return () => clearInterval(id);
-  }, [guided]);
-
-  const zoomBy = useCallback((d: number) => {
-    setZoom((z) => Math.min(8, Math.max(1.6, z + d)));
-  }, []);
-
-  const enterAR = useCallback(async () => {
-    const gl = glRef.current;
-    const xr = (navigator as Navigator & { xr?: { requestSession(m: string, o?: object): Promise<XRSession> } }).xr;
-    if (!gl || !xr) return;
-    try {
-      const session = await xr.requestSession('immersive-ar', { optionalFeatures: ['dom-overlay'] });
-      gl.xr.enabled = true;
-      await gl.xr.setSession(session as unknown as Parameters<typeof gl.xr.setSession>[0]);
-    } catch {
-      setArSupported(false);
-    }
-  }, []);
-
-  const setCameraFov = (fov: number) => {
-    if (cameraRef.current) {
-      cameraRef.current.fov = fov;
-      cameraRef.current.updateProjectionMatrix();
-    }
-  };
-
-  const zoomIn = () => { zoomBy(-0.6); setCameraFov(36); };
-  const zoomOut = () => { zoomBy(0.6); setCameraFov(46); };
-
-  const layerBtn = (on: boolean, set: (v: boolean) => void, label: string, icon: React.ReactNode, locked = false) => (
-    <button
-      onClick={() => !locked && set(!on)}
-      aria-pressed={on}
-      disabled={locked}
-      className={`flex items-center gap-1.5 rounded-full border px-3 py-2 text-xs min-h-9 transition-all ${
-        on ? 'bg-primary text-primary-foreground border-primary shadow' : 'hover:bg-muted text-muted-foreground'
-      } ${locked ? 'opacity-50 cursor-not-allowed' : ''}`}
-    >
-      {icon}{label}{locked && ' 🔒'}
-    </button>
-  );
-
   const body = (
-    <div className={`grid ${fullscreen ? 'h-[calc(100vh-3.5rem)]' : 'h-[70vh] min-h-[480px]'} lg:grid-cols-[1fr_320px] gap-3 p-3`}>
+    <div className={`grid ${fullscreen ? 'h-[calc(100vh-3.5rem)]' : 'h-[70vh] min-h-[480px]'} overflow-y-auto lg:overflow-hidden lg:grid-cols-[1fr_320px] gap-3 p-3`}>
       {/* 3D canvas (or graceful WebGL fallback — Wave 3.4).
           The Canvas mounts ONLY after WebGL detection resolves (null → true):
           this isolates the R3F root's initial commit from the outer root's
-          detection re-render, avoiding React 19's nested-root unmount race
-          ("Attempted to synchronously unmount a root while rendering"). */}
-      <div ref={canvasHostRef} className="relative rounded-2xl border niva-grad overflow-hidden bg-card/40">
+          detection re-render, avoiding React 19's nested-root unmount race. */}
+      <div className="relative rounded-2xl border niva-grad overflow-hidden bg-card/40 h-[54vh] min-h-[240px] lg:h-auto lg:min-h-0">
         {webglOk === false ? (
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 p-8 text-center">
             <MonitorPlay className="h-10 w-10 text-primary" aria-hidden />
             <h2 className="font-semibold text-sm">{t('studio.webglTitle')}</h2>
             <p className="text-xs text-muted-foreground max-w-xs leading-relaxed">{t('studio.webglBody')}</p>
-            <Button size="sm" className="min-h-10" onClick={() => setView('timeline')}>
-              {t('studio.openTimeline')}
-            </Button>
           </div>
         ) : webglOk === true ? (
-        <Canvas
-          key={canvasKey}
-          dpr={[1, preset.dprCap]}
-          shadows={preset.shadows}
-          gl={{ antialias: true, alpha: true }}
-          camera={{ position: [0.72, 0.16, zoom * 0.96], fov: 40 }}
-          onCreated={({ gl, camera }) => {
-            glRef.current = gl;
-            cameraRef.current = camera as unknown as { fov: number; updateProjectionMatrix(): void };
-            const lost = (e: Event) => {
-              e.preventDefault();
-              setCtxLost(true);
-            };
-            const restored = () => setCtxLost(false);
-            ctxHandlers.current = { lost, restored };
-            gl.domElement.addEventListener('webglcontextlost', lost);
-            gl.domElement.addEventListener('webglcontextrestored', restored);
-          }}
-          aria-label={t('studio.title')}
-          role="application"
-        >
-          <StudioLighting quality={quality} />
-          <Suspense fallback={null}>
-            {week < 4 ? (
-              <ConceptionModel
-                key={`c${spinKey}`}
-                week={week}
-                showCells={fetus}
-                showShell={placenta}
-                showUterus={uterus}
-                showLabels={labels && !reduceMotion}
-                autoRotate={autoRotate && !reduceMotion}
-                quality={quality}
-                labelsLang={locale === 'fa' ? 'fa' : 'en'}
-                closeLabel={t('common.close')}
-                labelsPortal={labelsPortal}
-              />
-            ) : (
-              <FetusModel
-                key={`f${spinKey}`}
-                week={week}
-                showFetus={fetus}
-                showPlacenta={placenta}
-                showUterus={uterus}
-                showLabels={labels && !reduceMotion}
-                autoRotate={autoRotate && !reduceMotion}
-                quality={quality}
-                labelsLang={locale === 'fa' ? 'fa' : 'en'}
-                closeLabel={t('common.close')}
-                labelsPortal={labelsPortal}
-              />
-            )}
-          </Suspense>
-          <AmnioticParticles count={preset.particles} size={preset.particleSize} reduceMotion={reduceMotion} />
-          <AdaptiveQuality quality={quality} onDegrade={handleDegrade} />
-          {process.env.NODE_ENV === 'development' && <DevPerfWatch />}
-          <OrbitControls
-            enablePan={false}
-            minDistance={1.6}
-            maxDistance={9}
-            target={[0, 0.1, 0]}
-            autoRotate={false}
-            makeDefault
-          />
-        </Canvas>
+          <Canvas
+            key={canvasKey}
+            dpr={[1, preset.dprCap]}
+            shadows={preset.shadows}
+            gl={{ antialias: true, alpha: true }}
+            camera={{ position: [0.72, 0.16, 4.8], fov: 40 }}
+            onCreated={({ gl }) => {
+              glRef.current = gl as unknown as WebGLRendererLike;
+              const lost = (e: Event) => {
+                e.preventDefault();
+                setCtxLost(true);
+              };
+              const restored = () => setCtxLost(false);
+              ctxHandlers.current = { lost, restored };
+              gl.domElement.addEventListener('webglcontextlost', lost);
+              gl.domElement.addEventListener('webglcontextrestored', restored);
+            }}
+            aria-label={t('studio.title')}
+            role="application"
+          >
+            <StudioLighting quality={quality} />
+            <CameraRig week={week} />
+            <Suspense fallback={null}>
+              {week < 4 ? (
+                <ConceptionModel
+                  week={week}
+                  showCells
+                  showShell
+                  showUterus
+                  showLabels={false}
+                  autoRotate={!reduceMotion}
+                  quality={quality}
+                  labelsLang={locale === 'fa' ? 'fa' : 'en'}
+                />
+              ) : (
+                <FetusModel
+                  week={week}
+                  showFetus
+                  showPlacenta
+                  showUterus
+                  showLabels={false}
+                  autoRotate={!reduceMotion}
+                  quality={quality}
+                  labelsLang={locale === 'fa' ? 'fa' : 'en'}
+                />
+              )}
+            </Suspense>
+            <AmnioticParticles count={preset.particles} size={preset.particleSize} reduceMotion={reduceMotion} />
+            <AdaptiveQuality quality={quality} onDegrade={handleDegrade} />
+            {process.env.NODE_ENV === 'development' && <DevPerfWatch />}
+          </Canvas>
         ) : (
           <div className="absolute inset-0 grid place-items-center" aria-hidden>
             <div className="h-9 w-9 rounded-full border-2 border-primary/25 border-t-primary animate-spin" />
@@ -295,7 +190,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           style={{ background: 'radial-gradient(ellipse 75% 70% at 50% 42%, transparent 55%, rgba(94,44,52,0.16) 100%)' }}
         />
 
-        {/* Viewport chrome */}
+        {/* Viewport chrome — honesty labels only, no interaction chrome */}
         <div className="absolute top-3 start-3 flex flex-col gap-1.5">
           <Badge className="w-fit bg-warning/15 text-warning-foreground border-warning/30 text-[10px]">
             {t('studio.demoAsset')}
@@ -311,17 +206,6 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
           )}
           {autoAdjusted && <Badge variant="secondary" className="w-fit text-[10px]">{t('studio.qualityAuto')}</Badge>}
         </div>
-        <div className="absolute bottom-3 end-3 flex gap-1.5">
-          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={zoomIn} aria-label={t('studio.zoomIn')}>
-            <ZoomIn className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={zoomOut} aria-label={t('studio.zoomOut')}>
-            <ZoomOut className="h-4 w-4" />
-          </Button>
-          <Button variant="outline" size="icon" className="min-h-10 w-10 bg-card/80 backdrop-blur" onClick={() => { setZoom(5.0); setCameraFov(40); setSpinKey((k) => k + 1); }} aria-label={t('studio.reset')}>
-            <RotateCcw className="h-4 w-4" />
-          </Button>
-        </div>
         {reduceMotion && (
           <div className="absolute bottom-3 start-3">
             <Badge variant="secondary" className="text-[10px]">{t('studio.reducedMotion')}</Badge>
@@ -329,8 +213,8 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
         )}
       </div>
 
-      {/* Control panel */}
-      <aside className="flex flex-col gap-3 overflow-y-auto" aria-label={t('studio.layers')}>
+      {/* Week navigation + narration — content selection, not model controls */}
+      <aside className="flex flex-col gap-3 overflow-y-auto" aria-label={t('studio.stage')}>
         <div className="niva-card rounded-2xl border p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Box className="h-4 w-4 text-primary" />
@@ -367,40 +251,6 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
               [dev] <span id="niva-dev-perf">—</span>
             </p>
           )}
-          <div className="flex flex-wrap gap-1.5">
-            {layerBtn(fetus, setFetus, t('studio.layerFetus'), <Layers className="h-3 w-3" />)}
-            {layerBtn(placenta, setPlacenta, t('studio.layerPlacenta'), <Layers className="h-3 w-3" />, !canAdvanced)}
-            {layerBtn(uterus, setUterus, t('studio.layerUterus'), <Layers className="h-3 w-3" />, !canAdvanced)}
-            {layerBtn(labels, setLabels, t('studio.layerHotspots'), <ScanEye className="h-3 w-3" />)}
-          </div>
-          <div className="flex flex-wrap gap-1.5 border-t pt-3">
-            {layerBtn(autoRotate, setAutoRotate, t('studio.autoRotate'), <RotateCcw className="h-3 w-3" />)}
-            {layerBtn(guided, setGuided, t('studio.guided'), <Play className="h-3 w-3" />, !(features?.guidedMode ?? false))}
-            {arSupported ? (
-              <button onClick={enterAR} className="flex items-center gap-1.5 rounded-full border border-primary px-3 py-2 text-xs min-h-9 bg-primary/10 text-primary">
-                <ScanEye className="h-3 w-3" />{t('studio.ar')}
-              </button>
-            ) : (
-              <span className="text-[10px] text-muted-foreground self-center">{t('studio.arUnsupported')}</span>
-            )}
-          </div>
-          <div className="border-t pt-3 space-y-1.5">
-            <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
-              <Sparkles className="h-3 w-3" />{t('studio.quality')}
-            </div>
-            <div className="grid grid-cols-3 gap-1" role="group" aria-label={t('studio.quality')}>
-              {([['low', t('studio.qLow')], ['medium', t('studio.qMed')], ['high', t('studio.qHigh')]] as const).map(([q, label]) => (
-                <button
-                  key={q}
-                  onClick={() => setQuality(q)}
-                  aria-pressed={quality === q}
-                  className={`h-8 rounded-md text-[10px] transition-colors min-h-8 ${quality === q ? 'bg-primary text-primary-foreground' : 'bg-muted hover:bg-primary/15'}`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
 
         {/* Narrated education (Wave 3.5) — text alternative + read-aloud + sources.
@@ -411,6 +261,44 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   );
 
   return body;
+}
+
+/** Structural subset of THREE.WebGLRenderer used here (keeps three out of the import graph). */
+interface WebGLRendererLike {
+  domElement: HTMLCanvasElement;
+  dispose(): void;
+}
+
+/**
+ * Per-week cinematic framing (non-interactive by design): with the manual
+ * zoom removed, the rig owns the camera and eases it to a distance that fits
+ * the stage envelope — a close-up for the cellular weeks, a wider shot that
+ * keeps the whole term baby + uterine membrane in frame by week 40. The
+ * camera keeps its slight 3/4 yaw so the face/profile reads naturally.
+ */
+function CameraRig({ week }: { week: number }) {
+  const target = useMemo(() => {
+    if (week < 4) return 3.1; // conception scenes span ~2.3 units (mound/glow)
+    const { scale, uterus } = paramsForWeek(week);
+    // Fit the vertical membrane radius (uterus × 1.08 × 0.95) at fov 40° + margin.
+    const fit = (uterus * 1.08 * 0.95) / Math.tan((40 / 2) * (Math.PI / 180)) + 0.9;
+    // Early fetal weeks: pull in for detail, easing out as the body grows.
+    const early = 3.1 + 2.4 * Math.pow(scale, 0.65);
+    return Math.max(early, Math.min(fit, 6.4));
+  }, [week]);
+  const goal = useRef(target);
+  useEffect(() => {
+    goal.current = target;
+  }, [target]);
+  useFrame(({ camera }, delta) => {
+    const d = camera.position.length();
+    if (d <= 0.0001) return;
+    // Exponential damp toward the framing distance (frame-rate independent).
+    const nd = d + (goal.current - d) * (1 - Math.exp(-3.2 * Math.min(delta, 0.1)));
+    camera.position.multiplyScalar(nd / d);
+    camera.lookAt(0, 0.1, 0);
+  });
+  return null;
 }
 
 /**
@@ -533,9 +421,4 @@ function NarrationCard({
       <p className="text-[10px] text-muted-foreground">{t('studio.sub')}</p>
     </div>
   );
-}
-
-function paramsSummary(week: number): string {
-  const p = paramsForWeek(week);
-  return `head/body ${p.headRatio.toFixed(2)} · curl ${(p.curl * 57.3).toFixed(0)}° · limbs ${(p.limb * 100).toFixed(0)}% · placenta ${(p.placenta * 100).toFixed(0)}%`;
 }

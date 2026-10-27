@@ -12,6 +12,8 @@ import type { Locale } from '@/lib/i18n';
 import { formatDate, formatDateTime, formatWeeksDays, bdiWrap } from '@/lib/format';
 import { formatMessage } from '@/lib/icu';
 import { WEEKLY_CONTENT } from '@/data/weekly-content';
+import { BlockMenu } from '@/components/shell/block-menu';
+import { tileStyle } from '@/components/shell/nav-config';
 import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock } from 'lucide-react';
 
 interface Appointment { id: string; title: string; scheduledAt: string; provider: string | null }
@@ -97,6 +99,7 @@ export function DashboardView() {
     const nonPregnant = stage && stage !== 'PREGNANT';
     return (
       <div className="space-y-4">
+        <BlockMenu />
         <Card className="niva-card">
           <CardContent className="p-8 text-center space-y-3">
             <p className="text-lg font-semibold">
@@ -151,18 +154,22 @@ export function DashboardView() {
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      {/* Block menu — the navigation as a colorful tile grid (sidebar replaced) */}
+      <BlockMenu />
+
       {/* Greeting + gestational clock hero */}
       <section aria-label={t('dash.progress')} className="grid gap-4 lg:grid-cols-3">
         <Card className="lg:col-span-2 niva-card niva-grad overflow-hidden">
           <CardContent className="p-6 space-y-5">
             <div className="flex flex-wrap items-center gap-3">
               {/* bdi isolate: user names may be Latin inside this fa RTL heading */}
-              <h1 className="text-2xl font-bold">{t('dash.greeting')} {user?.name ? bdiWrap(user.name.split(' ')[0]) : ''} 👋</h1>
+              <h1 className="text-2xl font-bold">{t('dash.greeting')} {user?.name ? bdiWrap(user.name.split(' ')[0]) : ''} 🌸</h1>
               <Badge variant="secondary">{t('dash.trimester')} {trimester}</Badge>
               {pregnancy.datingLocked && (
                 <Badge variant="outline" className="gap-1"><Lock className="h-3 w-3" />{locale === 'fa' ? 'تأیید پزشک' : 'Clinician-confirmed'}</Badge>
               )}
             </div>
+            <p className="text-sm text-muted-foreground -mt-3">{t('dash.joy')}</p>
             <div className="flex items-center gap-5">
               <GestationalClock progress={progress} week={week} locale={locale} />
               <div className="min-w-0">
@@ -192,20 +199,27 @@ export function DashboardView() {
           </CardContent>
         </Card>
 
-        {/* Quick actions */}
+        {/* Quick actions — same pastel tile language as the block menu */}
         <Card className="niva-card">
           <CardHeader className="pb-2"><CardTitle className="text-base">{t('dash.quickActions')}</CardTitle></CardHeader>
           <CardContent className="grid grid-cols-2 gap-2.5">
             {([
-              ['tracking', Activity, t('dash.trackToday')],
-              ['studio', Box, t('dash.openStudio')],
-              ['assistant', Sparkles, t('dash.askNiva')],
-              ['appointments', Stethoscope, t('nav.appointments')],
-            ] as const).map(([v, Icon, label]) => (
-              <Button key={v} variant="outline" onClick={() => setView(v)} className="h-20 flex-col gap-1.5 min-h-11">
-                <Icon className="h-5 w-5 text-primary" />
-                <span className="text-xs leading-tight text-center">{label}</span>
-              </Button>
+              ['tracking', Activity, t('dash.trackToday'), 2],
+              ['studio', Box, t('dash.openStudio'), 4],
+              ['assistant', Sparkles, t('dash.askNiva'), 3],
+              ['appointments', Stethoscope, t('nav.appointments'), 1],
+            ] as const).map(([v, Icon, label, tile]) => (
+              <button
+                key={v}
+                onClick={() => setView(v)}
+                style={tileStyle(tile)}
+                className="flex flex-col items-center justify-center gap-1.5 rounded-2xl p-3 min-h-11 h-20 shadow-sm transition-transform duration-200 hover:-translate-y-0.5 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-current"
+              >
+                <span className="grid place-items-center h-9 w-9 rounded-xl bg-white/60 dark:bg-white/10 shadow-sm">
+                  <Icon className="h-5 w-5" aria-hidden />
+                </span>
+                <span className="text-xs font-semibold leading-tight text-center">{label}</span>
+              </button>
             ))}
           </CardContent>
         </Card>

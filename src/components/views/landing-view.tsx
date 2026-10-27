@@ -52,11 +52,15 @@ const NAV_ANCHORS = [
   { id: 'faq', key: 'landing.navFaq' },
 ] as const;
 
+/** Eight stages cover the whole journey — weeks 1–40 (names/weeks in i18n). */
 const JOURNEY = [
   { name: 'landing.jFertilize', week: 'landing.jFertilizeW' },
   { name: 'landing.jDivide', week: 'landing.jDivideW' },
-  { name: 'landing.jEmbryo', week: 'landing.jEmbryoW' },
-  { name: 'landing.jFetusSt', week: 'landing.jFetusStW' },
+  { name: 'landing.jEmbryoEarly', week: 'landing.jEmbryoEarlyW' },
+  { name: 'landing.jEmbryoLate', week: 'landing.jEmbryoLateW' },
+  { name: 'landing.jFetusEarly', week: 'landing.jFetusEarlyW' },
+  { name: 'landing.jFetusMid', week: 'landing.jFetusMidW' },
+  { name: 'landing.jFetusLate', week: 'landing.jFetusLateW' },
   { name: 'landing.jTerm', week: 'landing.jTermW' },
 ] as const;
 
@@ -64,9 +68,12 @@ const JOURNEY = [
 const SIZE_KEYS = [
   'landing.sizeW0',
   'landing.sizeW12',
+  'landing.sizeW45',
   'landing.sizeW48',
-  'landing.sizeW927',
-  'landing.sizeW2840',
+  'landing.sizeW913',
+  'landing.sizeW1422',
+  'landing.sizeW2330',
+  'landing.sizeW3140',
 ] as const;
 
 export function LandingView() {
