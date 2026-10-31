@@ -273,6 +273,17 @@
   transition-duration: 0.01ms !important;
 }
 
+/* Wave 15 landing — gentle floating cards (compositor-only transforms) */
+@keyframes niva-floaty {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.animate-floaty { animation: niva-floaty 6s ease-in-out infinite; }
+.animate-floaty-2 { animation: niva-floaty 7.5s ease-in-out -2.2s infinite; }
+.animate-floaty-3 { animation: niva-floaty 8.5s ease-in-out -4s infinite; }
+/* Anchor jumps clear the sticky header */
+html { scroll-padding-top: 5.5rem; }
+
 /* Focus visibility (WCAG 2.2 AA) */
 :focus-visible {
   outline: 2px solid var(--primary);

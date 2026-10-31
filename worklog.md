@@ -1120,3 +1120,16 @@ Work Log:
 Stage Summary:
 - NIVA now accompanies the user across the WHOLE journey: period + intimacy logging with fertile-window estimates while trying, week-by-week pregnancy (existing), a one-tap birth registration that flips the whole app into the newborn chapter, and month-by-month baby development (0–12) with checkable milestones, feeding/care logs and safety guidance until the first birthday.
 - All copy bilingual fa/en with honest educational disclaimers; performance/audit conventions preserved; committed locally (not pushed — awaiting «پوش کن»).
+
+---
+
+Task: «صفحه اول سایت (لندینگ) خوب نیست. کلا حذف شود و یک لندینگ حرفه‌ای جدید ایجاد شود» — Wave 15 full landing rebuild ("Bloom"): complete replacement of the old landing with a professional, conversion-focused page.
+
+Work Log:
+- landing-view.tsx — full rewrite: split hero (emotional copy + the mother illustration in an arch frame with 3 floating glass product cards + CSS sparkle decorations), stats strip (40+ weeks / 12 months baby tracking / 8 3D stages / 0 ads — pastel tile chips reusing the block-menu palette), WHO·ACOG·CDC·AAP trust band, rich 3-column footer; analytics consent bar + Organization/SoftwareApplication JSON-LD preserved.
+- sections.tsx — full rewrite: Journey section now tells the FULL-CYCLE story (پیش از بارداری → بارداری → زایمان → سال اول کودک, with connecting thread) matching wave14's product scope; Features bento rebuilt with the LIVE 3D studio as its 2×2 spotlight (auto-cycling stage chips, tap-to-jump, honesty label, idle-mounted + offscreen-paused HeroBloom), 8 module cards with tile-gradient icons; Science section + honesty review badge; assistant boundaries; transparent pricing (plans.ts single source); trust; FAQ (FAQPage JSON-LD); closing CTA band.
+- i18n: +30 keys fa/en (hero copy, trust chips, stats, floating cards, 4 journey phases, studio intro); all landing sections fully bilingual.
+- globals.css: niva-floaty keyframes (compositor-only, frozen under prefers-reduced-motion), scroll-padding-top for anchor jumps under the sticky header.
+- Pre-existing bug fixed: /manifest.webmanifest 500 — src/app/manifest.ts route conflicted with stale public/manifest.webmanifest (old lavender theme); removed the static file, route handler (Sunny Bloom tokens) now serves 200.
+- Old landing deleted entirely (old hero layout, journey chips + size analogies moved into the studio bento card, StudioVisual placeholder replaced by the real 3D scene).
+- Verified (agent-browser): fa/en × desktop/mobile × light/dark all render cleanly; stage-chip click swaps the 3D scene (term stage confirmed); FAQ accordion opens; hero CTA navigates to auth; consent Allow works; language toggle flips LTR/RTL incl. floating-card mirroring; sticky footer natural; clean load has 0 console/hydration errors (the ?lang= deep-link one-shot regeneration is pre-existing store boot behavior, unchanged); lint clean; dev.log clean after manifest fix.

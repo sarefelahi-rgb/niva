@@ -1,31 +1,32 @@
 'use client';
 
 /**
- * NIVA premium landing — Wave 8 full rebuild ("Embrace / آغوش").
+ * NIVA professional landing — Wave 15 full rebuild ("Bloom").
  *
  * Architecture (performance-first, budgets: LCP≤2.5s · CLS≤0.1 · INP≤200ms):
- * - The H1 is the LCP element and renders synchronously in the server HTML.
- * - The 3D "Embrace" scene mounts after idle via next/dynamic { ssr:false } —
- *   three.js never enters the critical path, and the canvas pauses rendering
- *   while offscreen (see hero-bloom.tsx).
- * - The stage panel is aspect-ratio sized: zero layout shift when the scene
- *   swaps in.
- * - Below-fold sections live in one dynamically-imported chunk (sections.tsx).
- * - Ambient background blobs are pure CSS (compositor-only transforms) and
- *   freeze under prefers-reduced-motion via the global rule in globals.css.
- * - Analytics remain anonymous + strictly consent-gated (landing-analytics.ts);
- *   the former A/B hero experiment is retired — every visitor gets the 3D hero.
+ * - The H1 + hero illustration are the LCP elements; both render synchronously
+ *   in the initial HTML/CSS path. The illustration is a plain <img> with
+ *   explicit dimensions (zero layout shift) and high fetch priority.
+ * - Below-fold sections (journey, features, 3D studio, science, pricing, faq)
+ *   live in one dynamically-imported chunk (sections.tsx). three.js never
+ *   enters the critical path — it mounts inside that chunk after idle, and
+ *   pauses while offscreen (hero-bloom.tsx).
+ * - Ambient background blobs + floating hero cards are pure CSS
+ *   (compositor-only transforms) and freeze under prefers-reduced-motion via
+ *   the global rule in globals.css.
+ * - Analytics remain anonymous + strictly consent-gated (landing-analytics.ts).
  */
 
 import { useApp } from '@/store/app';
 import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
-import { Card, CardContent } from '@/components/ui/card';
 import { Skeleton } from '@/components/ui/skeleton';
-import { ArrowRight, Lock, Languages, Moon, Sparkles } from 'lucide-react';
+import {
+  ArrowRight, Languages, Moon, ShieldCheck, BookOpenText, HeartHandshake,
+  Flower2, Sparkles, MessagesSquare, Baby, HeartPulse,
+} from 'lucide-react';
 import { useTheme } from 'next-themes';
 import dynamic from 'next/dynamic';
-import { useEffect, useState } from 'react';
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react';
 import { useMounted } from '@/lib/use-mounted';
 import {
   getAnalyticsConsent, setAnalyticsConsent, trackLandingEvent,
@@ -37,64 +38,61 @@ const LandingSections = dynamic(
   { loading: () => <SectionsSkeleton /> }
 );
 
-/** Hero 3D — mounts only after idle; ssr:false keeps three.js out of the initial path. */
-const HeroBloom = dynamic(() => import('@/components/landing/hero-bloom'), {
-  ssr: false,
-  loading: () => <div className="absolute inset-0 niva-grad" aria-hidden="true" />,
-});
-
 const NAV_ANCHORS = [
   { id: 'journey', key: 'landing.navJourney' },
-  { id: 'science', key: 'landing.navScience' },
   { id: 'features', key: 'landing.navFeatures' },
+  { id: 'science', key: 'landing.navScience' },
   { id: 'pricing', key: 'landing.navPricing' },
   { id: 'trust', key: 'landing.navTrust' },
   { id: 'faq', key: 'landing.navFaq' },
 ] as const;
 
-/** Eight stages cover the whole journey — weeks 1–40 (names/weeks in i18n). */
-const JOURNEY = [
-  { name: 'landing.jFertilize', week: 'landing.jFertilizeW' },
-  { name: 'landing.jDivide', week: 'landing.jDivideW' },
-  { name: 'landing.jEmbryoEarly', week: 'landing.jEmbryoEarlyW' },
-  { name: 'landing.jEmbryoLate', week: 'landing.jEmbryoLateW' },
-  { name: 'landing.jFetusEarly', week: 'landing.jFetusEarlyW' },
-  { name: 'landing.jFetusMid', week: 'landing.jFetusMidW' },
-  { name: 'landing.jFetusLate', week: 'landing.jFetusLateW' },
-  { name: 'landing.jTerm', week: 'landing.jTermW' },
-] as const;
+/** Pastel-gradient icon chip — reuses the block-menu tile palette. */
+function TileIcon({ icon: Icon, tile, className = 'h-10 w-10' }: {
+  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' }>;
+  tile: number;
+  className?: string;
+}) {
+  return (
+    <span
+      className={`grid place-items-center rounded-2xl ${className}`}
+      style={{
+        background: 'linear-gradient(135deg, var(--tile-' + tile + '-bg), var(--tile-' + tile + '-bg2))',
+        color: 'var(--tile-' + tile + '-fg)',
+      }}
+    >
+      <Icon className="h-5 w-5" aria-hidden="true" />
+    </span>
+  );
+}
 
-/** Per-stage size analogy — reinforces that each scene matches its weeks. */
-const SIZE_KEYS = [
-  'landing.sizeW0',
-  'landing.sizeW12',
-  'landing.sizeW45',
-  'landing.sizeW48',
-  'landing.sizeW913',
-  'landing.sizeW1422',
-  'landing.sizeW2330',
-  'landing.sizeW3140',
-] as const;
+/** Floating glass card around the hero illustration. */
+function FloatCard({ icon, tile, title, sub, className, floatClass }: {
+  icon: ComponentType<{ className?: string; 'aria-hidden'?: boolean | 'true' }>;
+  tile: number;
+  title: string;
+  sub: string;
+  className?: string;
+  floatClass: string;
+}) {
+  return (
+    <div className={`absolute z-10 ${className} ${floatClass}`}>
+      <div className="niva-card rounded-2xl px-3.5 py-3 flex items-center gap-2.5 shadow-lg">
+        <TileIcon icon={icon} tile={tile} className="h-9 w-9 shrink-0" />
+        <div className="min-w-0">
+          <p className="text-[13px] font-semibold leading-tight">{title}</p>
+          <p className="text-[11px] text-muted-foreground leading-tight mt-0.5 truncate max-w-[10rem]">{sub}</p>
+        </div>
+      </div>
+    </div>
+  );
+}
 
 export function LandingView() {
   const { t, setView, user, locale, setLocale } = useApp();
   const { resolvedTheme, setTheme } = useTheme();
   const mounted = useMounted();
   const [consentChoice, setConsentChoice] = useState<'granted' | 'denied' | null | undefined>(undefined);
-  const [bloomReady, setBloomReady] = useState(false);
-
-  // Growth journey — auto-cycles through development stages; respects
-  // reduced motion (chips stay manual). The interval resets on every stage
-  // change, so a manual click buys a fresh 7s of the chosen scene.
-  const [stage, setStage] = useState(0);
-  const [prefersReducedMotion] = useState(
-    () => typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  );
-  useEffect(() => {
-    if (prefersReducedMotion) return;
-    const id = setInterval(() => setStage((s) => (s + 1) % JOURNEY.length), 7000);
-    return () => clearInterval(id);
-  }, [stage, prefersReducedMotion]);
 
   // Consent state is derived post-hydration (no setState-in-effect): the bar
   // renders only after mount, so reading localStorage inline is SSR-safe.
@@ -109,17 +107,6 @@ export function LandingView() {
     if (choice === 'granted') trackLandingEvent('ab_consent_granted');
     // Declining records nothing — by design.
   };
-
-  // The 3D embrace mounts after the page is settled (idle) — never at first paint.
-  useEffect(() => {
-    const w = window as Window & { requestIdleCallback?: (cb: () => void, opts?: { timeout: number }) => number };
-    if (typeof w.requestIdleCallback === 'function') {
-      const id = w.requestIdleCallback(() => setBloomReady(true), { timeout: 2500 });
-      return () => { void id; };
-    }
-    const timer = setTimeout(() => setBloomReady(true), 1200);
-    return () => clearTimeout(timer);
-  }, []);
 
   const go = user ? 'dashboard' : 'auth';
 
@@ -166,9 +153,9 @@ export function LandingView() {
         />
       )}
 
-      {/* Top bar */}
+      {/* ── Header ─────────────────────────────────────────────────────────── */}
       <header className="sticky top-0 z-40 backdrop-blur-md bg-background/70 border-b border-border/50">
-        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 h-16 flex items-center gap-4">
+        <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 h-16 flex items-center gap-3">
           <a href="#" className="flex items-center gap-2" aria-label="NIVA">
             <img src="/logo.svg" alt="" width={92} height={26} className="h-7 w-auto" />
           </a>
@@ -193,7 +180,7 @@ export function LandingView() {
                 {resolvedTheme === 'dark' ? '☀️' : <Moon className="h-4 w-4" aria-hidden="true" />}
               </Button>
             )}
-            <Button size="sm" onClick={() => setView(go)} className="min-h-11 rounded-full">
+            <Button size="sm" onClick={() => setView(go)} className="min-h-11 rounded-full shadow-sm shadow-primary/30">
               {user ? t('nav.dashboard') : t('auth.signIn')}
             </Button>
           </div>
@@ -201,98 +188,125 @@ export function LandingView() {
       </header>
 
       <main className="flex-1">
-        {/* Hero — centered, calm, confident */}
-        <section className="mx-auto max-w-3xl px-4 sm:px-6 pt-14 sm:pt-20 pb-10 text-center space-y-5">
-          <p className="text-sm font-medium text-primary tracking-wide">{t('landing.kicker')}</p>
-          <div className="flex justify-center">
-            <Badge variant="secondary" className="gap-1.5">
-              <Lock className="h-3 w-3" aria-hidden="true" />
-              {t('landing.reviewBadge')}
-            </Badge>
+        {/* ── Hero — split: emotional copy + illustrated embrace ───────────── */}
+        <section className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 sm:pt-14 pb-10 grid lg:grid-cols-[1.04fr_0.96fr] gap-10 lg:gap-6 items-center">
+          {/* Copy */}
+          <div className="space-y-6 text-center lg:text-start order-2 lg:order-1">
+            <p className="inline-flex items-center gap-2 rounded-full border border-primary/25 bg-primary/8 px-4 py-1.5 text-sm font-medium text-primary">
+              <Flower2 className="h-4 w-4" aria-hidden="true" />
+              {t('landing.heroKicker2')}
+            </p>
+            <h1 className="text-4xl sm:text-5xl xl:text-[3.4rem] font-bold leading-[1.14] tracking-tight text-balance">
+              {t('landing.heroTitleNew1')}{' '}
+              <span className="text-gradient">{t('landing.heroTitleNew2')}</span>
+            </h1>
+            <p className="text-lg text-muted-foreground leading-relaxed max-w-xl mx-auto lg:mx-0">
+              {t('landing.heroSubNew')}
+            </p>
+            <div className="flex flex-wrap gap-3 justify-center lg:justify-start pt-1">
+              <Button size="lg" onClick={() => { trackLandingEvent('cta_start'); setView(go); }} className="min-h-12 px-7 text-base rounded-full shadow-lg shadow-primary/25" aria-label={t('landing.ctaStart')}>
+                {t('landing.ctaStart')}
+                <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
+              </Button>
+              <Button size="lg" variant="outline" onClick={() => { trackLandingEvent('cta_demo'); setView('auth'); }} className="min-h-12 px-7 text-base rounded-full bg-background/60 backdrop-blur">
+                {t('landing.ctaDemo')}
+              </Button>
+            </div>
+            {/* Trust chips */}
+            <ul className="flex flex-wrap gap-x-5 gap-y-2 justify-center lg:justify-start text-sm text-muted-foreground pt-1">
+              <li className="inline-flex items-center gap-1.5">
+                <ShieldCheck className="h-4 w-4 text-secondary-foreground" aria-hidden="true" />
+                {t('landing.chipPrivate')}
+              </li>
+              <li className="inline-flex items-center gap-1.5">
+                <BookOpenText className="h-4 w-4 text-primary" aria-hidden="true" />
+                {t('landing.chipSources')}
+              </li>
+              <li className="inline-flex items-center gap-1.5">
+                <HeartHandshake className="h-4 w-4 text-accent-foreground" aria-hidden="true" />
+                {t('landing.chipFull')}
+              </li>
+            </ul>
+            <p className="text-xs text-muted-foreground max-w-md leading-relaxed mx-auto lg:mx-0">
+              {t('landing.disclaimer')}
+            </p>
           </div>
-          <h1 className="text-4xl sm:text-6xl font-bold leading-[1.12] tracking-tight text-balance">
-            {t('landing.heroTitle1')}{' '}
-            <span className="text-gradient">{t('landing.heroTitle2')}</span>
-          </h1>
-          <p className="text-lg text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-            {t('landing.heroSub')}
-          </p>
-          <div className="flex flex-wrap gap-3 justify-center pt-1">
-            <Button size="lg" onClick={() => { trackLandingEvent('cta_start'); setView(go); }} className="min-h-12 px-7 text-base rounded-full" aria-label={t('landing.ctaStart')}>
-              {t('landing.ctaStart')}
-              <ArrowRight className="h-4 w-4 rtl:rotate-180" aria-hidden="true" />
-            </Button>
-            <Button size="lg" variant="outline" onClick={() => { trackLandingEvent('cta_demo'); setView('auth'); }} className="min-h-12 px-7 text-base rounded-full">
-              {t('landing.ctaDemo')}
-            </Button>
+
+          {/* Visual — illustrated embrace in an arch frame with floating cards */}
+          <div className="relative order-1 lg:order-2 mx-auto w-full max-w-[400px] sm:max-w-[430px]">
+            <div className="relative">
+              {/* Sparkle decorations */}
+              <Sparkles className="absolute -top-5 end-8 h-6 w-6 text-primary/50 animate-floaty-2" aria-hidden="true" />
+              <Sparkles className="absolute top-1/4 -start-5 h-4 w-4 text-accent-foreground/60 animate-floaty-3" aria-hidden="true" />
+
+              {/* Arch frame */}
+              <div className="relative overflow-hidden rounded-t-[10rem] sm:rounded-t-[12rem] rounded-b-[2.5rem] border border-border/70 niva-ring bg-card aspect-[3/4]">
+                {/* Base gradient behind the image (also covers while loading) */}
+                <div className="absolute inset-0 niva-grad" aria-hidden="true" />
+                <img
+                  src="/hero.png"
+                  alt={t('landing.heroAlt')}
+                  width={864}
+                  height={1152}
+                  fetchPriority="high"
+                  decoding="async"
+                  className="absolute inset-0 h-full w-full object-cover object-top"
+                />
+                {/* Soft blend into the canvas at the base */}
+                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-background/60 to-transparent" aria-hidden="true" />
+              </div>
+
+              {/* Floating glass cards */}
+              <FloatCard
+                icon={HeartPulse} tile={1}
+                title={t('landing.float1Title')} sub={t('landing.float1Sub')}
+                className="-top-4 -start-3 sm:-start-10" floatClass="animate-floaty"
+              />
+              <FloatCard
+                icon={MessagesSquare} tile={4}
+                title={t('landing.float2Title')} sub={t('landing.float2Sub')}
+                className="top-[38%] -end-2 sm:-end-10" floatClass="animate-floaty-2"
+              />
+              <FloatCard
+                icon={Baby} tile={3}
+                title={t('landing.float3Title')} sub={t('landing.float3Sub')}
+                className="-bottom-5 start-3 sm:start-6" floatClass="animate-floaty-3"
+              />
+            </div>
           </div>
-          <p className="text-xs text-muted-foreground max-w-md mx-auto leading-relaxed">
-            {t('landing.disclaimer')}
-          </p>
         </section>
 
-        {/* 3D stage — the Embrace scene in a calm, framed window */}
-        <section className="mx-auto max-w-5xl px-4 sm:px-6 pb-20 sm:pb-24" aria-label={t('landing.f1Title')}>
-          <div className="relative">
-            <div
-              className="aspect-[4/3] sm:aspect-[16/9] w-full overflow-hidden rounded-[2rem] sm:rounded-[2.5rem] border shadow-2xl niva-card relative"
-            >
-              {/* Base gradient always present → no flash while three.js streams in */}
-              <div className="absolute inset-0 niva-grad" aria-hidden="true" />
-              {/* Luminous pool behind the 3D scene — the embrace sits in light */}
-              <div
-                className="absolute inset-0"
-                aria-hidden="true"
-                style={{ background: 'radial-gradient(46% 40% at 50% 42%, color-mix(in oklch, var(--primary) 12%, transparent), transparent 74%)' }}
-              />
-              {bloomReady && <HeroBloom stage={stage} />}
-              {/* Honesty label — the scene is educational ambiance, not a fetal model */}
-              <span className="absolute top-3 end-3 text-[11px] text-muted-foreground bg-background/60 backdrop-blur rounded-full px-2.5 py-1 border border-border/50 flex items-center gap-1">
-                <Sparkles className="h-3 w-3" aria-hidden="true" />
-                {t('studio.demoAsset')}
-              </span>
-            </div>
-            {/* Floating reassurance card */}
-            <Card className="hidden sm:block absolute -bottom-7 start-8 end-auto w-72 niva-card shadow-lg">
-              <CardContent className="flex items-center gap-3 p-4">
-                <span className="grid place-items-center h-10 w-10 rounded-xl bg-secondary/20 text-secondary-foreground shrink-0">
-                  <Sparkles className="h-5 w-5" aria-hidden="true" />
-                </span>
+        {/* ── Stats strip ───────────────────────────────────────────────────── */}
+        <section aria-label={t('landing.statsWeeks')} className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="niva-card rounded-3xl grid grid-cols-2 lg:grid-cols-4 gap-y-6 p-6 sm:p-7">
+            {([
+              { v: 'landing.statWeeksV', l: 'landing.statsWeeks', icon: HeartPulse, tile: 1 },
+              { v: 'landing.statMonthsV', l: 'landing.statsMonths', icon: Baby, tile: 3 },
+              { v: 'landing.statStagesV', l: 'landing.statsStages', icon: Sparkles, tile: 4 },
+              { v: 'landing.statAdsV', l: 'landing.statsAds', icon: ShieldCheck, tile: 2 },
+            ] as const).map((s) => (
+              <div key={s.l} className="flex items-center gap-3.5 sm:gap-4">
+                <TileIcon icon={s.icon} tile={s.tile} className="h-11 w-11 shrink-0" />
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold truncate">{t('landing.f1Title')}</p>
-                  <p className="text-xs text-muted-foreground truncate">{t('studio.sub')}</p>
+                  <p className="text-2xl sm:text-3xl font-bold text-primary leading-none"><span className="num">{t(s.v)}</span></p>
+                  <p className="text-xs sm:text-[13px] text-muted-foreground mt-1 leading-snug">{t(s.l)}</p>
                 </div>
-              </CardContent>
-            </Card>
+              </div>
+            ))}
           </div>
-          {/* Journey chips — below the panel so nothing ever overlaps; click to jump */}
-          <div className="mt-10 space-y-3">
-            <p className="text-center text-xs text-muted-foreground">{t('landing.journeyCaption')}</p>
-            <p aria-live="polite" className="text-center text-xs font-medium text-primary/80">
-              {t(SIZE_KEYS[stage])}
-            </p>
-            <div className="flex flex-wrap justify-center gap-2">
-              {JOURNEY.map((j, i) => (
-                <button
-                  key={j.name}
-                  type="button"
-                  aria-pressed={stage === i}
-                  onClick={() => {
-                    setStage(i);
-                    trackLandingEvent('journey_stage');
-                  }}
-                  className={
-                    'rounded-full border px-4 min-h-11 inline-flex items-center gap-2 text-sm transition-colors ' +
-                    (stage === i
-                      ? 'bg-primary text-primary-foreground border-primary shadow-sm'
-                      : 'bg-background/60 text-muted-foreground border-border/60 hover:text-foreground hover:bg-primary/10')
-                  }
-                >
-                  <span className="font-semibold">{t(j.name)}</span>
-                  <span className="text-xs opacity-70 num">{t(j.week)}</span>
-                </button>
-              ))}
-            </div>
+        </section>
+
+        {/* ── Trust band — global guidance bodies ──────────────────────────── */}
+        <section aria-label={t('landing.trustBand')} className="mx-auto max-w-6xl px-4 sm:px-6 pt-8 pb-2">
+          <p className="text-center text-xs font-medium uppercase tracking-[0.18em] text-muted-foreground">
+            {t('landing.trustBand')}
+          </p>
+          <div className="mt-4 flex flex-wrap justify-center items-center gap-2.5">
+            {['WHO', 'ACOG', 'CDC', 'AAP'].map((org) => (
+              <span key={org} className="num rounded-full border border-border/70 bg-card/70 px-4 py-1.5 text-sm font-semibold text-muted-foreground">
+                {org}
+              </span>
+            ))}
           </div>
         </section>
 
@@ -300,17 +314,18 @@ export function LandingView() {
         <LandingSections />
       </main>
 
-      {/* Footer — sticky via flex column + mt-auto */}
+      {/* ── Footer — sticky via flex column + mt-auto ──────────────────────── */}
       <footer className="mt-auto border-t bg-background/60">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-8 grid gap-6 sm:grid-cols-3">
-          <div className="space-y-2">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6 py-10 grid gap-8 sm:grid-cols-3">
+          <div className="space-y-3">
             <img src="/logo.svg" alt="NIVA" width={92} height={26} className="h-7 w-auto" />
+            <p className="text-sm text-muted-foreground leading-relaxed max-w-xs">{t('landing.heroKicker2')}</p>
             <p className="text-xs text-muted-foreground leading-relaxed max-w-xs">{t('landing.footerRights')}</p>
           </div>
           <nav aria-label={t('landing.footerExploreFooter')} className="space-y-2">
             <h2 className="text-sm font-semibold">{t('landing.footerExplore')}</h2>
-            <ul className="space-y-1.5">
-              {NAV_ANCHORS.slice(0, 4).map((a) => (
+            <ul className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+              {NAV_ANCHORS.map((a) => (
                 <li key={a.id}>
                   <a href={`#${a.id}`} className="text-sm text-muted-foreground hover:text-foreground min-h-11 inline-flex items-center sm:min-h-0 sm:py-1">
                     {t(a.key)}
@@ -332,7 +347,7 @@ export function LandingView() {
       </footer>
 
       {/* Consent bar — anonymous analytics opt-in (declining records nothing) */}
-      {mounted && stored === null && (
+      {mounted && stored === null && consentChoice === undefined && (
         <div
           role="dialog"
           aria-label={t('landing.abText')}
