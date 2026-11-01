@@ -382,7 +382,7 @@ export function LandingView() {
       )}
 
       {/* ── Header ─────────────────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 backdrop-blur-md bg-background/70 border-b border-border/50">
+      <header className="sticky top-0 z-40 backdrop-blur-md bg-background/90 border-b border-border/50">
         <div className="mx-auto w-full max-w-6xl px-4 sm:px-6 h-16 flex items-center gap-3">
           <a href="#" className="flex items-center gap-2" aria-label="NIVA">
             <img src="/logo.svg" alt="" width={92} height={26} className="h-7 w-auto" />

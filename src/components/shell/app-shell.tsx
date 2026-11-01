@@ -450,8 +450,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
       </nav>
 
-      {/* Sticky footer */}
-      <footer className="mt-auto border-t bg-muted/40">
+      {/* Sticky footer — extra bottom padding on mobile so the disclaimer
+          clears the fixed bottom nav (h-16) plus the iOS safe area; the
+          desktop (md+) nav is hidden, so no extra padding there. */}
+      <footer className="mt-auto border-t bg-muted/40 pb-[calc(4.5rem+env(safe-area-inset-bottom))] md:pb-0">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 flex flex-col sm:flex-row items-center gap-2 justify-between">
           <p className="text-xs text-muted-foreground text-center sm:text-start">
             {t('landing.disclaimer')}
