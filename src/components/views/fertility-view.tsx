@@ -4,15 +4,29 @@
  * Wave 14 — Cycle & fertility companion (pre-conception journey).
  * Period + intimate-day logging with an interactive month calendar, fertile
  * window and ovulation estimates (lib/cycle engine, educational only).
+ *
+ * Wave 19 — the calendar GRID is now Shamsi in both UI languages (product
+ * rule: every calendar in NIVA is Jalali). The grid walks Jalali months
+ * (Farvardin…Esfand) with Saturday (شنبه) as the week start, Persian digits
+ * in fa, transliterated months + Latin digits in en. Storage stays Gregorian
+ * ISO — the Jalali calendar is presentation, never storage.
  */
 
 import { useCallback, useEffect, useMemo, useState } from 'react';
+import {
+  addMonths as addJalaliMonths,
+  getYear as getJalaliYear,
+  getMonth as getJalaliMonth,
+  getDate as getJalaliDate,
+  getDaysInMonth as getJalaliDaysInMonth,
+  newDate as newJalaliDate,
+} from 'date-fns-jalali';
 import { useApp } from '@/store/app';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { JalaliDateField } from '@/components/ui/jalali-date';
+import { JalaliDateField, JALALI_MONTHS_FA, JALALI_MONTHS_EN } from '@/components/ui/jalali-date';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -22,7 +36,7 @@ import {
   CalendarHeart, Droplets, Heart, Info, Sparkles, Trash2, ChevronLeft, ChevronRight, CalendarDays,
 } from 'lucide-react';
 import { computeCycleStats, classifyCycleDay, type CycleDayKind, type FlowLevel } from '@/lib/cycle';
-import { formatDate } from '@/lib/format';
+import { formatDate, toFaDigits } from '@/lib/format';
 
 interface CycleEntry {
   id: string;
@@ -88,36 +102,43 @@ export function FertilityView() {
   );
   const today = useMemo(() => new Date(), []);
 
-  // Month grid (Saturday-first for fa, Sunday-first for en).
+  // Shamsi month grid — Jalali month of the cursor, Saturday (شنبه) week
+  // start in BOTH locales (the Shamsi week convention), lead blanks then the
+  // 29–31 Jalali days. Cells are real Dates so classifyCycleDay keeps working
+  // unchanged on its Gregorian-midnight comparisons.
   const grid = useMemo(() => {
-    const first = new Date(cursor.getFullYear(), cursor.getMonth(), 1);
-    const weekStart = locale === 'fa' ? 6 : 0; // Saturday / Sunday
+    const jy = getJalaliYear(cursor);
+    const jm = getJalaliMonth(cursor); // 0-based
+    const weekStart = 6; // Saturday
+    const first = newJalaliDate(jy, jm, 1);
     const lead = (first.getDay() - weekStart + 7) % 7;
     const cells: Array<Date | null> = [];
     for (let i = 0; i < lead; i++) cells.push(null);
-    const daysInMonth = new Date(cursor.getFullYear(), cursor.getMonth() + 1, 0).getDate();
+    const daysInMonth = getJalaliDaysInMonth(newJalaliDate(jy, jm, 1));
     for (let d = 1; d <= daysInMonth; d++) {
-      cells.push(new Date(cursor.getFullYear(), cursor.getMonth(), d));
+      cells.push(newJalaliDate(jy, jm, d));
     }
     while (cells.length % 7 !== 0) cells.push(null);
     return cells;
-  }, [cursor, locale]);
+  }, [cursor]);
 
+  /** «فروردین ۱۴۰۴» / "Farvardin 1404" — Jalali month + year of the cursor. */
   const monthLabel = useMemo(() => {
-    try {
-      return new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR-u-ca-gregory' : 'en-US', {
-        month: 'long', year: 'numeric',
-      }).format(cursor);
-    } catch {
-      return dayKey(cursor);
-    }
+    const jy = getJalaliYear(cursor);
+    const jm = getJalaliMonth(cursor);
+    const name = (locale === 'fa' ? JALALI_MONTHS_FA : JALALI_MONTHS_EN)[jm] ?? '';
+    return locale === 'fa' ? `${name} ${toFaDigits(jy)}` : `${name} ${jy}`;
   }, [cursor, locale]);
 
+  /** Compact Shamsi week header: ش ی د س چ پ ج (fa) / Sat…Fri (en). */
   const weekdayLabels = useMemo(() => {
-    // Anchor: 2024-01-07 was a Saturday (fa week start) / 2024-01-01 a Monday.
-    const base = locale === 'fa' ? new Date(2024, 0, 6) : new Date(2024, 0, 7);
-    const fmt = new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR' : 'en-US', { weekday: 'short' });
-    return Array.from({ length: 7 }, (_, i) => fmt.format(new Date(base.getTime() + i * 86_400_000)));
+    if (locale === 'fa') return ['ش', 'ی', 'د', 'س', 'چ', 'پ', 'ج'];
+    return ['Sat', 'Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+  }, [locale]);
+
+  const weekdayTitles = useMemo(() => {
+    if (locale === 'fa') return ['شنبه', 'یکشنبه', 'دوشنبه', 'سه‌شنبه', 'چهارشنبه', 'پنجشنبه', 'جمعه'];
+    return ['Saturday', 'Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
   }, [locale]);
 
   const logDay = async (day: Date | string, kind: 'PERIOD' | 'INTIMACY', flowLevel: FlowLevel = 'MEDIUM') => {
@@ -158,8 +179,9 @@ export function FertilityView() {
     }
   };
 
+  /** Step whole Jalali months — Jalali-aware, so Esfand 30 → Farvardin 1 is exact. */
   const shiftMonth = (delta: number) => {
-    setCursor((c) => new Date(c.getFullYear(), c.getMonth() + delta, 1));
+    setCursor((c) => addJalaliMonths(c, delta));
   };
 
   const cellClass = (kind: CycleDayKind): string => {
@@ -260,8 +282,8 @@ export function FertilityView() {
           ) : (
             <>
               <div className="grid grid-cols-7 gap-1 mb-1.5" role="row">
-                {weekdayLabels.map((w) => (
-                  <div key={w} dir="auto" className="text-center text-[10px] sm:text-xs text-muted-foreground font-medium py-1">{w}</div>
+                {weekdayLabels.map((w, i) => (
+                  <div key={w} dir="auto" title={weekdayTitles[i]} aria-hidden className="text-center text-[10px] sm:text-xs text-muted-foreground font-medium py-1">{w}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1" role="grid" aria-label={monthLabel}>
@@ -269,15 +291,16 @@ export function FertilityView() {
                   if (!day) return <div key={`x-${i}`} aria-hidden />;
                   const kind = classifyCycleDay(day, stats, intimacyDays, today);
                   const isToday = dayKey(day) === dayKey(today);
+                  const jDay = getJalaliDate(day);
                   return (
                     <button
                       key={dayKey(day)}
                       type="button"
                       onClick={() => { setSelected(day); setFlow('MEDIUM'); }}
-                      aria-label={`${dayKey(day)}${KIND_LEGEND[kind] ? ` — ${t(KIND_LEGEND[kind]!)}` : ''}`}
+                      aria-label={`${formatDate(day, locale)}${KIND_LEGEND[kind] ? ` — ${t(KIND_LEGEND[kind]!)}` : ''}`}
                       className={`relative aspect-square min-h-11 rounded-xl text-xs sm:text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-primary ${cellClass(kind)} ${isToday ? 'ring-2 ring-foreground/70' : ''}`}
                     >
-                      <span className="num">{day.getDate()}</span>
+                      <span className="num">{locale === 'fa' ? toFaDigits(jDay) : jDay}</span>
                       {kind === 'INTIMACY' && (
                         <Heart className="absolute bottom-0.5 start-1/2 -translate-x-1/2 rtl:translate-x-1/2 h-2.5 w-2.5 text-rose-500 fill-rose-400" aria-hidden />
                       )}

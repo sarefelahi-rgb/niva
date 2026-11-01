@@ -251,7 +251,7 @@ export function FamilyView() {
 
   const fmtDate = useCallback(
     (d: string | Date, withTime = false) =>
-      new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR' : 'en-US', {
+      new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian', {
         dateStyle: 'medium',
         ...(withTime ? { timeStyle: 'short' } : {}),
       }).format(new Date(d)),

@@ -116,7 +116,7 @@ export function AppointmentsView() {
                 <Label>{t('appt.type')}</Label>
                 <Select value={aType} onValueChange={setAType}>
                   <SelectTrigger className="min-h-11" aria-label={t('appt.type')}><SelectValue /></SelectTrigger>
-                  <SelectContent>{TYPES.map((ty) => <SelectItem key={ty} value={ty}>{ty}</SelectItem>)}</SelectContent>
+                  <SelectContent>{TYPES.map((ty) => <SelectItem key={ty} value={ty}>{t(`appt.type${ty}`)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
               <div className="space-y-1.5">
@@ -204,7 +204,7 @@ export function AppointmentsView() {
               <div className="space-y-2">
                 {upcoming.map((a) => (
                   <Card key={a.id} className="niva-card"><CardContent className="p-4 flex flex-wrap items-center gap-3">
-                    <Badge>{a.type}</Badge>
+                    <Badge>{t(`appt.type${a.type}`)}</Badge>
                     <div className="min-w-0 flex-1">
                       <p className="font-medium truncate">{a.title}</p>
                       <p dir="auto" className="text-xs text-muted-foreground">{formatDateTime(a.scheduledAt, locale)}{a.provider ? ` · ${a.provider}` : ''}</p>

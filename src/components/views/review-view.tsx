@@ -212,7 +212,7 @@ export function ReviewView() {
               <div key={d.id} className="flex items-center gap-2 text-xs border rounded-lg px-3 py-2">
                 <Badge variant={d.status === 'APPROVED' ? 'default' : 'outline'} className="text-[10px]">{d.status}</Badge>
                 <span className="text-muted-foreground">{d.contentType}</span>
-                <span className="ms-auto text-muted-foreground">{d.reviewer?.name ?? '—'} · <span className="num">{d.reviewedAt ? new Date(d.reviewedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US') : ''}</span></span>
+                <span className="ms-auto text-muted-foreground">{d.reviewer?.name ?? '—'} · <span className="num">{d.reviewedAt ? new Date(d.reviewedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian') : ''}</span></span>
               </div>
             ))}
           </div>

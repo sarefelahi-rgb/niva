@@ -72,6 +72,14 @@ interface AppState {
  * locale change writes the `niva-locale` cookie so the next server render
  * (full load / RSC prefetch) resolves to the same document locale the client
  * will render — the server/client pair never diverges again after boot.
+ *
+ * Wave 19 — the COOKIE is the single boot source for the locale. Zustand's
+ * localStorage mirror previously raced it: a user whose cookie was cleared
+ * (or written by another device/tab) while localStorage still said «en»
+ * booted SSR=fa / client=en and React regenerated the whole tree (hydration
+ * mismatch, visible locale flash). Reading the same cookie the proxy reads —
+ * synchronously, before the first render — keeps both sides identical by
+ * construction. `locale` is therefore excluded from `partialize` below.
  */
 function writeLocaleCookie(l: Locale) {
   if (typeof document !== 'undefined') {
@@ -79,18 +87,28 @@ function writeLocaleCookie(l: Locale) {
   }
 }
 
-/** The `?lang=` deep link outranks the persisted preference on boot. */
-function bootLocale(rehydrated: Locale): Locale {
-  if (typeof window === 'undefined') return rehydrated;
+/** Read the proxy's locale cookie (same name as src/proxy.ts). */
+function readLocaleCookie(): Locale | null {
+  if (typeof document === 'undefined') return null;
+  const m = /(?:^|; )niva-locale=(fa|en)(?:;|$)/.exec(document.cookie);
+  return m ? (m[1] as Locale) : null;
+}
+
+/** The `?lang=` deep link outranks the cookie on boot (mirrors proxy.ts). */
+function bootLocale(fallback: Locale): Locale {
+  if (typeof window === 'undefined') return fallback;
   const q = new URLSearchParams(window.location.search).get('lang');
-  return q === 'fa' || q === 'en' ? q : rehydrated;
+  if (q === 'fa' || q === 'en') return q;
+  return readLocaleCookie() ?? fallback;
 }
 
 export const useApp = create<AppState>()(
   persist(
     (set, get) => ({
       view: 'landing',
-      locale: 'fa',
+      // Boot from the same source the proxy resolves SSR from (the cookie),
+      // so the very first client render matches the server HTML.
+      locale: bootLocale('fa'),
       booted: false,
       user: null,
       pregnancy: null,
@@ -153,12 +171,12 @@ export const useApp = create<AppState>()(
     }),
     {
       name: 'niva-app',
-      partialize: (s) => ({ locale: s.locale, tourDone: s.tourDone }),
-      // localStorage rehydration is synchronous, so this runs BEFORE the
-      // first React render: DOM attributes + cookie are synced from the
-      // persisted (or ?lang=) locale immediately, keeping the client's first
-      // render aligned with the proxy-resolved SSR document.
+      // locale is cookie-owned (see bootLocale) — persisting it here created
+      // a second source of truth that could disagree with the SSR cookie.
+      partialize: (s) => ({ tourDone: s.tourDone }),
       onRehydrateStorage: () => (state) => {
+        // Re-derive from cookie/?lang= in case the cookie changed in another
+        // tab while this one held a stale in-memory value.
         if (state) state.setLocale(bootLocale(state.locale));
       },
     }

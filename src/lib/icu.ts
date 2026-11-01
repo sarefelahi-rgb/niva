@@ -48,7 +48,7 @@
  */
 
 import type { Locale } from './i18n';
-import { formatDate, formatNumber, toLatinDigits, type DateInput } from './format';
+import { formatDate, formatNumber, toLatinDigits, dateLocaleTag, type DateInput } from './format';
 
 export type MessageParam = string | number | Date;
 export type MessageParams = Record<string, MessageParam>;
@@ -87,7 +87,8 @@ function formatArg(locale: Locale, arg: string, params: MessageParams, countForH
     case 'date': {
       const skeleton = style.replace(/^::/, '');
       if (skeleton && skeleton in DATE_SKELETONS) {
-        return new Intl.DateTimeFormat(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-US', DATE_SKELETONS[skeleton]).format(
+        // Shamsi in both UI languages (product rule) — via lib/format's tag.
+        return new Intl.DateTimeFormat(dateLocaleTag(locale), DATE_SKELETONS[skeleton]).format(
           value instanceof Date ? value : new Date(value as Exclude<DateInput, Date>),
         );
       }

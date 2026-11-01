@@ -86,10 +86,11 @@ interface IncidentRow {
   openedBy: string | null; resolvedAt: string | null; createdAt: string; updatedAt: string;
 }
 
+// Shamsi in both UI languages (product rule) — dateLocaleTag pins ca-persian.
 const fmtDate = (iso: string, locale: string) =>
-  new Date(iso).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US');
+  new Date(iso).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian');
 const fmtDateTime = (iso: string, locale: string) =>
-  new Date(iso).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US');
+  new Date(iso).toLocaleString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian');
 
 export function AdminView() {
   const { t, locale, user } = useApp();

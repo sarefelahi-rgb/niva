@@ -133,7 +133,7 @@ export function JournalView() {
                   </div>
                 </div>
                 <p className="text-sm text-muted-foreground leading-relaxed whitespace-pre-wrap line-clamp-6">{e.body}</p>
-                <p className="text-[10px] text-muted-foreground num">{new Date(e.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                <p className="text-[10px] text-muted-foreground num">{new Date(e.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
               </CardContent>
             </Card>
           ))}

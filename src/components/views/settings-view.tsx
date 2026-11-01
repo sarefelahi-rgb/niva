@@ -287,7 +287,7 @@ export function SettingsView() {
   };
 
   const fmtDate = (iso: string) =>
-    new Date(iso).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US');
+    new Date(iso).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian');
 
   const changePassword = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -378,7 +378,7 @@ export function SettingsView() {
               <Badge variant="outline" className="gap-1.5 border-primary/40 text-primary">
                 <ShieldCheck className="h-3.5 w-3.5" aria-hidden="true" />
                 {locale === 'fa' ? 'سن تأیید شده: ۱۳+' : 'Age verified: 13+'}
-                <span className="num text-muted-foreground">· {new Date(ageConfirmedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                <span className="num text-muted-foreground">· {new Date(ageConfirmedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</span>
               </Badge>
             ) : (
               <Badge variant="outline" className="gap-1.5 text-muted-foreground">
@@ -566,7 +566,7 @@ export function SettingsView() {
                             {m.isStaff ? t('support.staff') : t('support.you')}
                           </span>
                           <span className="text-[10px] text-muted-foreground num">
-                            {new Date(m.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}
+                            {new Date(m.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}
                           </span>
                         </div>
                         <p className="text-sm whitespace-pre-wrap break-words leading-relaxed">{m.body}</p>
@@ -652,8 +652,8 @@ export function SettingsView() {
                 ) : sessions.map((s) => (
                   <div key={s.id} className="flex items-center justify-between gap-3 rounded-xl border p-3">
                     <div className="min-w-0 text-sm">
-                      <p className="num">{new Date(s.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
-                      <p className="text-xs text-muted-foreground num">{t('settings.sessionExpires')}: {new Date(s.expiresAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                      <p className="num">{new Date(s.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
+                      <p className="text-xs text-muted-foreground num">{t('settings.sessionExpires')}: {new Date(s.expiresAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
                     </div>
                     {s.current ? (
                       <Badge variant="secondary">{t('settings.currentSession')}</Badge>

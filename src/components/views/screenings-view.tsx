@@ -227,7 +227,7 @@ function ScreeningCard({ item, locale, highlight }: { item: ScreeningItem; local
             <ShieldCheck className="h-3 w-3 inline text-secondary" aria-hidden /> {item.medicalReference}
           </p>
           <p className="text-[10px] text-muted-foreground">
-            {t('scr.reviewedAt')}: <span dir="auto">{new Intl.DateTimeFormat(fa ? 'fa-IR-u-ca-persian' : 'en-US', { dateStyle: 'medium' }).format(new Date(item.reviewedAt))}</span>
+            {t('scr.reviewedAt')}: <span dir="auto">{new Intl.DateTimeFormat(fa ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian', { dateStyle: 'medium' }).format(new Date(item.reviewedAt))}</span>
           </p>
         </div>
       </AccordionContent>

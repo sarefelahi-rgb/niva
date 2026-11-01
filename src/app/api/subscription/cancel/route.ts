@@ -51,7 +51,7 @@ async function handle(req: Request) {
           type: 'PAYMENT',
           title: en ? 'Cancellation scheduled' : 'لغو اشتراک زمان‌بندی شد',
           body: en
-            ? `Your Premium access stays active until ${sub.currentPeriodEnd.toLocaleDateString('en-US')} and then switches to Free automatically. Changed your mind? Subscribe again anytime.`
+            ? `Your Premium access stays active until ${sub.currentPeriodEnd.toLocaleDateString('en-u-ca-persian')} and then switches to Free automatically. Changed your mind? Subscribe again anytime.`
             : `دسترسی پریمیوم شما تا ${sub.currentPeriodEnd.toLocaleDateString('fa-IR')} فعال می‌ماند و پس از آن خودکار به رایگان تغییر می‌کند. اگر نظرتان عوض شد، هر زمان می‌توانید دوباره اشتراک بگیرید.`,
         },
       });

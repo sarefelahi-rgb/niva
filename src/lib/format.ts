@@ -7,10 +7,12 @@
  * Conventions (all verified against the codebase, see docs/audit/11-bidi-qa.md):
  *
  * ── Calendar ────────────────────────────────────────────────────────────────
- * fa → Intl 'fa-IR-u-ca-persian' (explicit Jalali/Persian calendar, Persian
- * digits come with the locale's arabext numbering system). en → 'en-US'
- * Gregorian. Sanity anchor: 2026-03-21 → «۱ فروردین ۱۴۰۵» (verified in the
- * wave 6.3 demo run and in docs/audit/11-bidi-qa.md §7).
+ * PRODUCT RULE (user mandate, wave 19): EVERY calendar in NIVA is Shamsi —
+ * in BOTH UI languages. fa → 'fa-IR-u-ca-persian' (Persian digits come with
+ * the locale's arabext numbering system). en → 'en-u-ca-persian', which CLDR
+ * renders with transliterated month names (Farvardin … Esfand) and Latin
+ * digits. Sanity anchor: 2026-03-21 → «۱ فروردین ۱۴۰۵» / "1 Farvardin 1405".
+ * (Verified in the wave 6.3 demo run and docs/audit/11-bidi-qa.md §7.)
  *
  * ── Money minor units (NIVA convention — verified in src/lib/plans.ts +
  * src/lib/psp/index.ts, must never change silently) ─────────────────────────
@@ -60,9 +62,18 @@ function numLocale(locale: Locale): string {
   return locale === 'fa' ? 'fa-IR' : 'en-US';
 }
 
-/** fa explicitly pins the Persian (Jalali) calendar; en stays Gregorian. */
+/**
+ * The one locale tag for every DATE rendering in NIVA — Persian (Jalali)
+ * calendar in both UI languages (product rule, wave 19). Exported so ad-hoc
+ * Intl call sites (views using toLocaleDateString directly) stay consistent.
+ */
+export function dateLocaleTag(locale: Locale): string {
+  return locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian';
+}
+
+/** Alias kept for the internal formatter cache key. */
 function dateLocale(locale: Locale): string {
-  return locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-US';
+  return dateLocaleTag(locale);
 }
 
 function toDate(value: DateInput): Date {
@@ -101,7 +112,7 @@ export function formatMoney(amountMinor: number, currency: MoneyCurrency, locale
   );
 }
 
-/* ── dates (Jalali for fa, Gregorian for en) ──────────────────────────────── */
+/* ── dates (Jalali/Shamsi for BOTH locales — product rule) ───────────────── */
 
 function formatDateWith(locale: Locale, date: Date, options: Intl.DateTimeFormatOptions): string {
   if (Number.isNaN(date.getTime())) return ''; // invalid input → '' (never throw at render time)
@@ -133,7 +144,7 @@ export function formatDate(date: DateInput, locale: Locale, style: DateStyle = '
   return formatDateWith(locale, toDate(date), DATE_STYLES[style]);
 }
 
-/** Localized date + time (fa: Jalali date, 24h clock; en: Gregorian, US clock). */
+/** Localized date + time (both locales: Shamsi date; 24h/US clock per locale). */
 export function formatDateTime(date: DateInput, locale: Locale, style: DateStyle = 'medium'): string {
   return formatDateWith(locale, toDate(date), {
     ...DATE_STYLES[style],

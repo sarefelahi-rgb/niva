@@ -194,7 +194,7 @@ export function TrackingView() {
                 <tbody>
                   {entries.map((e) => (
                     <tr key={e.id} className="border-t">
-                      <td className="p-2.5 num">{new Date(e.date).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</td>
+                      <td className="p-2.5 num">{new Date(e.date).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</td>
                       <td className="p-2.5 num">{e.mood ?? '—'}/5</td>
                       <td className="p-2.5 num">{e.weightKg ?? '—'}</td>
                       <td className="p-2.5 num">{e.systolic ? `${e.systolic}/${e.diastolic}` : '—'}</td>

@@ -26,17 +26,20 @@ const KEYFRAME_WEEKS = FETAL_STAGE_IMAGES.map((i) => i.week);
 type StudioMode = 'cine' | 'gallery3d';
 
 /**
- * Studio view — the natural fetal-growth cinematic + a 3D orbit gallery of
- * the same photoreal stage images.
+ * Studio view — a 3D orbit gallery of the photoreal stage images, plus the
+ * natural-growth cinematic as the alternate lens.
  *
  * Two views over ONE 13-keyframe sequence (fixed style: same camera, light
  * and uterine palette):
+ * - «سه‌بعدی تعاملی» (3D, DEFAULT): the same images arranged on a tilted CSS-3D
+ *   turntable — drag horizontally to spin (with flick momentum), drag
+ *   vertically to tilt the viewing angle, tap a stage to bring it to the
+ *   front, arrow keys step stages. Depth is sold by per-card scaling,
+ *   brightness falloff and a floor shadow. No WebGL: pure GPU transforms, so
+ *   it stays smooth on low-end phones and respects reduced motion (instant
+ *   snaps, no drift).
  * - «واقع‌گرایانه» (cine): the crossfading cinematic with a slow Ken Burns
  *   drift, as the visitor walks the 40 gestational weeks.
- * - «سه‌بعدی تعاملی» (3D): the same images arranged on a CSS-3D orbit ring —
- *   drag to spin, tap a stage to bring it to the front, arrow keys step
- *   stages. No WebGL: pure GPU transforms, so it stays smooth on low-end
- *   phones and respects reduced motion (instant snaps, no drift).
  *
  * Navigation everywhere targets the keyframe images themselves (filmstrip,
  * prev/next, ring) while the week slider and stage chips keep fine control.
@@ -46,7 +49,8 @@ type StudioMode = 'cine' | 'gallery3d';
 export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   const { t, locale } = useApp();
   const [week, setWeek] = useState(12);
-  const [mode, setMode] = useState<StudioMode>('cine');
+  // The studio IS 3D first (user mandate) — the cinematic is the alternate lens.
+  const [mode, setMode] = useState<StudioMode>('gallery3d');
   const [reduceMotion, setReduceMotion] = useState(false);
 
   const content = stageContentForWeek(week);
@@ -69,12 +73,14 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
   }, []);
 
   const body = (
-    <div className={`grid ${fullscreen ? 'h-[calc(100vh-3.5rem)]' : 'h-[70vh] min-h-[480px]'} overflow-y-auto lg:overflow-hidden lg:grid-cols-[1fr_320px] gap-3 p-3`}>
+    // Standard rhythm: p-4 gaps everywhere (user mandate — no cramped or
+    // colliding boxes), min-w-0 keeps the filmstrip from inflating the grid.
+    <div className={`grid ${fullscreen ? 'h-[calc(100vh-3.5rem)]' : 'h-[70vh] min-h-[480px]'} overflow-y-auto lg:overflow-hidden lg:grid-cols-[1fr_320px] gap-4 p-4`}>
       {/* Stage viewport + filmstrip — same imagery, two presentations.
           min-w-0: the filmstrip's 13 unwrappable thumbs inflate this grid
           item's min-content — without it the mobile track overflows. */}
-      <div className="flex min-h-0 min-w-0 flex-col gap-2">
-        <div className="relative rounded-2xl border niva-grad overflow-hidden bg-[#2a1216] h-[54vh] min-h-[240px] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
+      <div className="flex min-h-0 min-w-0 flex-col gap-3">
+        <div className="relative rounded-2xl border niva-grad overflow-hidden bg-[#2a1216] h-[54vh] min-h-[260px] shrink-0 lg:h-auto lg:min-h-0 lg:flex-1">
           {mode === 'gallery3d' ? (
             <Ring3D selectedWeek={week} onSelect={setWeek} reduceMotion={reduceMotion} />
           ) : (
@@ -87,38 +93,44 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
             style={{ background: 'radial-gradient(ellipse 80% 72% at 50% 42%, transparent 55%, rgba(30,8,12,0.42) 100%)' }}
           />
 
-          {/* View chrome — view toggle (top-end) + honesty labels (top-start) */}
-          <div className="absolute top-3 end-3 z-10 flex items-center rounded-full border border-white/25 bg-black/35 p-0.5 backdrop-blur-sm">
-            {([
-              ['cine', Clapperboard, t('studio.viewPhoto')],
-              ['gallery3d', Orbit, t('studio.view3d')],
-            ] as const).map(([m, Icon, label]) => (
-              <button
-                key={m}
-                type="button"
-                onClick={() => setMode(m)}
-                aria-pressed={mode === m}
-                className={`flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[10px] font-medium transition-colors ${mode === m ? 'bg-white text-[#2a1216]' : 'text-white/85 hover:text-white'}`}
-              >
-                <Icon className="h-3 w-3" aria-hidden />
-                {label}
-              </button>
-            ))}
-          </div>
-
-          <div className="absolute top-3 start-3 z-10 flex flex-col gap-1.5">
-            <Badge className="w-fit bg-warning/15 text-warning-foreground border-warning/30 text-[10px]">
-              {t('studio.demoAsset')}
-            </Badge>
-            <Badge variant="outline" className="w-fit max-w-[45vw] whitespace-normal text-start text-[10px] leading-snug bg-black/25 border-white/20 text-white/90 backdrop-blur-sm">
-              {t('studio.photoDisclaimer')}
-            </Badge>
-            {week < 4 && (
-              <Badge variant="outline" className="w-fit max-w-[45vw] whitespace-normal text-start text-[10px] leading-snug bg-black/25 border-white/20 text-white/90 backdrop-blur-sm">
-                <Microscope className="me-1 h-3 w-3 shrink-0" aria-hidden />
-                {t('studio.microScope')}
+          {/* View chrome — ONE flex row (badges column + toggle), so the two
+              can never collide on narrow screens; badges ignore pointers so
+              ring-dragging still works underneath. */}
+          <div className="absolute top-3 inset-x-3 z-10 flex items-start justify-between gap-2">
+            <div className="pointer-events-none flex min-w-0 flex-col items-start gap-1.5">
+              {/* The stage backdrop is always dark (both themes) — this badge
+                  pins its own light amber; text-warning-foreground would flip
+                  dark in the light theme and vanish against the stage. */}
+              <Badge className="w-fit shrink-0 bg-warning/20 text-amber-100 border-warning/40 text-[10px]">
+                {t('studio.demoAsset')}
               </Badge>
-            )}
+              <Badge variant="outline" className="w-fit max-w-full whitespace-normal text-start text-[10px] leading-snug bg-black/25 border-white/20 text-white/90 backdrop-blur-sm">
+                {t('studio.photoDisclaimer')}
+              </Badge>
+              {week < 4 && (
+                <Badge variant="outline" className="w-fit max-w-full whitespace-normal text-start text-[10px] leading-snug bg-black/25 border-white/20 text-white/90 backdrop-blur-sm">
+                  <Microscope className="me-1 h-3 w-3 shrink-0" aria-hidden />
+                  {t('studio.microScope')}
+                </Badge>
+              )}
+            </div>
+            <div className="flex shrink-0 items-center rounded-full border border-white/25 bg-black/35 p-0.5 backdrop-blur-sm">
+              {([
+                ['cine', Clapperboard, t('studio.viewPhoto')],
+                ['gallery3d', Orbit, t('studio.view3d')],
+              ] as const).map(([m, Icon, label]) => (
+                <button
+                  key={m}
+                  type="button"
+                  onClick={() => setMode(m)}
+                  aria-pressed={mode === m}
+                  className={`flex min-h-8 items-center gap-1 rounded-full px-2.5 text-[10px] font-medium transition-colors ${mode === m ? 'bg-white text-[#2a1216]' : 'text-white/85 hover:text-white'}`}
+                >
+                  <Icon className="h-3 w-3" aria-hidden />
+                  {label}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Stage caption — week + stage title, over a soft scrim */}
@@ -150,7 +162,7 @@ export function StudioView({ fullscreen = false }: { fullscreen?: boolean }) {
       </div>
 
       {/* Week navigation + narration — content selection, not view controls */}
-      <aside className="flex min-w-0 flex-col gap-3 overflow-y-auto" aria-label={t('studio.stage')}>
+      <aside className="flex min-w-0 flex-col gap-4 overflow-y-auto" aria-label={t('studio.stage')}>
         <div className="niva-card rounded-2xl border p-4 space-y-3">
           <div className="flex items-center gap-2">
             <Images className="h-4 w-4 text-primary" />
@@ -272,10 +284,12 @@ function Filmstrip({
 }
 
 /**
- * CSS-3D orbit gallery: the 13 stage photos on a rotating ring. Drag (mouse
- * or touch) spins the ring with momentum-free direct manipulation; on release
+ * CSS-3D turntable: the 13 stage photos on a tilted ring. Drag horizontally
+ * spins the ring (with flick momentum on release); dragging vertically tilts
+ * the viewing angle (a real change of camera elevation, clamped); on release
  * it snaps to the nearest stage and selects it. Tapping any card brings that
- * stage to the front; ←/→ steps stages for keyboard users. Pure GPU
+ * stage to the front; ←/→ steps stages for keyboard users. Depth is sold by
+ * per-card scale + brightness falloff and a floor shadow. Pure GPU
  * transforms — no WebGL context, nothing to lose, nothing to dispose.
  */
 function Ring3D({
@@ -288,6 +302,9 @@ function Ring3D({
   const { t, locale } = useApp();
   const n = FETAL_STAGE_IMAGES.length;
   const stepDeg = 360 / n;
+  const TILT_BASE = -12; // camera slightly above the ring plane (deg)
+  const TILT_MIN = -30;
+  const TILT_MAX = 4;
 
   const selectedIdx = useMemo(() => {
     const i = FETAL_STAGE_IMAGES.findIndex((x) => x.week === stageImageForWeek(selectedWeek).week);
@@ -295,16 +312,23 @@ function Ring3D({
   }, [selectedWeek]);
   const target = -selectedIdx * stepDeg;
 
-  // Rotation is fully derived: at rest it IS the selection's target angle;
-  // while dragging it is the grab base plus the pointer offset. No effect
-  // syncing, no cascading renders — selection changes re-derive the angle.
-  const [drag, setDrag] = useState<{ x: number; base: number; offset: number } | null>(null);
+  // Rotation + tilt are fully derived: at rest they ARE the selection's
+  // target angle (and the resting tilt); while dragging they are the grab
+  // base plus the pointer offset. No effect syncing, no cascading renders —
+  // selection changes re-derive the angle.
+  const [drag, setDrag] = useState<{
+    x: number; y: number; base: number; tiltBase: number; offset: number; tilt: number;
+  } | null>(null);
   const rotation = drag ? drag.base + drag.offset : target;
+  const tilt = drag ? drag.tilt : TILT_BASE;
   const dragging = drag !== null;
   // The card under the pointer at grab time. Pointer capture retargets the
   // release click to the container, so taps are resolved here in endDrag
   // instead of relying on the card's own click event.
   const grabCard = useRef<number | null>(null);
+  // Flick velocity (EMA of px/ms, positive = rightward) for momentum release.
+  const flick = useRef(0);
+  const lastPos = useRef<{ x: number; t: number } | null>(null);
 
   const selectIndex = useCallback((i: number) => {
     onSelect(FETAL_STAGE_IMAGES[((i % n) + n) % n].week);
@@ -313,19 +337,29 @@ function Ring3D({
   const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
     const card = (e.target as HTMLElement).closest('button[data-week]');
     grabCard.current = card ? Number(card.getAttribute('data-week')) : null;
-    setDrag({ x: e.clientX, base: rotation, offset: 0 });
+    flick.current = 0;
+    lastPos.current = { x: e.clientX, t: performance.now() };
+    setDrag({ x: e.clientX, y: e.clientY, base: rotation, tiltBase: tilt, offset: 0, tilt });
     e.currentTarget.setPointerCapture(e.pointerId);
   };
   const onPointerMove = (e: React.PointerEvent<HTMLDivElement>) => {
     setDrag((d) => {
       if (!d) return d; // hover move — not grabbing
+      if (lastPos.current) {
+        const dt = Math.max(1, performance.now() - lastPos.current.t);
+        flick.current = 0.75 * flick.current + 0.25 * ((e.clientX - lastPos.current.x) / dt);
+        lastPos.current = { x: e.clientX, t: performance.now() };
+      }
       const dx = e.clientX - d.x;
-      return { ...d, offset: dx * 0.3 };
+      const dy = e.clientY - d.y;
+      const nextTilt = Math.min(TILT_MAX, Math.max(TILT_MIN, d.tiltBase + dy * 0.09));
+      return { ...d, offset: dx * 0.35, tilt: nextTilt };
     });
   };
   const endDrag = () => {
     if (!drag) return;
     const moved = Math.abs(drag.offset) * 10 > 12; // >4px pointer travel
+    const v = flick.current; // px/ms at release
     setDrag(null);
     const tapped = grabCard.current;
     grabCard.current = null;
@@ -333,7 +367,10 @@ function Ring3D({
       if (tapped) onSelect(tapped); // keyboard-independent tap-to-front
       return;
     }
-    const idx = ((Math.round(-rotation / stepDeg) % n) + n) % n;
+    let idx = ((Math.round(-rotation / stepDeg) % n) + n) % n;
+    // Momentum: a fast horizontal release carries one extra stage in the
+    // flick direction (drag right → ring spins toward earlier stages).
+    if (Math.abs(v) > 0.5) idx -= v > 0 ? 1 : -1;
     selectIndex(idx);
   };
 
@@ -348,13 +385,13 @@ function Ring3D({
   };
 
   const ringVars = {
-    '--card-w': 'clamp(108px, 21vw, 200px)',
-    '--ring-r': 'calc(var(--card-w) * 2.45)',
+    '--card-w': 'clamp(112px, 21vw, 200px)',
+    '--ring-r': 'calc(var(--card-w) * 2.5)',
   } as React.CSSProperties;
 
   return (
     <div
-      className="absolute inset-0 cursor-grab touch-pan-y select-none outline-none active:cursor-grabbing [perspective:1300px]"
+      className="absolute inset-0 cursor-grab touch-pan-y select-none outline-none active:cursor-grabbing [perspective:1500px]"
       style={ringVars}
       role="group"
       aria-label={t('studio.view3d')}
@@ -371,10 +408,17 @@ function Ring3D({
         className="absolute inset-0"
         style={{ background: 'radial-gradient(ellipse 62% 50% at 50% 46%, rgba(255,214,224,0.10), transparent 70%)' }}
       />
+      {/* Floor shadow — anchors the ring in space and sells the 3D depth */}
+      <div
+        aria-hidden
+        className="absolute left-1/2 top-[74%] h-8 w-[min(58vw,420px)] -translate-x-1/2 rounded-[50%] bg-black/40 blur-xl"
+      />
       <div
         className="absolute left-1/2 top-1/2 [transform-style:preserve-3d]"
         style={{
-          transform: `translateZ(calc(var(--ring-r) * -1)) rotateY(${rotation}deg)`,
+          // Tilt (rotateX) applied before the spin (rotateY) = a turntable
+          // seen slightly from above; vertical drag changes the elevation.
+          transform: `translateZ(calc(var(--ring-r) * -1)) rotateX(${tilt.toFixed(2)}deg) rotateY(${rotation.toFixed(2)}deg)`,
           transition: dragging || reduceMotion ? 'none' : 'transform 700ms cubic-bezier(0.22, 1, 0.36, 1)',
         }}
       >
@@ -395,11 +439,13 @@ function Ring3D({
               style={{
                 width: 'var(--card-w)',
                 aspectRatio: '3 / 4',
-                transform: 'translate(-50%, -50%) rotateY(' + angle + 'deg) translateZ(var(--ring-r))',
+                transform:
+                  'translate(-50%, -50%) rotateY(' + angle + 'deg) translateZ(var(--ring-r))' +
+                  ` scale(${(0.8 + 0.2 * facing).toFixed(3)})`,
                 backfaceVisibility: 'hidden',
                 borderColor: isActive ? 'rgba(255,255,255,0.9)' : 'rgba(255,255,255,0.25)',
-                filter: `brightness(${(0.42 + 0.58 * facing).toFixed(3)})`,
-                opacity: 0.35 + 0.65 * facing,
+                filter: `brightness(${(0.4 + 0.6 * facing).toFixed(3)})`,
+                opacity: 0.3 + 0.7 * facing,
                 zIndex: Math.round(facing * 40) + (isActive ? 1 : 0),
               }}
             >

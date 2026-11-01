@@ -357,7 +357,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                         <div key={s.id} className="rounded-lg p-2.5 mb-1">
                           <p className="text-sm font-medium" dir="auto">{s.title}</p>
                           <p className="text-xs text-muted-foreground mt-0.5">
-                            {t('notifs.dueAt')}: <span className="num">{new Date(s.scheduledFor).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                            {t('notifs.dueAt')}: <span className="num">{new Date(s.scheduledFor).toLocaleString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</span>
                             <span className="mx-1.5" aria-hidden>·</span>
                             <span>{t(`notifs.type.${s.type}`)}</span>
                           </p>

@@ -620,7 +620,7 @@ export function PostpartumView() {
                           {f.method === 'BREAST' && f.side && f.side !== 'NONE' ? ` · ${t(SIDE_LABEL[f.side] ?? 'post.sideNone')}` : ''}
                         </p>
                         <p className="text-xs text-muted-foreground num">
-                          {new Date(f.fedAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}
+                          {new Date(f.fedAt).toLocaleString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}
                           {f.durationMin ? ` · ${f.durationMin}min` : ''}{f.amountMl ? ` · ${f.amountMl}ml` : ''}
                         </p>
                       </div>
@@ -660,7 +660,7 @@ export function PostpartumView() {
                           {t(CARE_KIND_LABEL[c.kind] ?? 'post.careNote')}
                           {careDetail(c) ? <span className="text-muted-foreground"> · {careDetail(c)}</span> : null}
                         </p>
-                        <p className="text-xs text-muted-foreground num">{new Date(c.happenedAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                        <p className="text-xs text-muted-foreground num">{new Date(c.happenedAt).toLocaleString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
                       </div>
                       <Button
                         variant="ghost"

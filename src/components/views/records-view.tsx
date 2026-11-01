@@ -132,7 +132,7 @@ export function RecordsView() {
                 </div>
                 <p className="text-xs text-muted-foreground num" dir="ltr">{d.fileName} · {d.sizeKb} KB</p>
                 {d.notes && <p className="text-xs text-muted-foreground">{d.notes}</p>}
-                <p className="text-[10px] text-muted-foreground num">{new Date(d.uploadedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                <p className="text-[10px] text-muted-foreground num">{new Date(d.uploadedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
               </CardContent>
             </Card>
           ))}

@@ -319,7 +319,7 @@ export function BirthPrepView() {
                 return (
                   <li key={c.id} className="flex items-center gap-3 rounded-lg border p-3">
                     <div className="min-w-0 flex-1 space-y-1">
-                      <p className="text-sm font-medium num">{new Date(c.startedAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</p>
+                      <p className="text-sm font-medium num">{new Date(c.startedAt).toLocaleString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</p>
                       <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
                         <span>{t('birth.duration')} <span className="num">{fmtClock(c.durationSec)}</span></span>
                         <span>{t('birth.gap')} <span className="num">{gapSec !== null && Number.isFinite(gapSec) && gapSec >= 0 ? fmtClock(gapSec) : '—'}</span></span>

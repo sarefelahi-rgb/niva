@@ -49,7 +49,7 @@ const DAY = 86_400_000;
 const HOUR = 3_600_000;
 
 function fmtDateTime(d: Date, locale: string): string {
-  return d.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US', { dateStyle: 'medium', timeStyle: 'short' });
+  return d.toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-u-ca-persian', { dateStyle: 'medium', timeStyle: 'short' });
 }
 
 function fmtTime(d: Date, locale: string): string {

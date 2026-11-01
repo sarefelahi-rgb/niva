@@ -42,7 +42,7 @@ export function ProvenanceBadge({
       </Badge>
       {!compact && reviewedAt && (
         <span className="text-[11px] text-muted-foreground num">
-          {t('cms.reviewed')}: {new Date(reviewedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}
+          {t('cms.reviewed')}: {new Date(reviewedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}
         </span>
       )}
     </span>

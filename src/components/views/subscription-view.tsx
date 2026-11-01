@@ -49,7 +49,7 @@ export function SubscriptionView() {
 
   const fa = locale === 'fa';
   const fmtDate = useCallback(
-    (d: string | null) => (d ? new Date(d).toLocaleDateString(fa ? 'fa-IR' : 'en-US') : '—'),
+    (d: string | null) => (d ? new Date(d).toLocaleDateString(fa ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian') : '—'),
     [fa]
   );
   const fill = useCallback((template: string, vars: Record<string, string>) => {

@@ -145,7 +145,7 @@ export function CommunityView() {
                       <span className="font-semibold text-sm">{p.authorAlias}</span>
                       <Badge variant="secondary" className="text-[10px]">{p.topic}</Badge>
                       {mine && p.status && statusBadge(p.status)}
-                      <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
+                      <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</span>
                       {!p.mine && (
                         <Button variant="ghost" size="icon" className="h-11 w-11" onClick={() => flag(p.id)} aria-label={t('community.report')}>
                           <Flag className="h-3.5 w-3.5 text-muted-foreground" />

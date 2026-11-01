@@ -466,7 +466,7 @@ export function NutritionView() {
               <div className="flex items-center justify-between gap-2 border-t pt-3">
                 <p className="text-[11px] text-muted-foreground leading-relaxed">
                   <ShieldCheck className="h-3 w-3 inline text-secondary" aria-hidden /> {t('nut.source')}: {detail.medicalSource}
-                  {detail.reviewedAt && <> · {t('scr.reviewedAt')}: <span dir="auto">{new Intl.DateTimeFormat(fa ? 'fa-IR-u-ca-persian' : 'en-US', { dateStyle: 'medium' }).format(new Date(detail.reviewedAt))}</span></>}
+                  {detail.reviewedAt && <> · {t('scr.reviewedAt')}: <span dir="auto">{new Intl.DateTimeFormat(fa ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian', { dateStyle: 'medium' }).format(new Date(detail.reviewedAt))}</span></>}
                 </p>
                 <Button
                   variant={favs.has(detail.slug) ? 'secondary' : 'outline'}

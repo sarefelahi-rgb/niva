@@ -30,13 +30,13 @@ import {
 } from '@/components/ui/select';
 import type { Locale } from '@/lib/i18n';
 
-const JALALI_MONTHS_FA = [
+export const JALALI_MONTHS_FA = [
   'فروردین', 'اردیبهشت', 'خرداد', 'تیر', 'مرداد', 'شهریور',
   'مهر', 'آبان', 'آذر', 'دی', 'بهمن', 'اسفند',
 ];
 
 /** Latin-script month names for the English UI — the calendar stays Shamsi. */
-const JALALI_MONTHS_EN = [
+export const JALALI_MONTHS_EN = [
   'Farvardin', 'Ordibehesht', 'Khordad', 'Tir', 'Mordad', 'Shahrivar',
   'Mehr', 'Aban', 'Azar', 'Dey', 'Bahman', 'Esfand',
 ];
