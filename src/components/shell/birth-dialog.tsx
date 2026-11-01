@@ -16,6 +16,7 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Textarea } from '@/components/ui/textarea';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
+import { JalaliDateField } from '@/components/ui/jalali-date';
 import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from '@/components/ui/dialog';
@@ -55,7 +56,7 @@ export function BirthDialog({
   /** When provided the dialog edits the profile instead of first registration. */
   existing?: BabyProfileLike | null;
 }) {
-  const { t, refresh } = useApp();
+  const { t, refresh, locale } = useApp();
   const { toast } = useToast();
   const [busy, setBusy] = useState(false);
   const [draft, setDraft] = useState<Draft>({
@@ -145,13 +146,13 @@ export function BirthDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="born-date">{t('born.birthDate')}</Label>
-            <Input
-              id="born-date" type="date" dir="ltr" required
-              max={todayLocal()}
+            <JalaliDateField
+              id="born-date"
+              label={t('born.birthDate')}
+              locale={locale}
               value={draft.birthDate}
-              onChange={(e) => patch({ birthDate: e.target.value })}
-              className="min-h-11"
+              onValue={(iso) => patch({ birthDate: iso })}
+              maxIso={todayLocal()}
             />
           </div>
 

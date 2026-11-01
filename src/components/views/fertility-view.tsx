@@ -12,7 +12,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Input } from '@/components/ui/input';
+import { JalaliDateField } from '@/components/ui/jalali-date';
 import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
@@ -58,6 +58,10 @@ export function FertilityView() {
   const [selected, setSelected] = useState<Date | null>(null);
   const [flow, setFlow] = useState<FlowLevel>('MEDIUM');
   const [busy, setBusy] = useState(false);
+  // Shamsi entry fields (JalaliDateField) hold the same Gregorian ISO values
+  // the previous <input type="date"> produced — API contract unchanged.
+  const [periodDate, setPeriodDate] = useState(() => dayKey(new Date()));
+  const [intimacyDate, setIntimacyDate] = useState(() => dayKey(new Date()));
 
   const load = useCallback(async () => {
     try {
@@ -316,14 +320,12 @@ export function FertilityView() {
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                const el = (e.currentTarget.elements.namedItem('period-date') as HTMLInputElement | null);
-                if (el?.value) logDay(el.value, 'PERIOD', flow);
+                if (periodDate) logDay(periodDate, 'PERIOD', flow);
               }}
             >
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label htmlFor="period-date">{t('born.birthDate')}</Label>
-                  <Input id="period-date" type="date" dir="ltr" required max={dayKey(today)} className="min-h-11" />
+                  <JalaliDateField id="period-date" label={t('track.date')} locale={locale} value={periodDate} onValue={setPeriodDate} maxIso={dayKey(today)} />
                 </div>
                 <div className="space-y-1.5">
                   <Label htmlFor="period-flow">{t('f.flow')}</Label>
@@ -358,13 +360,11 @@ export function FertilityView() {
               className="space-y-3"
               onSubmit={(e) => {
                 e.preventDefault();
-                const el = (e.currentTarget.elements.namedItem('intimacy-date') as HTMLInputElement | null);
-                if (el?.value) logDay(el.value, 'INTIMACY');
+                if (intimacyDate) logDay(intimacyDate, 'INTIMACY');
               }}
             >
               <div className="space-y-1.5">
-                <Label htmlFor="intimacy-date">{t('born.birthDate')}</Label>
-                <Input id="intimacy-date" type="date" dir="ltr" required max={dayKey(today)} className="min-h-11" />
+                <JalaliDateField id="intimacy-date" label={t('track.date')} locale={locale} value={intimacyDate} onValue={setIntimacyDate} maxIso={dayKey(today)} />
               </div>
               <Button type="submit" disabled={busy} className="min-h-11 w-full sm:w-auto">
                 {t('f.markIntimacy')}

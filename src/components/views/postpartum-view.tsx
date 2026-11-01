@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Checkbox } from '@/components/ui/checkbox';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { JalaliDateTimeField } from '@/components/ui/jalali-date';
 import { useToast } from '@/hooks/use-toast';
 import { Bath, Flower2, HeartCrack, Loader2, Milk, Moon, Scale, StickyNote, Trash2, TriangleAlert, Baby, Info, PartyPopper } from 'lucide-react';
 import { BABY_MILESTONES } from '@/data/baby-milestones';
@@ -448,8 +449,7 @@ export function PostpartumView() {
           <form onSubmit={submitFeed} className="space-y-3" aria-label={t('post.feedingLog')}>
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="feed-at">{t('post.fedAt')}</Label>
-                <Input id="feed-at" type="datetime-local" dir="ltr" value={fedAt} onChange={(e) => setFedAt(e.target.value)} required className="min-h-11" />
+                <JalaliDateTimeField id="feed-at" label={t('post.fedAt')} timeLabel={t('jdate.time')} locale={locale} value={fedAt} onValue={setFedAt} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="feed-method">{t('post.method')}</Label>
@@ -512,8 +512,7 @@ export function PostpartumView() {
           <form onSubmit={submitCare} className="space-y-3" aria-label={t('post.babyLog')}>
             <div className="grid sm:grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="care-at">{t('post.happenedAt')}</Label>
-                <Input id="care-at" type="datetime-local" dir="ltr" value={happenedAt} onChange={(e) => setHappenedAt(e.target.value)} required className="min-h-11" />
+                <JalaliDateTimeField id="care-at" label={t('post.happenedAt')} timeLabel={t('jdate.time')} locale={locale} value={happenedAt} onValue={setHappenedAt} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="care-kind">{t('post.careKind')}</Label>

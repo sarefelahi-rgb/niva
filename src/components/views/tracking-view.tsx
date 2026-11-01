@@ -10,6 +10,7 @@ import { Slider } from '@/components/ui/slider';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription } from '@/components/ui/alert';
+import { JalaliDateField } from '@/components/ui/jalali-date';
 import { useToast } from '@/hooks/use-toast';
 import { Loader2, TriangleAlert } from 'lucide-react';
 
@@ -105,8 +106,7 @@ export function TrackingView() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1.5">
-                <Label htmlFor="tk-date">{t('track.date')}</Label>
-                <Input id="tk-date" type="date" dir="ltr" value={date} onChange={(e) => setDate(e.target.value)} required className="min-h-11" />
+                <JalaliDateField id="tk-date" label={t('track.date')} locale={locale} value={date} onValue={setDate} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="tk-weight">{t('track.weight')}</Label>

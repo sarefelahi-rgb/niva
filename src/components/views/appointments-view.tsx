@@ -9,6 +9,7 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
+import { JalaliDateTimeField } from '@/components/ui/jalali-date';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { formatMessage } from '@/lib/icu';
@@ -119,8 +120,7 @@ export function AppointmentsView() {
                 </Select>
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="a-when">{t('appt.when')}</Label>
-                <Input id="a-when" type="datetime-local" dir="ltr" value={aWhen} onChange={(e) => setAWhen(e.target.value)} required className="min-h-11" />
+                <JalaliDateTimeField id="a-when" label={t('appt.when')} timeLabel={t('jdate.time')} locale={locale} value={aWhen} onValue={setAWhen} />
               </div>
               <div className="space-y-1.5">
                 <Label htmlFor="a-provider">{t('appt.provider')}</Label>
@@ -146,8 +146,7 @@ export function AppointmentsView() {
                 <Input id="r-title" value={rTitle} onChange={(e) => setRTitle(e.target.value)} required className="min-h-11" />
               </div>
               <div className="space-y-1.5">
-                <Label htmlFor="r-due">{t('appt.when')}</Label>
-                <Input id="r-due" type="datetime-local" dir="ltr" value={rDue} onChange={(e) => setRDue(e.target.value)} required className="min-h-11" />
+                <JalaliDateTimeField id="r-due" label={t('appt.when')} timeLabel={t('jdate.time')} locale={locale} value={rDue} onValue={setRDue} />
               </div>
               <div className="space-y-1.5">
                 <Label>{t('appt.repeat')}</Label>
