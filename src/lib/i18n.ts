@@ -2048,7 +2048,120 @@ Object.assign(fa, {
   'ld.demoNote': 'پروفایل‌های نمایشی — عکس‌ها با هوش مصنوعی ساخته شده و نظرات محتوای نمایشی است.',
 });
 
+// ── Wave 20 — full bilingual parity: every user-visible enum gets a label ──
+// No raw enum values (REPORT, SCHEDULED, …) may ever reach the screen; each
+// value resolves through enumLabel() which falls back to the raw value —
+// never a dotted key path — for values added later.
+Object.assign(en, {
+  'nut.nutrition.kcal': 'Calories (kcal)', 'nut.nutrition.proteinG': 'Protein',
+  'nut.nutrition.ironMg': 'Iron', 'nut.nutrition.calciumMg': 'Calcium', 'nut.nutrition.fiberG': 'Fiber',
+  'docs.cat.REPORT': 'Report', 'docs.cat.ULTRASOUND': 'Ultrasound', 'docs.cat.LAB': 'Lab test',
+  'docs.cat.PRESCRIPTION': 'Prescription', 'docs.cat.OTHER': 'Other',
+  'appt.status.SCHEDULED': 'Scheduled', 'appt.status.COMPLETED': 'Completed',
+  'appt.status.MISSED': 'Missed', 'appt.status.CANCELLED': 'Cancelled',
+  'review.cat.NUTRITION': 'Nutrition', 'review.cat.MEDICAL': 'Medical', 'review.cat.LIFESTYLE': 'Lifestyle',
+  'review.cat.MENTAL_HEALTH': 'Mental health', 'review.cat.SAFETY': 'Safety', 'review.cat.GROWTH': 'Growth',
+  'review.cat.CYCLE': 'Cycle', 'review.cat.FEEDING': 'Feeding', 'review.cat.PREP': 'Birth prep',
+  'review.contentType.EDUCATIONAL_CONTENT': 'Educational content', 'review.contentType.ANATOMICAL_ASSET': 'Studio asset',
+  'review.decision.APPROVED': 'Approved', 'review.decision.CHANGES_REQUESTED': 'Changes requested', 'review.decision.REJECTED': 'Rejected',
+  'safety.type.RED_FLAG_SYMPTOM': 'Red-flag symptom', 'safety.type.EMERGENCY_ESCALATION': 'Emergency escalation',
+  'safety.type.AI_REFUSAL': 'AI refusal', 'safety.type.INJECTION_ATTEMPT': 'Injection attempt',
+  'safety.type.MODERATION': 'Moderation', 'safety.type.PAYMENT_ANOMALY': 'Payment anomaly',
+  'adm.modAction.APPROVE': 'Approve', 'adm.modAction.APPROVED': 'Approved', 'adm.modAction.REMOVE': 'Remove',
+  'adm.modAction.REJECT': 'Reject', 'adm.modAction.REJECTED': 'Rejected', 'adm.modAction.REOPEN': 'Reopen',
+  'adm.modAction.SUBMIT_REVIEW': 'Submitted for review',
+  'audit.action.USER_LOGIN': 'Login', 'audit.action.USER_REGISTER': 'Registration', 'audit.action.DEMO_LOGIN': 'Demo login',
+  'audit.action.LOGOUT_ALL': 'Signed out everywhere', 'audit.action.PASSWORD_CHANGE': 'Password change',
+  'audit.action.SESSION_REVOKE': 'Session revoked', 'audit.action.BOOKING_CREATE': 'Appointment booked',
+  'audit.action.BOOKING_CONSENT_UPDATE': 'Booking consent updated', 'audit.action.PATIENT_SUMMARY_VIEW': 'Patient summary viewed',
+  'audit.action.DOCUMENT_REGISTER': 'Document registered', 'audit.action.FAMILY_INVITE_SEND': 'Family invite sent',
+  'audit.action.FAMILY_INVITE_ACCEPT': 'Family invite accepted', 'audit.action.FAMILY_INVITE_DECLINE': 'Family invite declined',
+  'audit.action.FAMILY_REVOKE': 'Family access revoked', 'audit.action.PREFERENCES_UPDATE': 'Preferences updated',
+  'audit.action.PREGNANCY_CREATE': 'Pregnancy registered', 'audit.action.PREGNANCY_DATING_UPDATE': 'Gestational dating updated',
+  'audit.action.ACCOUNT_DELETE': 'Account deleted', 'audit.action.DATA_EXPORT': 'Data exported',
+  'audit.action.PROFILE_QUESTIONNAIRE': 'Profile questionnaire', 'audit.action.PROFILE_STAGE_SWITCH': 'Journey stage switched',
+  'audit.action.SUBSCRIPTION_CANCEL_SCHEDULED': 'Cancellation scheduled', 'audit.action.SUBSCRIPTION_CANCELLED': 'Subscription cancelled',
+  'audit.action.TRIAL_STARTED': 'Trial started', 'audit.action.PAYMENT_FAILED': 'Payment failed',
+  'audit.action.PAYMENT_SUCCEEDED': 'Payment succeeded', 'audit.action.TICKET_OPENED': 'Support ticket opened',
+  'audit.action.INCIDENT_DELETED': 'Incident deleted', 'audit.action.SAFETY_EVENT_RESOLVE': 'Safety event resolved',
+  'audit.action.USER_REACTIVATED': 'User reactivated', 'audit.action.DOCTOR_GRANT': 'Doctor access granted',
+  'audit.action.DOCTOR_UPDATE': 'Doctor profile updated', 'audit.action.DOCTOR_LIST': 'Doctor directory viewed',
+  'audit.action.REVIEW_DECIDE': 'Review decision', 'audit.action.MODERATION_DECIDE': 'Moderation decision',
+  'audit.action.ASSET_REVIEW': 'Asset review',
+  'audit.entity.User': 'User', 'audit.entity.Session': 'Session', 'audit.entity.Payment': 'Payment',
+  'audit.entity.Subscription': 'Subscription', 'audit.entity.MedicalDocument': 'Medical document',
+  'audit.entity.PartnerAccess': 'Partner access', 'audit.entity.Preference': 'Preferences',
+  'audit.entity.ReproductiveProfile': 'Reproductive profile', 'audit.entity.Pregnancy': 'Pregnancy',
+  'audit.entity.SupportTicket': 'Support ticket', 'audit.entity.DoctorAppointment': 'Appointment',
+  'audit.entity.SafetyEvent': 'Safety event', 'audit.entity.Incident': 'Incident',
+  'audit.entity.DoctorProfile': 'Doctor profile', 'audit.entity.EducationalContent': 'Educational content',
+  'audit.entity.AnatomicalAsset': 'Studio asset', 'audit.entity.CommunityPost': 'Community post',
+  'audit.entity.CommunityComment': 'Community comment', 'audit.entity.Notification': 'Notification',
+  'community.topic.GENERAL': 'General', 'community.topic.NUTRITION': 'Nutrition', 'community.topic.POSTPARTUM': 'Postpartum',
+  'community.topic.PRODUCTS': 'Products', 'community.topic.SUPPORT': 'Support', 'community.topic.BIRTH': 'Birth',
+});
+
+Object.assign(fa, {
+  'nut.nutrition.kcal': 'کالری (کیلوکالری)', 'nut.nutrition.proteinG': 'پروتئین',
+  'nut.nutrition.ironMg': 'آهن', 'nut.nutrition.calciumMg': 'کلسیم', 'nut.nutrition.fiberG': 'فیبر',
+  'docs.cat.REPORT': 'گزارش', 'docs.cat.ULTRASOUND': 'سونوگرافی', 'docs.cat.LAB': 'آزمایش',
+  'docs.cat.PRESCRIPTION': 'نسخه', 'docs.cat.OTHER': 'سایر',
+  'appt.status.SCHEDULED': 'برنامه‌ریزی‌شده', 'appt.status.COMPLETED': 'انجام‌شده',
+  'appt.status.MISSED': 'از دست رفته', 'appt.status.CANCELLED': 'لغو شده',
+  'review.cat.NUTRITION': 'تغذیه', 'review.cat.MEDICAL': 'پزشکی', 'review.cat.LIFESTYLE': 'سبک زندگی',
+  'review.cat.MENTAL_HEALTH': 'سلامت روان', 'review.cat.SAFETY': 'ایمنی', 'review.cat.GROWTH': 'رشد',
+  'review.cat.CYCLE': 'چرخه', 'review.cat.FEEDING': 'شیردهی', 'review.cat.PREP': 'آمادگی زایمان',
+  'review.contentType.EDUCATIONAL_CONTENT': 'محتوای آموزشی', 'review.contentType.ANATOMICAL_ASSET': 'دارایی استودیو',
+  'review.decision.APPROVED': 'تأیید شد', 'review.decision.CHANGES_REQUESTED': 'اصلاح خواسته شد', 'review.decision.REJECTED': 'رد شد',
+  'safety.type.RED_FLAG_SYMPTOM': 'نشانه هشدار جدی', 'safety.type.EMERGENCY_ESCALATION': 'ارجاع اورژانسی',
+  'safety.type.AI_REFUSAL': 'امتناع دستیار', 'safety.type.INJECTION_ATTEMPT': 'تلاش تزریق دستور',
+  'safety.type.MODERATION': 'نظارت انجمن', 'safety.type.PAYMENT_ANOMALY': 'ناهنجاری پرداخت',
+  'adm.modAction.APPROVE': 'تأیید', 'adm.modAction.APPROVED': 'تأیید شد', 'adm.modAction.REMOVE': 'حذف',
+  'adm.modAction.REJECT': 'رد', 'adm.modAction.REJECTED': 'رد شد', 'adm.modAction.REOPEN': 'بازگشایی',
+  'adm.modAction.SUBMIT_REVIEW': 'ارسال برای بازبینی',
+  'audit.action.USER_LOGIN': 'ورود', 'audit.action.USER_REGISTER': 'ثبت‌نام', 'audit.action.DEMO_LOGIN': 'ورود نمایشی',
+  'audit.action.LOGOUT_ALL': 'خروج از همه جلسات', 'audit.action.PASSWORD_CHANGE': 'تغییر گذرواژه',
+  'audit.action.SESSION_REVOKE': 'لغو جلسه', 'audit.action.BOOKING_CREATE': 'رزرو نوبت',
+  'audit.action.BOOKING_CONSENT_UPDATE': 'به‌روزرسانی اجازه نوبت', 'audit.action.PATIENT_SUMMARY_VIEW': 'مشاهده خلاصه بیمار',
+  'audit.action.DOCUMENT_REGISTER': 'ثبت سند', 'audit.action.FAMILY_INVITE_SEND': 'ارسال دعوت خانواده',
+  'audit.action.FAMILY_INVITE_ACCEPT': 'پذیرش دعوت خانواده', 'audit.action.FAMILY_INVITE_DECLINE': 'رد دعوت خانواده',
+  'audit.action.FAMILY_REVOKE': 'لغو دسترسی خانواده', 'audit.action.PREFERENCES_UPDATE': 'به‌روزرسانی تنظیمات',
+  'audit.action.PREGNANCY_CREATE': 'ثبت بارداری', 'audit.action.PREGNANCY_DATING_UPDATE': 'به‌روزرسانی سن بارداری',
+  'audit.action.ACCOUNT_DELETE': 'حذف حساب', 'audit.action.DATA_EXPORT': 'دریافت خروجی داده',
+  'audit.action.PROFILE_QUESTIONNAIRE': 'پرسش‌نامه پروفایل', 'audit.action.PROFILE_STAGE_SWITCH': 'تغییر مرحله مسیر',
+  'audit.action.SUBSCRIPTION_CANCEL_SCHEDULED': 'برنامه‌ریزی لغو اشتراک', 'audit.action.SUBSCRIPTION_CANCELLED': 'لغو اشتراک',
+  'audit.action.TRIAL_STARTED': 'شروع دوره آزمایشی', 'audit.action.PAYMENT_FAILED': 'پرداخت ناموفق',
+  'audit.action.PAYMENT_SUCCEEDED': 'پرداخت موفق', 'audit.action.TICKET_OPENED': 'ثبت تیکت پشتیبانی',
+  'audit.action.INCIDENT_DELETED': 'حذف رخداد', 'audit.action.SAFETY_EVENT_RESOLVE': 'تعیین تکلیف رخداد ایمنی',
+  'audit.action.USER_REACTIVATED': 'فعال‌سازی مجدد کاربر', 'audit.action.DOCTOR_GRANT': 'اعطای دسترسی پزشک',
+  'audit.action.DOCTOR_UPDATE': 'به‌روزرسانی پروفایل پزشک', 'audit.action.DOCTOR_LIST': 'مشاهده فهرست پزشکان',
+  'audit.action.REVIEW_DECIDE': 'تصمیم بازبینی', 'audit.action.MODERATION_DECIDE': 'تصمیم نظارت',
+  'audit.action.ASSET_REVIEW': 'بازبینی دارایی',
+  'audit.entity.User': 'کاربر', 'audit.entity.Session': 'جلسه', 'audit.entity.Payment': 'پرداخت',
+  'audit.entity.Subscription': 'اشتراک', 'audit.entity.MedicalDocument': 'سند پزشکی',
+  'audit.entity.PartnerAccess': 'دسترسی همسر', 'audit.entity.Preference': 'تنظیمات',
+  'audit.entity.ReproductiveProfile': 'پروفایل باروری', 'audit.entity.Pregnancy': 'بارداری',
+  'audit.entity.SupportTicket': 'تیکت پشتیبانی', 'audit.entity.DoctorAppointment': 'نوبت',
+  'audit.entity.SafetyEvent': 'رخداد ایمنی', 'audit.entity.Incident': 'رخداد',
+  'audit.entity.DoctorProfile': 'پروفایل پزشک', 'audit.entity.EducationalContent': 'محتوای آموزشی',
+  'audit.entity.AnatomicalAsset': 'دارایی استودیو', 'audit.entity.CommunityPost': 'پست انجمن',
+  'audit.entity.CommunityComment': 'نظر انجمن', 'audit.entity.Notification': 'اطلاع‌رسانی',
+  'community.topic.GENERAL': 'عمومی', 'community.topic.NUTRITION': 'تغذیه', 'community.topic.POSTPARTUM': 'بعد از زایمان',
+  'community.topic.PRODUCTS': 'محصولات', 'community.topic.SUPPORT': 'حمایتی', 'community.topic.BIRTH': 'زایمان',
+});
+
 export const DICTS: Record<Locale, Dict> = { en, fa };
+
+/**
+ * Enum label with a safe fallback: dictionary hit → translation; miss → the
+ * raw value itself (never a dotted key path on screen). Use for every enum
+ * that arrives from the API (statuses, categories, types, actions).
+ */
+export function enumLabel(locale: Locale, prefix: string, value: string): string {
+  const key = prefix + value;
+  const translated = translate(locale, key);
+  return translated === key ? value : translated;
+}
 
 export function translate(locale: Locale, key: string): string {
   return DICTS[locale][key] ?? DICTS.en[key] ?? key;

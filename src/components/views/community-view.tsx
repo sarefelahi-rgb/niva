@@ -10,6 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { enumLabel } from '@/lib/i18n';
 import { Users, Loader2, Flag } from 'lucide-react';
 
 interface Post {
@@ -104,7 +105,7 @@ export function CommunityView() {
                 <Label>{t('community.topic')}</Label>
                 <Select value={postTopic} onValueChange={setPostTopic}>
                   <SelectTrigger className="min-h-11" aria-label={t('community.topic')}><SelectValue /></SelectTrigger>
-                  <SelectContent>{TOPICS.map((tp) => <SelectItem key={tp} value={tp}>{tp}</SelectItem>)}</SelectContent>
+                  <SelectContent>{TOPICS.map((tp) => <SelectItem key={tp} value={tp}>{enumLabel(locale, 'community.topic.', tp)}</SelectItem>)}</SelectContent>
                 </Select>
               </div>
             </div>
@@ -124,7 +125,7 @@ export function CommunityView() {
       <div className="flex flex-wrap items-center gap-2">
         <Button variant={topic === 'ALL' ? 'default' : 'outline'} size="sm" className="min-h-9" onClick={() => setTopic('ALL')}>{t('common.all')}</Button>
         {TOPICS.map((tp) => (
-          <Button key={tp} variant={topic === tp ? 'default' : 'outline'} size="sm" className="min-h-9" onClick={() => setTopic(tp)}>{tp}</Button>
+          <Button key={tp} variant={topic === tp ? 'default' : 'outline'} size="sm" className="min-h-9" onClick={() => setTopic(tp)}>{enumLabel(locale, 'community.topic.', tp)}</Button>
         ))}
         <Button variant={mine ? 'default' : 'outline'} size="sm" className="min-h-9 ms-auto" onClick={() => setMine(!mine)}>
           {t('status.PENDING')} / {t('common.more')}
@@ -143,7 +144,7 @@ export function CommunityView() {
                   <CardContent className="p-4 space-y-1.5">
                     <div className="flex flex-wrap items-center gap-2">
                       <span className="font-semibold text-sm">{p.authorAlias}</span>
-                      <Badge variant="secondary" className="text-[10px]">{p.topic}</Badge>
+                      <Badge variant="secondary" className="text-[10px]">{enumLabel(locale, 'community.topic.', p.topic)}</Badge>
                       {mine && p.status && statusBadge(p.status)}
                       <span className="ms-auto text-[10px] text-muted-foreground num">{new Date(p.createdAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian')}</span>
                       {!p.mine && (

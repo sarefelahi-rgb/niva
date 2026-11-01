@@ -13,6 +13,7 @@ import { JalaliDateTimeField } from '@/components/ui/jalali-date';
 import { useToast } from '@/hooks/use-toast';
 import { formatDate, formatDateTime } from '@/lib/format';
 import { formatMessage } from '@/lib/icu';
+import { enumLabel } from '@/lib/i18n';
 import { Stethoscope, Loader2, Bell, Check } from 'lucide-react';
 
 interface Appointment { id: string; title: string; type: string; provider: string | null; location: string | null; scheduledAt: string; status: string }
@@ -221,7 +222,7 @@ export function AppointmentsView() {
               <div className="space-y-2">
                 {past.slice(0, 8).map((a) => (
                   <div key={a.id} className="flex items-center gap-3 text-sm border-b pb-2 last:border-0">
-                    <Badge variant="secondary">{a.status}</Badge>
+                    <Badge variant="secondary">{enumLabel(locale, 'appt.status.', a.status)}</Badge>
                     <span className="truncate flex-1">{a.title}</span>
                     <span dir="auto" className="text-xs text-muted-foreground">{formatDate(a.scheduledAt, locale)}</span>
                   </div>

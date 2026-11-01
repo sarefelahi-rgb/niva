@@ -11,6 +11,7 @@ import { Label } from '@/components/ui/label';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useToast } from '@/hooks/use-toast';
+import { enumLabel } from '@/lib/i18n';
 import { ShieldCheck, Check, X, FileText, Box, Send, Undo2 } from 'lucide-react';
 
 interface ContentRow { id: string; slug: string; titleEn: string; titleFa: string; bodyEn: string; bodyFa: string; category: string; week: number | null; status: string; sources: string }
@@ -118,7 +119,7 @@ export function ReviewView() {
                 <Card key={c.id} className="niva-card">
                   <CardContent className="p-4 space-y-2">
                     <div className="flex flex-wrap items-center gap-2">
-                      <Badge variant="secondary" className="text-[10px]">{c.category}</Badge>
+                      <Badge variant="secondary" className="text-[10px]">{enumLabel(locale, 'review.cat.', c.category)}</Badge>
                       {c.week && <Badge variant="outline" className="text-[10px] num">W{c.week}</Badge>}
                       <span className="font-semibold text-sm">{locale === 'fa' ? c.titleFa : c.titleEn}</span>
                       <span className="ms-auto flex gap-1.5">
@@ -151,7 +152,7 @@ export function ReviewView() {
                 </div>
                 {a.lastReview && (
                   <p className="text-[10px] text-muted-foreground">
-                    {t('review.lastReview')}: {a.lastReview.action} · {a.lastReview.reviewerName}
+                    {t('review.lastReview')}: {enumLabel(locale, 'adm.modAction.', a.lastReview.action)} · {a.lastReview.reviewerName}
                     {a.lastReview.note ? ` — ${a.lastReview.note}` : ''}
                   </p>
                 )}
@@ -210,8 +211,8 @@ export function ReviewView() {
           <div className="space-y-1.5">
             {decisions.slice(0, 10).map((d) => (
               <div key={d.id} className="flex items-center gap-2 text-xs border rounded-lg px-3 py-2">
-                <Badge variant={d.status === 'APPROVED' ? 'default' : 'outline'} className="text-[10px]">{d.status}</Badge>
-                <span className="text-muted-foreground">{d.contentType}</span>
+                <Badge variant={d.status === 'APPROVED' ? 'default' : 'outline'} className="text-[10px]">{enumLabel(locale, 'review.decision.', d.status)}</Badge>
+                <span className="text-muted-foreground">{enumLabel(locale, 'review.contentType.', d.contentType)}</span>
                 <span className="ms-auto text-muted-foreground">{d.reviewer?.name ?? '—'} · <span className="num">{d.reviewedAt ? new Date(d.reviewedAt).toLocaleDateString(locale === 'fa' ? 'fa-IR-u-ca-persian' : 'en-u-ca-persian') : ''}</span></span>
               </div>
             ))}

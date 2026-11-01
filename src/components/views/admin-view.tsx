@@ -29,6 +29,7 @@ import {
   Search, Siren, LifeBuoy, Ban, RotateCcw, Send, Plus, UserCog,
 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { enumLabel } from '@/lib/i18n';
 
 /** Must match AUTO_REPORT_NOTE written by /api/community (localized via mod.autoFlagNote). */
 const AUTO_REPORT_NOTE = 'Auto-queued after repeated reports';
@@ -825,7 +826,7 @@ export function AdminView() {
           {(overview?.safetyRecent ?? []).length === 0 && <p className="text-sm text-muted-foreground">{t('common.empty')}</p>}
           {overview?.safetyRecent.map((e) => (
             <Card key={e.id} className="niva-card"><CardContent className="p-4 flex flex-wrap items-center gap-3 text-sm">
-              <Badge variant={e.severity === 'HIGH' || e.severity === 'CRITICAL' ? 'destructive' : 'secondary'}>{e.type}</Badge>
+              <Badge variant={e.severity === 'HIGH' || e.severity === 'CRITICAL' ? 'destructive' : 'secondary'}>{enumLabel(locale, 'safety.type.', e.type)}</Badge>
               <span className="flex-1 text-xs truncate" dir="auto">{e.detail}</span>
               <Button variant="outline" size="sm" className="min-h-9" onClick={() => resolveSafety(e.id)}>{t('admin.resolve')}</Button>
             </CardContent></Card>
@@ -889,7 +890,7 @@ export function AdminView() {
                   <ul className="divide-y text-sm">
                     {mod?.recent.map((a) => (
                       <li key={a.id} className="flex flex-wrap items-center gap-2 px-4 py-2.5">
-                        <Badge variant={a.action === 'APPROVE' ? 'default' : a.action === 'REMOVE' || a.action === 'REJECT' ? 'destructive' : 'outline'} className="text-[10px]">{a.action}</Badge>
+                        <Badge variant={a.action === 'APPROVE' ? 'default' : a.action === 'REMOVE' || a.action === 'REJECT' ? 'destructive' : 'outline'} className="text-[10px]">{enumLabel(locale, 'adm.modAction.', a.action)}</Badge>
                         <span className="text-xs font-medium" dir="auto">{a.post?.authorAlias ?? '—'}</span>
                         <span className="text-xs text-muted-foreground truncate flex-1 min-w-24" dir="auto">{a.reason ?? ''}</span>
                         <span className="text-[10px] text-muted-foreground num">{new Date(a.createdAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</span>
@@ -914,7 +915,7 @@ export function AdminView() {
                   <tbody>
                     {audit.map((e) => (
                       <tr key={e.id} className="border-t">
-                        <td className="p-2.5 text-xs"><span className="font-semibold">{e.action}</span> <span className="text-muted-foreground">· {e.entity}</span></td>
+                        <td className="p-2.5 text-xs"><span className="font-semibold">{enumLabel(locale, 'audit.action.', e.action)}</span> <span className="text-muted-foreground">· {enumLabel(locale, 'audit.entity.', e.entity)}</span></td>
                         <td className="p-2.5 text-xs num">{new Date(e.createdAt).toLocaleString(locale === 'fa' ? 'fa-IR' : 'en-US')}</td>
                         <td className="p-2.5 text-xs" dir="ltr">{e.actor?.email ?? '—'}</td>
                       </tr>

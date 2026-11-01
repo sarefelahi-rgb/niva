@@ -11,6 +11,7 @@ import { Alert, AlertDescription } from '@/components/ui/alert';
 import { Badge } from '@/components/ui/badge';
 import { Skeleton } from '@/components/ui/skeleton';
 import { useToast } from '@/hooks/use-toast';
+import { enumLabel } from '@/lib/i18n';
 import { FolderLock, Loader2, Trash2, Info } from 'lucide-react';
 
 interface Doc { id: string; title: string; category: string; fileName: string; fileType: string; sizeKb: number; uploadedAt: string; notes: string | null }
@@ -88,7 +89,7 @@ export function RecordsView() {
               <Select value={category} onValueChange={setCategory}>
                 <SelectTrigger className="min-h-11" aria-label={t('records.category')}><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  {CATS.map((c) => <SelectItem key={c} value={c}>{c}</SelectItem>)}
+                  {CATS.map((c) => <SelectItem key={c} value={c}>{enumLabel(locale, 'docs.cat.', c)}</SelectItem>)}
                 </SelectContent>
               </Select>
             </div>
@@ -124,7 +125,7 @@ export function RecordsView() {
                 <div className="flex items-start justify-between gap-2">
                   <p className="font-semibold text-sm truncate">{d.title}</p>
                   <div className="flex items-center gap-1 shrink-0">
-                    <Badge variant="secondary" className="text-[10px]">{d.category}</Badge>
+                    <Badge variant="secondary" className="text-[10px]">{enumLabel(locale, 'docs.cat.', d.category)}</Badge>
                     <Button variant="ghost" size="icon" className="h-11 w-11 shrink-0" onClick={() => remove(d.id)} aria-label={t('common.delete')}>
                       <Trash2 className="h-3.5 w-3.5 text-destructive" />
                     </Button>
