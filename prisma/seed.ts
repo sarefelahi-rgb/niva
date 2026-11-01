@@ -9,6 +9,10 @@ import { PrismaClient } from '@prisma/client';
 import { scryptSync, randomBytes } from 'crypto';
 import { MEDICAL_KNOWLEDGE } from '../src/data/medical-knowledge';
 import { WEEKLY_CONTENT } from '../src/data/weekly-content';
+import { SEED_RECOMMENDATIONS } from './seed-data/recommendations';
+import { SEED_SCREENINGS } from './seed-data/screenings';
+import { SEED_RECIPES_CHILD } from './seed-data/recipes-child';
+import { SEED_RECIPES_MOTHER } from './seed-data/recipes-mother';
 
 const db = new PrismaClient();
 
@@ -315,6 +319,17 @@ async function main() {
 
   // ── Demo pregnancy + sample data ─────────────────────────────────────────
   const demoId = ids.USER;
+  // Wave 17: the demo patient rides the pregnancy journey end-to-end.
+  await db.preference.upsert({
+    where: { userId: demoId },
+    update: { stage: 'PREGNANT' },
+    create: { userId: demoId, stage: 'PREGNANT' },
+  });
+  await db.reproductiveProfile.upsert({
+    where: { userId: demoId },
+    update: { stage: 'PREGNANT', onboardingStatus: 'COMPLETE', onboardingDoneAt: new Date() },
+    create: { userId: demoId, stage: 'PREGNANT', onboardingStatus: 'COMPLETE', onboardingDoneAt: new Date() },
+  });
   const existingPreg = await db.pregnancy.findFirst({ where: { userId: demoId } });
   if (!existingPreg) {
     const lmp = daysAgo(147); // ≈ week 21
@@ -482,6 +497,126 @@ async function main() {
       });
     }
   }
+
+  // ── Wave 17 — reviewed content banks (features 1/6/7/8) ──
+  // Idempotent upserts keyed by slug; re-running the seed never duplicates.
+  for (const r of SEED_RECOMMENDATIONS) {
+    const base = {
+      stage: r.stage,
+      weekFrom: r.weekFrom ?? null,
+      weekTo: r.weekTo ?? null,
+      ageFromDays: r.ageFromDays ?? null,
+      ageToDays: r.ageToDays ?? null,
+      category: r.category,
+      priority: r.priority,
+      title: r.title,
+      titleEn: r.titleEn,
+      summary: r.summary,
+      summaryEn: r.summaryEn,
+      fullContent: r.fullContent,
+      fullContentEn: r.fullContentEn,
+      medicalSource: r.medicalSource,
+      sourceUrl: r.sourceUrl ?? null,
+      medicallyReviewedAt: new Date(r.reviewedAt),
+      contentVersion: 1,
+      status: 'PUBLISHED',
+    };
+    await db.dailyRecommendation.upsert({ where: { slug: r.slug }, update: base, create: { slug: r.slug, ...base } });
+  }
+  console.log(`Wave 17: ${SEED_RECOMMENDATIONS.length} daily recommendations seeded.`);
+
+  for (const s of SEED_SCREENINGS) {
+    const base = {
+      kind: s.kind,
+      nameFa: s.nameFa,
+      nameEn: s.nameEn,
+      purposeFa: s.purposeFa,
+      purposeEn: s.purposeEn,
+      weeksFrom: s.weeksFrom ?? null,
+      weeksTo: s.weeksTo ?? null,
+      indication: s.indication,
+      methodFa: s.methodFa,
+      methodEn: s.methodEn,
+      clinicianMayOrderFa: s.clinicianMayOrderFa ?? null,
+      clinicianMayOrderEn: s.clinicianMayOrderEn ?? null,
+      limitationsFa: s.limitationsFa,
+      limitationsEn: s.limitationsEn,
+      preparationFa: s.preparationFa ?? null,
+      preparationEn: s.preparationEn ?? null,
+      medicalReference: s.medicalReference,
+      reviewedAt: new Date(s.reviewedAt),
+      contentVersion: 1,
+      status: 'PUBLISHED',
+    };
+    await db.medicalScreeningCatalog.upsert({ where: { slug: s.slug }, update: base, create: { slug: s.slug, ...base } });
+  }
+  console.log(`Wave 17: ${SEED_SCREENINGS.length} screening/test/ultrasound catalog entries seeded.`);
+
+  for (const c of SEED_RECIPES_CHILD) {
+    const base = {
+      audience: 'CHILD' as const,
+      ageGroup: c.ageGroup,
+      ageFromDays: c.ageFromDays,
+      ageToDays: c.ageToDays,
+      category: c.category,
+      mealTypes: JSON.stringify(c.mealTypes),
+      title: c.title,
+      titleEn: c.titleEn,
+      image: c.image,
+      ingredients: JSON.stringify(c.ingredients),
+      steps: JSON.stringify(c.steps),
+      prepMinutes: c.prepMinutes,
+      cookMinutes: c.cookMinutes,
+      servings: c.servings,
+      textureFa: c.textureFa,
+      textureEn: c.textureEn,
+      allergens: JSON.stringify(c.allergens),
+      safety: JSON.stringify(c.safety),
+      storageFa: c.storageFa ?? null,
+      storageEn: c.storageEn ?? null,
+      substitutions: JSON.stringify(c.substitutions),
+      nutrition: c.nutrition ? JSON.stringify(c.nutrition) : null,
+      medicalSource: c.medicalSource,
+      reviewedAt: new Date(c.reviewedAt),
+      contentVersion: 1,
+      status: 'PUBLISHED',
+    };
+    await db.nutritionRecipe.upsert({ where: { slug: c.slug }, update: base, create: { slug: c.slug, ...base } });
+  }
+  console.log(`Wave 17: ${SEED_RECIPES_CHILD.length} child recipes seeded.`);
+
+  for (const m of SEED_RECIPES_MOTHER) {
+    const base = {
+      audience: 'BREASTFEEDING_MOTHER' as const,
+      ageGroup: null,
+      ageFromDays: null,
+      ageToDays: null,
+      category: m.category,
+      mealTypes: JSON.stringify(m.mealTypes),
+      title: m.title,
+      titleEn: m.titleEn,
+      image: m.image,
+      ingredients: JSON.stringify(m.ingredients),
+      steps: JSON.stringify(m.steps),
+      prepMinutes: m.prepMinutes,
+      cookMinutes: m.cookMinutes,
+      servings: m.servings,
+      textureFa: m.textureFa ?? null,
+      textureEn: m.textureEn ?? null,
+      allergens: JSON.stringify(m.allergens),
+      safety: JSON.stringify(m.safety),
+      storageFa: m.storageFa ?? null,
+      storageEn: m.storageEn ?? null,
+      substitutions: JSON.stringify(m.substitutions),
+      nutrition: m.nutrition ? JSON.stringify(m.nutrition) : null,
+      medicalSource: m.medicalSource,
+      reviewedAt: new Date(m.reviewedAt),
+      contentVersion: 1,
+      status: 'PUBLISHED',
+    };
+    await db.nutritionRecipe.upsert({ where: { slug: m.slug }, update: base, create: { slug: m.slug, ...base } });
+  }
+  console.log(`Wave 17: ${SEED_RECIPES_MOTHER.length} breastfeeding-mother recipes seeded.`);
 
   const pending = await db.educationalContent.count({ where: { status: 'IN_REVIEW' } });
   console.log(`Review queue: ${pending} content items pending clinical review (honest governance state).`);

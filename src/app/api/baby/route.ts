@@ -33,6 +33,14 @@ const createSchema = z.discriminatedUnion('kind', [
     birthWeightG: z.number().int().min(500).max(7000).optional(),
     birthLengthCm: z.number().int().min(25).max(70).optional(),
     birthNote: z.string().max(300).optional(),
+    // Wave 17 — postpartum questionnaire (features 3/4).
+    birthStatus: z.enum(['PRETERM', 'TERM', 'POSTTERM', 'UNKNOWN']).optional(),
+    gestationalAgeWeeks: z.number().int().min(20).max(43).optional(),
+    deliveryType: z.enum(['VAGINAL', 'CESAREAN', 'OTHER', 'PREFER_NOT']).optional(),
+    feedingMethod: z.enum(['BREAST', 'FORMULA', 'MIXED', 'OTHER', 'UNKNOWN']).optional(),
+    breastfeeding: z.boolean().optional(),
+    foodAllergies: z.array(z.enum(['EGG', 'MILK', 'GLUTEN', 'NUTS', 'PEANUT', 'FISH', 'SOY', 'SESAME', 'NONE', 'PREFER_NOT'])).max(10).optional(),
+    feedingRestrictions: z.string().max(300).optional(),
   }),
   z.object({
     kind: z.literal('MILESTONE'),
@@ -98,6 +106,13 @@ export async function POST(req: Request) {
           ...(body.birthWeightG !== undefined ? { birthWeightG: body.birthWeightG } : {}),
           ...(body.birthLengthCm !== undefined ? { birthLengthCm: body.birthLengthCm } : {}),
           ...(body.birthNote !== undefined ? { birthNote: body.birthNote } : {}),
+          ...(body.birthStatus !== undefined ? { birthStatus: body.birthStatus } : {}),
+          ...(body.gestationalAgeWeeks !== undefined ? { gestationalAgeWeeks: body.gestationalAgeWeeks } : {}),
+          ...(body.deliveryType !== undefined ? { deliveryType: body.deliveryType } : {}),
+          ...(body.feedingMethod !== undefined ? { feedingMethod: body.feedingMethod } : {}),
+          ...(body.breastfeeding !== undefined ? { breastfeeding: body.breastfeeding } : {}),
+          ...(body.foodAllergies !== undefined ? { foodAllergies: JSON.stringify(body.foodAllergies) } : {}),
+          ...(body.feedingRestrictions !== undefined ? { feedingRestrictions: body.feedingRestrictions } : {}),
         },
         create: {
           userId: user.id,
@@ -107,6 +122,13 @@ export async function POST(req: Request) {
           birthWeightG: body.birthWeightG,
           birthLengthCm: body.birthLengthCm,
           birthNote: body.birthNote,
+          birthStatus: body.birthStatus ?? 'UNKNOWN',
+          gestationalAgeWeeks: body.gestationalAgeWeeks ?? null,
+          deliveryType: body.deliveryType ?? null,
+          feedingMethod: body.feedingMethod ?? 'UNKNOWN',
+          breastfeeding: body.breastfeeding ?? null,
+          foodAllergies: JSON.stringify(body.foodAllergies ?? []),
+          feedingRestrictions: body.feedingRestrictions ?? null,
         },
       });
       return json({ profile }, 201);

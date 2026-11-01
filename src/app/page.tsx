@@ -27,11 +27,13 @@ import { ReviewView } from '@/components/views/review-view';
 import { SafetyView } from '@/components/views/safety-view';
 import { DoctorsView } from '@/components/views/doctors-view';
 import { DoctorView } from '@/components/views/doctor-view';
+import { NutritionView } from '@/components/views/nutrition-view';
+import { ScreeningsView } from '@/components/views/screenings-view';
 import { StudioView } from '@/components/studio/fetal-studio';
 import { ImmersiveShell } from '@/components/shell/app-shell';
 
 function Views() {
-  const { view, user, pregnancy, t, setView } = useApp();
+  const { view, user, pregnancy, t, setView, onboardingComplete } = useApp();
 
   if (!user) {
     return view === 'auth' ? <AuthView /> : <LandingView />;
@@ -49,6 +51,8 @@ function Views() {
       case 'doctors': return <DoctorsView />;
       case 'doctor': return user.role === 'DOCTOR' ? <DoctorView /> : <DashboardView />;
       case 'wellness': return <WellnessView />;
+      case 'nutrition': return <NutritionView />;
+      case 'screenings': return <ScreeningsView />;
       case 'birth': return <BirthPrepView />;
       case 'postpartum': return <PostpartumView />;
       case 'fertility': return <FertilityView />;
@@ -74,8 +78,10 @@ function Views() {
 
   return (
     <AppShell>
-      {/* Doctors do not have a pregnancy profile — the gate banner is patient-only. */}
-      {!pregnancy && user.role === 'USER' && !['onboarding'].includes(view) && <PregnancyGateBanner />}
+      {/* Wave 17 gate: soft prompt only when the lifecycle questionnaire is not
+          yet complete (legacy users keep their data and are never walled in;
+          brand-new users are redirected once by the boot effect below). */}
+      {!onboardingComplete && user.role === 'USER' && view !== 'onboarding' && <PregnancyGateBanner />}
       {body}
       <TourOverlay />
     </AppShell>
@@ -95,7 +101,7 @@ function PregnancyGateBanner() {
 }
 
 export default function Home() {
-  const { refresh, view, user, pregnancy, openTour, tourDone, setLocale } = useApp();
+  const { refresh, view, user, pregnancy, openTour, tourDone, setLocale, onboardingRequired, onboardingComplete, setView } = useApp();
 
   useEffect(() => {
     // Deep-linkable locale: /?lang=fa|en (matches the hreflang alternates).
@@ -129,6 +135,15 @@ export default function Home() {
     }
      
   }, [user, pregnancy, tourDone, view]);
+
+  // Wave 17 (feature 3.1): brand-new users complete the lifecycle
+  // questionnaire once before the dashboard. Legacy users (existing data)
+  // are never force-redirected — they see the soft banner instead.
+  useEffect(() => {
+    if (user && user.role === 'USER' && onboardingRequired && view !== 'onboarding' && onboardingComplete === false) {
+      setView('onboarding');
+    }
+  }, [user, onboardingRequired, onboardingComplete, view, setView]);
 
   return <Views />;
 }

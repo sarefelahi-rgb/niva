@@ -15,6 +15,7 @@ const createSchema = z.object({
   clinicianDueDate: z.string().optional(),
   plurality: z.enum(['SINGLETON', 'TWINS', 'TRIPLETS_OR_MORE']).default('SINGLETON'),
   uncertainDates: z.boolean().default(false),
+  specialCare: z.boolean().default(false), // physician-flagged special-care pregnancy (wave 17 §4.5)
 });
 
 const updateSchema = z.object({
@@ -77,6 +78,7 @@ export async function POST(req: Request) {
           datingConfidence: body.uncertainDates ? 'LOW' : proposal.confidence,
           datingNote: proposal.warnings.join(' | ') || null,
           plurality: body.plurality,
+          specialCare: body.specialCare,
           status: 'ACTIVE',
         },
       });
@@ -127,6 +129,42 @@ export async function PATCH(req: Request) {
           where: { id: pregnancy.id },
           data: { status: body.transition, outcomeAt: new Date() },
         });
+        // Wave 17 (feature 4.5): append-only lifecycle history — a PREGNANT →
+        // POSTPARTUM transition closes the pregnancy episode and (when the
+        // birth is already registered) opens the postpartum one. History is
+        // never destroyed; prior rows keep their pregnancyId anchor. The
+        // authoritative stage mirrors (ReproductiveProfile + Preference) are
+        // synced here too, so every gateway (birth dialog, settings switch)
+        // lands in a consistent state.
+        if (body.transition === 'POSTPARTUM') {
+          const now = new Date();
+          await db.lifecycleHistory.updateMany({
+            where: { userId: user.id, endedAt: null },
+            data: { endedAt: now },
+          });
+          const baby = await db.babyProfile.findUnique({ where: { userId: user.id } });
+          await db.reproductiveProfile.upsert({
+            where: { userId: user.id },
+            update: { stage: 'POSTPARTUM' },
+            create: { userId: user.id, stage: 'POSTPARTUM' },
+          });
+          await db.preference.upsert({
+            where: { userId: user.id },
+            update: { stage: 'POSTPARTUM' },
+            create: { userId: user.id, stage: 'POSTPARTUM' },
+          });
+          if (baby) {
+            await db.lifecycleHistory.create({
+              data: {
+                userId: user.id,
+                stage: 'POSTPARTUM',
+                startedAt: now,
+                pregnancyId: pregnancy.id,
+                childId: baby.id,
+              },
+            });
+          }
+        }
         await logAudit(user.id, `PREGNANCY_${body.transition}`, 'Pregnancy', pregnancy.id, null, req.headers.get('x-forwarded-for'));
       }
       return json({ ok: true, status: body.transition === 'REACTIVATE' ? 'ACTIVE' : body.transition });

@@ -66,6 +66,10 @@ model User {
   intimacyEntries  IntimacyEntry[]
   babyProfile      BabyProfile?
   milestoneEntries MilestoneEntry[]
+  reproductiveProfile ReproductiveProfile?
+  lifecycleHistory LifecycleHistory[]
+  recommendationLogs RecommendationLog[]
+  recipeFavorites  RecipeFavorite[]
 }
 
 /// Wave 11 — mobile OTP sign-in (sms.ir verify template).
@@ -198,6 +202,7 @@ model Pregnancy {
   plurality        String    @default("SINGLETON") // SINGLETON | TWINS | TRIPLETS_OR_MORE
   status           String    @default("ACTIVE") // ACTIVE | POSTPARTUM | COMPLETED | LOSS
   outcomeAt        DateTime?
+  specialCare      Boolean   @default(false) // physician-flagged special-care pregnancy — NIVA then avoids over-personalized advice
   createdAt        DateTime  @default(now())
   updatedAt        DateTime  @updatedAt
 
@@ -906,6 +911,14 @@ model BabyProfile {
   birthWeightG   Int?
   birthLengthCm  Int?
   birthNote      String?
+  // Wave 17 — postpartum onboarding (features 3/4): birth & feeding context.
+  birthStatus     String  @default("UNKNOWN") // PRETERM | TERM | POSTTERM | UNKNOWN
+  gestationalAgeWeeks Int? // gestational age at birth, if the parent knows it
+  deliveryType    String? // VAGINAL | CESAREAN | OTHER | PREFER_NOT
+  feedingMethod   String  @default("UNKNOWN") // BREAST | FORMULA | MIXED | OTHER | UNKNOWN
+  breastfeeding   Boolean?
+  foodAllergies   String  @default("[]") // JSON string[] — e.g. ["EGG","MILK"]
+  feedingRestrictions String? // free-text medical/dietary restriction (optional)
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
@@ -924,4 +937,158 @@ model MilestoneEntry {
 
   @@unique([userId, key])
   @@index([userId])
+}
+
+// ─── Wave 17 — Lifecycle questionnaire, three-journey engine, content banks ──
+
+/// Features 3/4 — answers of the first-run lifecycle questionnaire (one per
+/// user). Carries the authoritative stage mirror; stage transitions are
+/// validated in src/lib/lifecycle.ts + /api/profile. Never a diagnosis tool.
+model ReproductiveProfile {
+  id                  String    @id @default(cuid())
+  userId              String    @unique
+  user                User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stage               String    @default("EXPLORING") // TRYING | PREGNANT | POSTPARTUM | EXPLORING
+  tryingStatus        String?   // INTENDS | ACTIVELY_TRYING (option 1 vs 2 of question 1)
+  lastMenstrualPeriod DateTime?
+  cycleLengthDays     Int?      // exact days when the user typed a number
+  cycleLengthBand     String?   // B21_24 | B25_28 | B29_32 | B33_35 | IRREGULAR | UNKNOWN
+  cycleRegular        Boolean?
+  periodDurationDays  Int?
+  tryingDuration      String?   // NOT_STARTED | LT_3M | M3_6 | M6_12 | GT_12M | PREFER_NOT
+  priorPregnancy      String?   // YES | NO | PREFER_NOT
+  conditions          String    @default("[]") // JSON string[] — personalization-only flags
+  onboardingStatus    String    @default("INCOMPLETE") // COMPLETE | INCOMPLETE
+  onboardingDoneAt    DateTime?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+}
+
+/// Feature 4 — audited lifecycle stage history. Transitions never destroy
+/// prior medical data; every stage episode is kept (new pregnancy ⇒ new row).
+model LifecycleHistory {
+  id          String    @id @default(cuid())
+  userId      String
+  user        User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  stage       String    // TRYING | PREGNANT | POSTPARTUM
+  startedAt   DateTime
+  endedAt     DateTime?
+  pregnancyId String?
+  childId     String?
+  note        String?
+
+  @@index([userId])
+}
+
+/// Feature 1 — reviewed daily-recommendation content bank. Deterministic
+/// daily selection per user happens in /api/recommendation; only reviewed
+/// seed content ever surfaces to users (no generated medical advice).
+model DailyRecommendation {
+  id                  String    @id @default(cuid())
+  slug                String    @unique
+  stage               String    // TRYING | PREGNANT | POSTPARTUM | GENERAL
+  weekFrom            Int?      // gestational-week band (PREGNANT, inclusive)
+  weekTo              Int?
+  ageFromDays         Int?      // child-age band in days (POSTPARTUM, inclusive)
+  ageToDays           Int?
+  category            String    // NUTRITION | MEDICAL | LIFESTYLE | MENTAL_HEALTH | SAFETY | GROWTH | CYCLE | FEEDING | PREP
+  priority            Int       @default(5) // 1 (highest) .. 9
+  title               String
+  titleEn             String
+  summary             String    // 30–70 fa words — card body
+  summaryEn           String
+  fullContent         String    // detailed fa body (\n\n paragraphs)
+  fullContentEn       String
+  medicalSource       String
+  sourceUrl           String?
+  medicallyReviewedAt DateTime?
+  contentVersion      Int       @default(1)
+  status              String    @default("PUBLISHED") // PUBLISHED | DRAFT | RETIRED
+}
+
+/// Feature 1 — one row per user per local day; guarantees the day-stable
+/// recommendation and powers the "avoid recent repeats" lookback.
+model RecommendationLog {
+  id               String   @id @default(cuid())
+  userId           String
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  date             DateTime // local-day bucket (UTC midnight of the user's day)
+  recommendationId String
+  stage            String
+
+  @@unique([userId, date])
+  @@index([userId, date])
+}
+
+/// Feature 6 — pregnancy tests / ultrasounds / screenings catalog.
+model MedicalScreeningCatalog {
+  id                  String    @id @default(cuid())
+  slug                String    @unique
+  kind                String    // ULTRASOUND | LAB_TEST | SCREENING | DIAGNOSTIC
+  nameFa              String
+  nameEn              String
+  purposeFa           String
+  purposeEn           String
+  weeksFrom           Int?
+  weeksTo             Int?
+  indication          String    @default("ROUTINE") // ROUTINE | CONDITIONAL | CLINICIAN
+  methodFa            String
+  methodEn            String
+  clinicianMayOrderFa String?
+  clinicianMayOrderEn String?
+  limitationsFa       String
+  limitationsEn       String
+  preparationFa       String?
+  preparationEn       String?
+  medicalReference    String
+  reviewedAt          DateTime
+  contentVersion      Int       @default(1)
+  status              String    @default("PUBLISHED")
+}
+
+/// Features 5/7/8 — versioned, source-tagged recipe bank (child 0–24 months,
+/// breastfeeding mother). Personalization + safety filtering are server-side.
+model NutritionRecipe {
+  id             String    @id @default(cuid())
+  slug           String    @unique
+  audience       String    // CHILD | BREASTFEEDING_MOTHER
+  ageGroup       String?   // PRE_SOLID | 6_8 | 9_11 | 12_15 | 16_18 | 19_24 (CHILD)
+  ageFromDays    Int?      // inclusive child-age band (CHILD)
+  ageToDays      Int?
+  category       String    // display category slug (puree, soup, breakfast, iron, …)
+  mealTypes      String    @default("[]") // JSON string[] BREAKFAST | LUNCH | DINNER | SNACK
+  title          String
+  titleEn        String
+  image          String    // /images/recipes/<file>.jpg — real food photo
+  ingredients    String    // JSON Array<{fa,en,amount}>
+  steps          String    // JSON Array<{fa,en}>
+  prepMinutes    Int?
+  cookMinutes    Int?
+  servings       String?
+  textureFa      String?
+  textureEn      String?
+  allergens      String    @default("[]") // JSON string[] EGG|MILK|GLUTEN|NUTS|PEANUT|FISH|SOY|HONEY|SESAME
+  safety         String    @default("[]") // JSON Array<{fa,en}>
+  storageFa      String?
+  storageEn      String?
+  substitutions  String?   // JSON Array<{fa,en}>
+  nutrition      String?   // JSON {kcal,proteinG,ironMg,calciumMg,fiberG}
+  medicalSource  String
+  reviewedAt     DateTime?
+  contentVersion Int       @default(1)
+  status         String    @default("PUBLISHED")
+
+  favoritedBy RecipeFavorite[]
+}
+
+/// Feature 5 — saved recipes (favorites) per user.
+model RecipeFavorite {
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  recipeId  String
+  recipe    NutritionRecipe @relation(fields: [recipeId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
+
+  @@id([userId, recipeId])
+  @@index([recipeId])
 }

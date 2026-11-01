@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react';
 import { useApp } from '@/store/app';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { JourneyCard } from '@/components/shell/journey-card';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Switch } from '@/components/ui/switch';
@@ -323,6 +324,9 @@ export function SettingsView() {
       <header>
         <h1 className="text-2xl font-bold flex items-center gap-2"><Settings className="h-6 w-6 text-primary" />{t('settings.title')}</h1>
       </header>
+
+      {/* ── Wave 17 — feature 4.4: journey switch (state machine, history kept) ── */}
+      <JourneyCard />
 
       <Card className="niva-card">
         <CardHeader className="pb-2"><CardTitle className="text-base flex items-center gap-2"><Languages className="h-4 w-4" />{t('settings.language')}</CardTitle></CardHeader>

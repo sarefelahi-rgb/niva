@@ -10,7 +10,7 @@ export type View =
   | 'tracking' | 'assistant' | 'records' | 'appointments' | 'wellness'
   | 'birth' | 'postpartum' | 'fertility' | 'family' | 'community' | 'journal'
   | 'subscription' | 'settings' | 'admin' | 'review' | 'safety' | 'sandbox-checkout'
-  | 'doctors' | 'doctor';
+  | 'doctors' | 'doctor' | 'nutrition' | 'screenings';
 
 export interface SessionUser {
   id: string;
@@ -30,6 +30,7 @@ export interface SessionPregnancy {
   datingLocked: boolean;
   datingConfidence: string;
   plurality: string;
+  specialCare?: boolean;
   status: string;
 }
 
@@ -51,6 +52,9 @@ interface AppState {
   pregnancy: SessionPregnancy | null;
   plan: string;
   features: PlanFeatures | null;
+  stage: string | null;
+  onboardingRequired: boolean;
+  onboardingComplete: boolean;
   tourDone: boolean;
   tourOpen: boolean;
   setView: (v: View) => void;
@@ -92,6 +96,9 @@ export const useApp = create<AppState>()(
       pregnancy: null,
       plan: 'FREE',
       features: null,
+      stage: null,
+      onboardingRequired: false,
+      onboardingComplete: true,
       tourDone: false,
       tourOpen: false,
       setView: (v) => {
@@ -119,14 +126,17 @@ export const useApp = create<AppState>()(
           if (data.user) {
             set({
               user: data.user,
-              pregnancy: data.pregnancy,
+              pregnancy: data.pregnancy ?? null,
               plan: data.plan,
               features: data.features,
+              stage: data.stage ?? null,
+              onboardingRequired: Boolean(data.onboardingRequired),
+              onboardingComplete: data.onboardingComplete !== false,
               booted: true,
             });
             get().setLocale(data.user.locale as Locale);
           } else {
-            set({ user: null, pregnancy: null, booted: true });
+            set({ user: null, pregnancy: null, stage: null, onboardingRequired: false, onboardingComplete: true, booted: true });
           }
         } catch {
           set({ booted: true });
@@ -137,7 +147,7 @@ export const useApp = create<AppState>()(
           await fetch('/api/auth/logout', { method: 'POST' });
         } finally {
           clearToken();
-          set({ user: null, pregnancy: null, plan: 'FREE', features: null, view: 'landing' });
+          set({ user: null, pregnancy: null, plan: 'FREE', features: null, stage: null, onboardingRequired: false, onboardingComplete: true, view: 'landing' });
         }
       },
     }),

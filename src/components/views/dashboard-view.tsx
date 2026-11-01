@@ -9,6 +9,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { Alert, AlertDescription, AlertTitle } from '@/components/ui/alert';
 import { gestationalAgeAt, trimesterOf } from '@/lib/gestational';
 import { babyAgeAt } from '@/lib/cycle';
+import { correctedAgeAt } from '@/lib/lifecycle';
 import type { Locale } from '@/lib/i18n';
 import { formatDate, formatDateTime, formatWeeksDays, bdiWrap } from '@/lib/format';
 import { formatMessage } from '@/lib/icu';
@@ -16,7 +17,8 @@ import { WEEKLY_CONTENT } from '@/data/weekly-content';
 import { BlockMenu } from '@/components/shell/block-menu';
 import { tileStyle } from '@/components/shell/nav-config';
 import { BirthDialog } from '@/components/shell/birth-dialog';
-import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock, CalendarHeart, Baby, Flower2 } from 'lucide-react';
+import { TodayRecommendationCard } from '@/components/shell/today-recommendation';
+import { Activity, Box, Sparkles, Stethoscope, HeartPulse, Bell, CalendarClock, Info, RotateCcw, CalendarDays, Lock, CalendarHeart, Baby, Flower2, Salad, Microscope } from 'lucide-react';
 
 interface Appointment { id: string; title: string; scheduledAt: string; provider: string | null }
 interface Reminder { id: string; title: string; dueAt: string; type: string }
@@ -31,6 +33,8 @@ interface BabyProfileLite {
   name: string;
   birthDate: string;
   gender: string;
+  gestationalAgeWeeks?: number | null;
+  birthStatus?: string;
 }
 
 /** Educational dating-uncertainty band by confidence (never a diagnostic claim). */
@@ -131,9 +135,21 @@ export function DashboardView() {
     const displayStage: string | null = postpartumJourney ? 'POSTPARTUM' : stage;
     const nonPregnant = displayStage !== null && displayStage !== 'PREGNANT';
     const babyAge = baby ? babyAgeAt(new Date(baby.birthDate)) : null;
+    // Corrected age (feature 4.3): shown only when scientifically relevant
+    // (preterm birth <37 weeks) — informational, never a clinical assessment.
+    const corrected = (() => {
+      if (!baby || !babyAge) return null;
+      const c = correctedAgeAt(new Date(baby.birthDate), baby.gestationalAgeWeeks ?? null);
+      if (!c.applies || c.correctedDays == null) return null;
+      const shifted = new Date(new Date(baby.birthDate).getTime() - (babyAge.totalDays - c.correctedDays) * 86_400_000);
+      return babyAgeAt(shifted);
+    })();
     return (
       <div className="space-y-4">
         <BlockMenu />
+        {/* Wave 17 — توصیه امروز نیوا: the daily card is the first element of
+            every journey's dashboard (feature 1: no menu-hunting). */}
+        <TodayRecommendationCard />
         <Card className="niva-card">
           <CardContent className="p-8 text-center space-y-3">
             {displayStage === 'POSTPARTUM' ? (
@@ -170,9 +186,20 @@ export function DashboardView() {
               </div>
             )}
             {displayStage === 'TRYING' && (
-              <Button onClick={() => setView('fertility')} className="min-h-11">
-                <CalendarHeart className="h-4 w-4 me-2" aria-hidden />{t('f.dashOpen')}
-              </Button>
+              <>
+                <p className="text-xs text-muted-foreground max-w-md mx-auto flex gap-1.5">
+                  <Info className="h-3.5 w-3.5 shrink-0 mt-0.5" aria-hidden />
+                  {t('journey.fertileNote')}
+                </p>
+                <div className="flex flex-wrap justify-center gap-2 pt-1">
+                  <Button onClick={() => setView('fertility')} className="min-h-11">
+                    <CalendarHeart className="h-4 w-4 me-2" aria-hidden />{t('f.dashOpen')}
+                  </Button>
+                  <Button variant="outline" onClick={() => setView('nutrition')} className="min-h-11">
+                    <Salad className="h-4 w-4 me-2" aria-hidden />{t('nav.nutrition')}
+                  </Button>
+                </div>
+              </>
             )}
 
             {/* POSTPARTUM → baby card or birth registration CTA */}
@@ -187,6 +214,12 @@ export function DashboardView() {
                     ? `${babyAge.months} ${t('post2.months')}${babyAge.days ? ` و ${babyAge.days} ${t('post2.days')}` : ''}`
                     : `${babyAge.weeks} ${t('post2.weeks')}${babyAge.weekDays ? ` و ${babyAge.weekDays} ${t('post2.days')}` : ''}`}
                 </p>
+                <p className="text-[11px] text-muted-foreground">{babyAge.totalDays} {t('journey.daysSince')}</p>
+                {corrected && (
+                  <p className="text-[11px] text-muted-foreground" dir="auto">
+                    {t('journey.correctedAge')}: {corrected.months >= 1 ? `${corrected.months} ${t('post2.months')}` : `${corrected.weeks} ${t('post2.weeks')}`}
+                  </p>
+                )}
               </div>
             )}
             {displayStage === 'POSTPARTUM' && (
@@ -194,6 +227,11 @@ export function DashboardView() {
                 {baby && (
                   <Button onClick={() => setView('postpartum')} className="min-h-11">
                     <Flower2 className="h-4 w-4 me-2" aria-hidden />{t('nav.postpartum')}
+                  </Button>
+                )}
+                {baby && (
+                  <Button variant="outline" onClick={() => setView('nutrition')} className="min-h-11">
+                    <Salad className="h-4 w-4 me-2" aria-hidden />{t('nav.nutrition')}
                   </Button>
                 )}
                 <Button variant={baby ? 'outline' : 'default'} onClick={() => setBirthOpen(true)} className="min-h-11">
@@ -248,6 +286,27 @@ export function DashboardView() {
     <div className="space-y-4 sm:space-y-6">
       {/* Block menu — the navigation as a colorful tile grid (sidebar replaced) */}
       <BlockMenu />
+
+      {/* Wave 17 — توصیه امروز نیوا (feature 1): day-stable, week-aware tip. */}
+      <TodayRecommendationCard />
+
+      {/* Wave 17 — week-relevant tests/ultrasounds teaser (feature 6 §7.6). */}
+      {week >= 4 && week <= 40 && (
+        <Card className="niva-card border-primary/30">
+          <CardContent className="p-4 flex flex-wrap items-center justify-between gap-3">
+            <div className="flex items-start gap-2.5 min-w-0">
+              <Microscope className="h-5 w-5 text-primary shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <p className="text-sm font-semibold">{t('dash.scrTeaser')}</p>
+                <p className="text-xs text-muted-foreground leading-relaxed">{t('dash.scrTeaserBody')}</p>
+              </div>
+            </div>
+            <Button onClick={() => setView('screenings')} className="min-h-11 shrink-0">
+              {t('dash.scrCta')}
+            </Button>
+          </CardContent>
+        </Card>
+      )}
 
       {/* Greeting + gestational clock hero */}
       <section aria-label={t('dash.progress')} className="grid gap-4 lg:grid-cols-3">
